@@ -1163,7 +1163,7 @@ function renderClean(){
   const cS=new Set(['all','未割当']);
   tags.forEach(t=>{const c=getClr(t,ds);if(c&&c!=='未割当')cS.add(c);});
   document.getElementById('clBar').innerHTML=[...cS].map(c=>`<button class="cfb ${cF.cl===c?'on':''}" onclick="cF.cl='${c}';renderClean()">${c==='all'?'全員':c}</button>`).join('');
-  document.getElementById('clRow').style.display=cS.size>3?'flex':'none';
+  document.getElementById('clRow').style.display=cS.size>2?'flex':'none';
   let cnt={t:tags.length,ci:0,st:0,vc:0,wn:0,dg:0,co:0};
   tags.forEach(t=>{const r=getRoomSt(t,ds);
     if(['checkin','warn','unassigned','danger'].includes(r.type))cnt.ci++;
@@ -1578,6 +1578,8 @@ function initFirebase(){
         const stored = val;
         if(stored.BK) { Object.assign(BK, stored.BK); }
         if(stored.ROOMS) { Object.assign(ROOMS, stored.ROOMS); }
+        if(stored.CH) { Object.assign(CH, stored.CH); }
+        if(stored.CM) { Object.assign(CM, stored.CM); }
         computeMS();
         renderOpsTabs();
         renderClean();
@@ -1627,7 +1629,7 @@ function fbUpdate(path, data){
 function saveBookingsToFb(){
   if(!fbReady) return;
   const now = new Date().toLocaleString('ja-JP');
-  fbWrite('bookings', { BK, ROOMS, meta: 'CSV取込: ' + now });
+  fbWrite('bookings', { BK, ROOMS, CH, CM, meta: 'CSV取込: ' + now });
 }
 
 // チェック・支払い・光熱費・写真の変更をFirebaseに同期
