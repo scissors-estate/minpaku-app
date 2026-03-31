@@ -1,0 +1,2628 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>民泊運営アプリ</title>
+<!-- PWA -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="民泊アプリ">
+<meta name="theme-color" content="#667eea">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23667eea'/><text y='.9em' font-size='80' x='10'>🏠</text></svg>">
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --p:#667eea;--p2:#764ba2;--red:#f5576c;--green:#4CAF50;--orange:#FF9800;--pink:#f093fb;
+  --bg:#f0f2ff;--w:#fff;--t:#1a1a2e;--t2:#555;--t3:#999;
+  --b:rgba(0,0,0,.1);--b2:rgba(0,0,0,.06);
+  --ci-bg:#EAF3DE;--wn-bg:#FAEEDA;--dg-bg:#FCEBEB;--un-bg:#E6F1FB;
+  --st-bg:#F1EFE8;--vc-bg:#EEEDFE;--co-bg:#E1F5EE;
+}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--t);min-height:100vh;font-size:15px}
+
+/* ── PASSWORD ── */
+#pwScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--p),var(--p2));padding:20px}
+.pw-card{background:#fff;border-radius:18px;padding:36px 28px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.pw-card h1{font-size:1.5em;color:var(--p);margin-bottom:6px}
+.pw-card p{font-size:.85em;color:var(--t2);margin-bottom:20px}
+.pw-inp{width:100%;padding:11px 14px;border:2px solid var(--b);border-radius:9px;font-size:1em;text-align:center;letter-spacing:.15em;outline:none;transition:border .2s}
+.pw-inp:focus{border-color:var(--p)}
+.pw-btn{width:100%;margin-top:12px;padding:13px;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;border:none;border-radius:9px;font-size:1em;font-weight:700;cursor:pointer}
+.pw-err{color:var(--red);font-size:.8em;margin-top:7px;display:none}
+
+/* ── LAYOUT ── */
+#mainApp{display:none;min-height:100vh;flex-direction:column}
+.hdr{background:linear-gradient(135deg,var(--p),var(--p2));padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px;position:sticky;top:0;z-index:99}
+.hdr h1{color:#fff;font-size:1em;font-weight:700}
+.hdr-meta{color:rgba(255,255,255,.75);font-size:.67em;margin-top:2px}
+.hbtn{background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.55);color:#fff;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:.73em;white-space:nowrap}
+.hbtns{display:flex;gap:5px;flex-wrap:wrap}
+.tabs{background:#fff;border-bottom:2px solid var(--b2);display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;position:sticky;top:52px;z-index:98}
+.tab{flex:0 0 auto;padding:11px 16px;border:none;background:none;cursor:pointer;font-size:.85em;font-weight:500;color:var(--t2);border-bottom:3px solid transparent;white-space:nowrap}
+.tab.on{color:var(--p);border-bottom-color:var(--p)}
+.pane{display:none;padding:14px;max-width:1280px;margin:0 auto;width:100%}
+.pane.on{display:block}
+
+/* ── ① RESPONSIVE MONTH TABS ── */
+.mtabs{background:#fff;border-radius:10px;overflow-x:auto;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.mtabs-inner{display:flex;min-width:max-content}
+.mtab{padding:10px 16px;border:none;background:#f5f5f5;cursor:pointer;font-size:.85em;font-weight:500;color:var(--t2);border-bottom:3px solid transparent;white-space:nowrap}
+.mtab.on{background:#fff;color:var(--p);border-bottom-color:var(--p)}
+
+/* ④ FILTER BAR */
+.filter-bar{display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filter-bar span{font-size:.8em;color:var(--t2);font-weight:600}
+.filt-btn{padding:6px 16px;border-radius:99px;border:1.5px solid var(--b);background:transparent;color:var(--t2);cursor:pointer;font-size:.82em;font-weight:500;transition:all .15s}
+.filt-btn.on{background:var(--p);color:#fff;border-color:var(--p)}
+
+/* ── ① RESPONSIVE KPI GRID ── */
+.kgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+@media(min-width:768px){.kgrid{grid-template-columns:repeat(4,1fr)}}
+.kcard{background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-left:4px solid var(--p)}
+.kcard.red{border-left-color:var(--red)}.kcard.green{border-left-color:var(--green)}.kcard.orange{border-left-color:var(--orange)}
+.klbl{font-size:.7em;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+/* ② FULL AMOUNT FORMAT */
+.kval{font-size:1.1em;font-weight:700;line-height:1.2;font-family:ui-monospace,monospace;word-break:break-all}
+.ksub{font-size:.67em;color:var(--t3);margin-top:2px}
+.kprev{font-size:.64em;margin-top:3px}
+
+/* ④ SIDE BY SIDE */
+.side-grid{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:14px}
+@media(min-width:768px){.side-grid{grid-template-columns:1fr 1fr}}
+.side-panel{background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.side-panel h3{font-size:.9em;font-weight:700;margin-bottom:10px;padding-bottom:7px;border-bottom:2px solid var(--p)}
+.side-panel.direct h3{border-bottom-color:var(--p)}
+.side-panel.subcon h3{border-bottom-color:var(--pink)}
+
+/* OTA */
+.ota-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:0}
+@media(min-width:768px){.ota-grid{grid-template-columns:repeat(3,1fr)}}
+.ota-card{background:#f8f9ff;border-radius:9px;padding:10px 12px;border-top:3px solid var(--p)}
+.ota-name{font-size:.72em;font-weight:700;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ota-row{display:flex;justify-content:space-between;font-size:.7em;color:var(--t2);margin-bottom:2px}
+
+/* SECTION */
+.sec{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.sec h2{font-size:.95em;font-weight:700;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--p)}
+
+/* ① RESPONSIVE 2-COL SECTION GRID */
+.sec-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:14px}
+@media(min-width:900px){.sec-grid{grid-template-columns:1fr 1fr}}
+
+/* CMP */
+.cmp2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.cbox{background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;padding:12px;border-radius:8px;text-align:center}
+.cbox.s{background:linear-gradient(135deg,var(--pink),var(--red))}
+.cbox h3{font-size:.8em;margin-bottom:8px;opacity:.9}
+.cstats{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.cs{background:rgba(255,255,255,.15);padding:6px;border-radius:5px}
+.csl{font-size:.63em;opacity:.8;margin-bottom:2px}
+.csv2{font-size:.78em;font-weight:700;font-family:ui-monospace,monospace;word-break:break-all}
+
+/* GAUGE */
+.grows{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin-bottom:10px}
+.gc{width:78px;height:78px;margin:0 auto;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.25em;font-weight:700;color:#fff}
+.gh{background:linear-gradient(135deg,#4CAF50,#45a049)}.gm{background:linear-gradient(135deg,#FF9800,#f57c00)}.gl{background:linear-gradient(135deg,var(--pink),var(--red))}
+.glbl{font-size:.68em;color:var(--t2);text-transform:uppercase;margin-bottom:5px}
+
+/* WATERFALL */
+.wf-row{display:flex;align-items:center;padding:6px 8px;border-radius:6px;margin-bottom:2px}
+.wf-row.main{background:#f0f2ff;font-weight:700}
+.wf-row.sub{padding-left:22px}
+.wf-row.sub2{padding-left:40px;background:#fafafa}
+.wf-row.result{background:rgba(76,175,80,.1);font-weight:700;border-left:3px solid var(--green)}
+.wf-lbl{font-size:.82em;flex:1}
+.wf-val{font-size:.82em;font-weight:600;font-family:ui-monospace,monospace;text-align:right;min-width:130px}
+.wf-val.minus{color:var(--red)}.wf-val.plus{color:var(--green)}.wf-val.neutral{color:var(--t2)}
+.wf-arrow{font-size:.68em;color:var(--t3);margin-right:3px}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:.82em}
+.tbl th{background:#f4f4f8;padding:8px;text-align:left;color:var(--t2);font-weight:600;border-bottom:2px solid var(--b)}
+.tbl td{padding:8px;border-bottom:1px solid var(--b2)}
+.tbl .r{text-align:right;color:var(--p);font-weight:500;font-family:ui-monospace,monospace}
+.tbl .tot{background:#f0f0f0;font-weight:700}
+.tbl .prf{background:linear-gradient(135deg,#4CAF50,#45a049);color:#fff}
+.tbl .prf td,.tbl .prf .r{color:#fff}
+
+/* ROOM CARDS */
+.room-list{display:flex;flex-direction:column;gap:7px}
+.room-card{background:#fff;border-radius:9px;border-left:4px solid var(--p);overflow:hidden;box-shadow:0 1px 5px rgba(0,0,0,.06)}
+.room-card.sub{border-left-color:var(--pink)}
+.room-hdr{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer}
+.room-tag{font-family:ui-monospace,monospace;font-size:.9em;font-weight:700}
+.occ-badge{font-size:.68em;font-weight:700;padding:2px 6px;border-radius:99px;color:#fff;margin-left:5px}
+.room-detail{padding:10px 12px;border-top:1px solid var(--b2);display:none}
+.room-detail.open{display:block}
+.rs-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}
+@media(min-width:600px){.rs-grid{grid-template-columns:repeat(4,1fr)}}
+.rs{background:#f8f9ff;border-radius:7px;padding:8px 10px}
+.rs-lbl{font-size:.65em;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:2px}
+.rs-val{font-size:.9em;font-weight:700;font-family:ui-monospace,monospace;word-break:break-all}
+.rs-sub{font-size:.63em;color:var(--t3);margin-top:1px}
+
+/* ③ UTILITY */
+.util-section{margin-top:10px}
+.util-upload{border:2px dashed var(--p);border-radius:9px;padding:12px;text-align:center;cursor:pointer;margin-bottom:10px;background:#fafbff;position:relative}
+.util-upload input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.util-room-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+@media(min-width:600px){.util-room-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:900px){.util-room-grid{grid-template-columns:repeat(4,1fr)}}
+.util-room{background:#f8f9ff;border-radius:7px;padding:8px 10px}
+.util-room-tag{font-family:ui-monospace,monospace;font-size:.8em;font-weight:700;margin-bottom:5px}
+.util-inp-row{display:flex;align-items:center;gap:4px;margin-bottom:3px}
+.util-inp-lbl{font-size:.67em;color:var(--t3);width:30px;flex-shrink:0}
+.util-inp{border:1px solid var(--b);border-radius:4px;padding:3px 5px;font-size:.75em;width:100%;font-family:ui-monospace,monospace;outline:none}
+.util-inp:focus{border-color:var(--p)}
+
+/* EXPENSE */
+.exprow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#f8f8ff;padding:9px;border-radius:7px;margin-bottom:10px}
+.exprow label{font-size:.78em;color:var(--t2);font-weight:500;white-space:nowrap}
+.expinp{border:1.5px solid var(--b);border-radius:5px;padding:5px 7px;font-size:.82em;width:120px;font-family:ui-monospace,monospace;outline:none}
+
+/* CHART */
+.chart-wrap{overflow-x:auto;margin-top:8px}
+
+/* CLEANING */
+.cl-hdr{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:9px;margin-bottom:13px}
+.dnav{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--b);border-radius:9px;padding:6px 10px}
+.dnav button{background:none;border:none;cursor:pointer;color:var(--t2);font-size:17px;padding:2px 4px;border-radius:5px;line-height:1}
+#cleanDate{font-family:ui-monospace,monospace;font-size:.83em;border:none;background:none;outline:none;cursor:pointer;width:108px;text-align:center}
+.sbar{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:11px}
+@media(min-width:600px){.sbar{grid-template-columns:repeat(7,1fr)}}
+.sc{background:#fff;border-radius:9px;border:1px solid var(--b2);padding:8px 10px;position:relative;overflow:hidden;cursor:pointer}
+.sc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:9px 0 0 9px}
+.sc.t::before{background:#888}.sc.ci::before{background:#639922}.sc.co::before{background:#1D9E75}
+.sc.st::before{background:#888780}.sc.vc::before{background:#7F77DD}.sc.wn::before{background:#BA7517}.sc.dg::before{background:#E24B4A}
+.sclbl{font-size:.63em;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:2px}
+.scval{font-size:1.45em;font-weight:700;font-family:ui-monospace,monospace;line-height:1}
+.scb{font-size:.61em;color:var(--t3);margin-top:2px}
+.fp{background:#fff;border-radius:9px;border:1px solid var(--b2);padding:9px;margin-bottom:11px;display:flex;flex-direction:column;gap:7px}
+.frow{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.flbl{font-size:.71em;color:var(--t2);font-weight:600;min-width:52px}
+.fb{font-size:.7em;font-weight:500;padding:3px 8px;border-radius:99px;border:1px solid var(--b);background:transparent;color:var(--t2);cursor:pointer;white-space:nowrap}
+.fb.on{background:var(--t);color:#fff;border-color:var(--t)}
+.sfb{font-size:.68em;font-weight:500;padding:3px 7px;border-radius:99px;border:1.5px solid;cursor:pointer;background:transparent;white-space:nowrap}
+.sfb.all{border-color:#888;color:#555}.sfb.ci{border-color:#639922;color:#3B6D11}
+.sfb.co{border-color:#1D9E75;color:#085041}.sfb.st{border-color:#888780;color:#5F5E5A}.sfb.vc{border-color:#7F77DD;color:#3C3489}
+.sfb.on{color:#fff!important}
+.sfb.all.on{background:#888}.sfb.ci.on{background:#3B6D11}.sfb.co.on{background:#085041}.sfb.st.on{background:#5F5E5A}.sfb.vc.on{background:#3C3489}
+.cfb{font-size:.68em;font-weight:500;padding:3px 7px;border-radius:99px;border:1px solid var(--b);background:transparent;color:var(--t2);cursor:pointer;white-space:nowrap}
+.cfb.on{background:#444;color:#fff;border-color:#444}
+/* ② Multi-select */
+.mfb{font-size:.7em;font-weight:500;padding:3px 8px;border-radius:99px;border:1.5px solid var(--b);background:transparent;color:var(--t2);cursor:pointer;white-space:nowrap}
+.mfb.on{background:var(--p);color:#fff;border-color:var(--p)}
+.lgnd{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.li{display:flex;align-items:center;gap:3px;font-size:.68em;color:var(--t2)}
+.ld{width:7px;height:7px;border-radius:50%}
+.psec{margin-bottom:16px}
+.phdr{display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid var(--b2)}
+.pnm{font-size:.85em;font-weight:700;font-family:ui-monospace,monospace}
+.pcnt{font-size:.65em;color:var(--t3);background:var(--bg);border-radius:99px;padding:2px 6px}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.rc{border-radius:9px;border:1px solid var(--b2);border-left:4px solid;overflow:hidden}
+.rc.done{}
+.done-banner{background:var(--green);color:#fff;font-size:.7em;font-weight:700;padding:3px 8px;text-align:center;letter-spacing:.5px}
+/* スタンプ */
+.stamp-wrap{position:relative;overflow:hidden}
+.stamp{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:2.2em;font-weight:900;color:rgba(46,125,50,0.22);border:4px solid rgba(46,125,50,0.22);border-radius:8px;padding:2px 10px;letter-spacing:4px;pointer-events:none;white-space:nowrap;z-index:5;font-family:serif}
+/* ③ Color line status */
+.status-line{height:5px;width:100%}
+.sl-green{background:#2e7d32}
+.sl-red{background:#c62828}
+.sl-black{background:#212121}
+.sl-gray{background:#9e9e9e}
+.status-label{font-size:.7em;font-weight:700;padding:4px 10px;display:flex;align-items:center;gap:5px}
+.sl-label-green{background:#2e7d32;color:#fff}
+.sl-label-red{background:#c62828;color:#fff}
+.sl-label-black{background:#212121;color:#fff}
+.sl-label-gray{background:#757575;color:#fff}
+.sel-chk{width:16px;height:16px;cursor:pointer;accent-color:var(--p);flex-shrink:0}
+.sel-row{display:flex;align-items:center;gap:6px;padding:5px 11px;background:#f0f2ff;border-top:1px solid var(--b2)}
+.rc-top{padding:9px 11px}
+.rc-top-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px}
+.rtag{font-family:ui-monospace,monospace;font-size:.9em;font-weight:600}
+.sbs{display:flex;gap:3px}
+.sb{font-size:.64em;font-weight:700;padding:2px 6px;border-radius:99px;color:#fff;white-space:nowrap}
+.bci{background:#3B6D11}.bwn{background:#854F0B}.bdg{background:#A32D2D}.bun{background:#185FA5}
+.bst{background:#5F5E5A}.bvc{background:#3C3489}.bco{background:#085041}.bdone{background:#888}
+.rg{font-size:.8em;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.rm2{display:flex;gap:6px;flex-wrap:wrap;font-size:.68em;color:var(--t2)}
+.rdates{font-size:.66em;color:var(--t2);margin-top:2px;font-family:ui-monospace,monospace}
+.rc-bot{padding:7px 10px;border-top:1px solid rgba(0,0,0,.07);background:rgba(255,255,255,.6)}
+.rclr{display:flex;align-items:center;justify-content:space-between;gap:5px}
+.rcname{display:flex;align-items:center;gap:4px;font-size:.75em;font-weight:500}
+.rcico{width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;font-size:.58em;flex-shrink:0}
+.rct{font-family:ui-monospace,monospace;font-size:.65em;color:var(--t2);background:rgba(0,0,0,.05);padding:2px 5px;border-radius:4px}
+.rcmt{margin-top:3px;font-size:.66em;color:#633806;background:rgba(186,117,23,.1);border-radius:5px;padding:3px 6px}
+.rchk{display:flex;align-items:center;gap:4px;cursor:pointer;margin-top:4px;user-select:none}
+.rchk input{width:14px;height:14px;cursor:pointer;accent-color:#639922;flex-shrink:0}
+.rchk span{font-size:.68em;font-weight:500;color:var(--t2)}
+.nd{background:#fff;border-radius:9px;padding:26px 14px;text-align:center;color:var(--t3);font-size:.83em;border:1px dashed var(--b)}
+.rst-btn{font-size:.69em;color:var(--t3);background:none;border:1px solid var(--b);border-radius:6px;padding:3px 8px;cursor:pointer}
+.pill{display:inline-block;background:var(--p);color:#fff;padding:1px 7px;border-radius:10px;font-size:.65em;margin-left:4px}
+
+/* ⑤ PAYMENT */
+.pay-up{border:2px dashed var(--p);border-radius:10px;padding:14px;text-align:center;cursor:pointer;margin-bottom:12px;position:relative;background:#fafbff}
+.pay-up input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.pay-mtabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.pay-mtab{padding:4px 11px;border-radius:99px;border:1.5px solid var(--b);background:transparent;color:var(--t2);cursor:pointer;font-size:.76em;font-weight:500}
+.pay-mtab.on{background:var(--p);color:#fff;border-color:var(--p)}
+.pay-sum{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;padding:12px;background:#fff;border-radius:9px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.pay-si{text-align:center;min-width:80px}
+.pay-sl{font-size:.66em;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:2px}
+.pay-sv{font-size:1.1em;font-weight:700;font-family:ui-monospace,monospace;word-break:break-all}
+.pay-tbl-wrap{overflow-x:auto}
+.pay-tbl{width:100%;border-collapse:collapse;font-size:.79em;white-space:nowrap}
+.pay-tbl th{background:#f4f4f8;padding:7px 9px;text-align:left;color:var(--t2);font-weight:600;border-bottom:2px solid var(--b)}
+.pay-tbl td{padding:7px 9px;border-bottom:1px solid var(--b2)}
+.pay-tbl tr:hover td{background:#f8f9ff}
+.tag-paid{display:inline-block;background:#d4edda;color:#155724;padding:2px 7px;border-radius:99px;font-size:.72em;font-weight:600}
+.tag-unpaid{display:inline-block;background:#fff3cd;color:#856404;padding:2px 7px;border-radius:99px;font-size:.72em;font-weight:600}
+.pay-btn{border:1.5px solid var(--p);background:transparent;color:var(--p);padding:3px 8px;border-radius:6px;cursor:pointer;font-size:.7em}
+.pay-btn.paid{background:var(--green);border-color:var(--green);color:#fff}
+.payout-group{background:#f4f4f8;font-size:.73em;color:var(--t2);padding:4px 9px;font-weight:600}
+.date-edit{font-family:ui-monospace,monospace;font-size:.72em;border:1px solid var(--b);border-radius:4px;padding:2px 5px;outline:none;width:110px}
+
+/* ⑥ INVOICE */
+.inv-inp{border:1.5px solid var(--b);border-radius:6px;padding:6px 9px;font-size:.85em;outline:none;width:100%}
+.inv-inp:focus{border-color:var(--p)}
+.inv-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.inv-lbl{font-size:.8em;color:var(--t2);font-weight:500;min-width:75px}
+.inv-tbl{width:100%;border-collapse:collapse;font-size:.8em;margin-bottom:9px}
+.inv-tbl th{background:#f4f4f8;padding:7px;text-align:left;color:var(--t2);font-weight:600;border-bottom:2px solid var(--b)}
+.inv-tbl td{padding:6px 7px;border-bottom:1px solid var(--b2)}
+.inv-tbl .ra{text-align:right}
+.inv-add{background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em}
+.inv-del{background:none;border:none;cursor:pointer;color:var(--red);font-size:.88em;padding:2px 4px}
+.inv-total{background:#f4f4f8;border-radius:7px;padding:10px;text-align:right;margin-top:8px}
+.inv-trow{display:flex;justify-content:flex-end;gap:20px;font-size:.83em;margin-bottom:4px}
+.inv-trow.big{font-size:1.05em;font-weight:700;color:var(--p)}
+.inv-print{width:100%;padding:12px;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;border:none;border-radius:9px;font-size:.92em;font-weight:700;cursor:pointer;margin-top:9px}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center;padding:14px}
+.overlay.show{display:flex}
+.modal{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal h2{font-size:1em;font-weight:700;margin-bottom:12px}
+.modal-btns{display:flex;gap:7px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.btn-ok{background:var(--green);color:#fff;border:none;padding:8px 16px;border-radius:7px;font-size:.85em;font-weight:600;cursor:pointer}
+.btn-cancel{background:#ddd;color:#333;border:none;padding:8px 16px;border-radius:7px;font-size:.85em;cursor:pointer}
+.upload-zone{border:2px dashed var(--p);border-radius:9px;padding:16px;text-align:center;cursor:pointer;position:relative;margin-bottom:9px;background:#fafbff;transition:background .2s}
+.upload-zone:hover{background:#f0f0ff}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.fi{font-size:.74em;color:var(--green);padding:2px 0}
+.fi::before{content:'✓ '}
+.set-row{display:flex;flex-direction:column;gap:4px;margin-bottom:11px}
+.set-lbl{font-size:.8em;color:var(--t2);font-weight:600}
+.set-inp{border:1.5px solid var(--b);border-radius:6px;padding:6px 9px;font-size:.85em;outline:none}
+.set-inp:focus{border-color:var(--p)}
+.set-hint{font-size:.7em;color:var(--t3)}
+.set-divider{border:none;border-top:1px solid var(--b2);margin:14px 0}
+.office-row{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;margin-bottom:6px}
+.office-row input{border:1.5px solid var(--b);border-radius:5px;padding:5px 7px;font-size:.8em;outline:none}
+.office-row input:focus{border-color:var(--p)}
+.office-del{background:none;border:none;cursor:pointer;color:var(--red);font-size:1em;padding:2px 6px}
+.add-office-btn{background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em;margin-top:4px}
+</style>
+</head>
+<body>
+
+<!-- ════ LOGIN ════ -->
+<div id="pwScreen">
+  <div class="pw-card">
+    <h1>🏠 民泊運営アプリ</h1>
+    <p>ログインしてください</p>
+    <div style="margin-bottom:10px">
+      <select id="loginUser" class="pw-inp" style="letter-spacing:0">
+        <option value="">ユーザーを選択してください</option>
+        <option value="admin">管理者</option>
+        <option value="office1">事務経理</option>
+        <option value="staff1">スタッフ</option>
+      </select>
+    </div>
+    <input class="pw-inp" id="pwInp" type="password" placeholder="パスワード" maxlength="32" onkeydown="if(event.key==='Enter')checkPw()">
+    <button class="pw-btn" onclick="checkPw()">ログイン</button>
+    <div class="pw-err" id="pwErr">ユーザー名またはパスワードが違います</div>
+  </div>
+</div>
+
+<!-- ════ MAIN ════ -->
+<div id="mainApp">
+  <div class="hdr">
+    <div><h1>🏠 民泊運営アプリ</h1><div class="hdr-meta" id="meta">データ未読込</div></div>
+    <div class="hbtns">
+      <button class="hbtn" onclick="openModal('csvModal')">📂 CSV更新</button>
+      <button class="hbtn" onclick="openSnap()">📸 スナップ</button>
+      <button class="hbtn" onclick="openSettings()">⚙️ 設定</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab on" onclick="swTab('ops',this)">📊 運営</button>
+    <button class="tab" onclick="swTab('clean',this)">🧹 清掃</button>
+    <button class="tab" id="tabBb" onclick="swTab('bb',this)">📋 掲示板</button>
+    <button class="tab" id="tabPay" onclick="swTab('pay',this)">💰 入金管理</button>
+    <button class="tab" id="tabInv" onclick="swTab('inv',this)">📄 請求書</button>
+    <button class="tab" id="tabAcc" onclick="swTab('acc',this)">📒 会計</button>
+    <button class="tab" id="tabUsers" onclick="swTab('users',this)">👥 ユーザー管理</button>
+  </div>
+
+  <!-- 運営 -->
+  <div class="pane on" id="opsPane">
+    <div class="mtabs"><div class="mtabs-inner" id="mlist"></div></div>
+    <!-- ⑮ サブタブ -->
+    <div style="display:flex;background:#fff;border-radius:10px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.07)">
+      <button id="subRevBtn" onclick="swSubTab('rev',this)" style="flex:1;padding:10px;border:none;background:#fff;cursor:pointer;font-size:.85em;font-weight:600;color:var(--p);border-bottom:3px solid var(--p)">📈 収益</button>
+      <button id="subExpBtn" onclick="swSubTab('exp',this)" style="flex:1;padding:10px;border:none;background:#f5f5f5;cursor:pointer;font-size:.85em;font-weight:500;color:var(--t2);border-bottom:3px solid transparent">💸 支出</button>
+    </div>
+    <!-- ④ Filter (収益サブタブ内) -->
+    <div id="revSubPane">
+      <div class="filter-bar">
+        <span>表示：</span>
+        <button class="filt-btn on" onclick="setFilt('all',this)">全体</button>
+        <button class="filt-btn" onclick="setFilt('direct',this)">直営のみ</button>
+        <button class="filt-btn" onclick="setFilt('subcon',this)">代行のみ</button>
+      </div>
+      <div id="opsContent"></div>
+    </div>
+    <div id="expSubPane" style="display:none">
+      <div id="expContent"><div class="nd">CSVを読み込むと支出を入力できます</div></div>
+    </div>
+  </div>
+
+  <!-- 清掃 -->
+  <div class="pane" id="cleanPane">
+    <div class="cl-hdr" style="max-width:1280px;margin:0 auto;width:100%">
+      <div style="font-size:1em;font-weight:700">🧹 清掃確認ダッシュボード</div>
+      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+        <button onclick="bulkCompleteSelected()" style="background:var(--green);color:#fff;border:none;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:.73em;font-weight:600">✅ 選択を完了</button>
+        <button onclick="selectAllCards(true)" style="background:transparent;border:1px solid var(--b);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.7em">全選択</button>
+        <button onclick="selectAllCards(false)" style="background:transparent;border:1px solid var(--b);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.7em">全解除</button>
+        <button class="rst-btn" onclick="resetChks()">消込リセット</button>
+        <div class="dnav">
+          <button onclick="chgDate(-1)">←</button>
+          <input type="date" id="cleanDate" onchange="renderClean()">
+          <button onclick="chgDate(1)">→</button>
+        </div>
+      </div>
+    </div>
+    <div style="max-width:1280px;margin:0 auto;width:100%">
+      <div class="sbar" id="csum"></div>
+      <div class="lgnd">
+        <div class="li"><div class="ld" style="background:#639922"></div>当日IN</div>
+        <div class="li"><div class="ld" style="background:#BA7517"></div>同日入替/未割当</div>
+        <div class="li"><div class="ld" style="background:#E24B4A"></div>清掃タスクなし</div>
+        <div class="li"><div class="ld" style="background:#1D9E75"></div>清掃のみ</div>
+        <div class="li"><div class="ld" style="background:#888780"></div>滞在中</div>
+        <div class="li"><div class="ld" style="background:#7F77DD"></div>空室</div>
+      </div>
+      <div class="fp">
+        <div class="frow"><span class="flbl">物件：</span><div id="propBar" style="display:flex;gap:4px;flex-wrap:wrap"></div></div>
+        <div class="frow">
+          <span class="flbl">状態：</span>
+          <button class="mfb on" data-sf="all" onclick="toggleState('all')">全て</button>
+          <button class="mfb" data-sf="ci_wait" onclick="toggleState('ci_wait')" style="border-color:#c62828;color:#c62828">🔴 当日IN・🧹未</button>
+          <button class="mfb" data-sf="ci_done" onclick="toggleState('ci_done')" style="border-color:#2e7d32;color:#2e7d32">✅ 当日IN・🧹済</button>
+          <button class="mfb" data-sf="st" onclick="toggleState('st')" style="border-color:#212121;color:#212121">⬛ 滞在中</button>
+          <button class="mfb" data-sf="co_wait" onclick="toggleState('co_wait')" style="border-color:#c62828;color:#c62828">🔴 🧹のみ</button>
+          <button class="mfb" data-sf="vc_done" onclick="toggleState('vc_done')" style="border-color:#2e7d32;color:#2e7d32">✅ 空室・🧹済</button>
+          <button class="mfb" data-sf="vc_wait" onclick="toggleState('vc_wait')" style="border-color:#c62828;color:#c62828">🔴 空室・🧹未</button>
+        </div>
+        <div class="frow" id="clRow">
+          <span class="flbl">クリーナー：</span>
+          <div id="clBar" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+        </div>
+      </div>
+      <div id="cleanMain"></div>
+    </div>
+  </div>
+
+  <!-- 入金管理 -->
+  <div class="pane" id="payPane">
+    <div class="pay-up" id="payUpZone">
+      <input type="file" id="payFile" accept=".csv" multiple onchange="handlePayCSV(this.files)">
+      <div style="font-size:1.5em;margin-bottom:5px">📄</div>
+      <div style="font-size:.88em;font-weight:600">Booking.com / Airbnb の支払いCSVをアップロード</div>
+      <div style="font-size:.73em;color:var(--t3);margin-top:3px">両フォーマット自動判別・ドラッグ&ドロップ可</div>
+    </div>
+    <!-- ④⑩ 検索フィルター -->
+    <div style="background:#fff;padding:12px;border-radius:9px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:10px">
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">
+        <input id="srchRoom" type="text" placeholder="部屋名・ゲスト名" style="border:1.5px solid var(--b);border-radius:6px;padding:5px 8px;font-size:.78em;outline:none;width:140px" oninput="renderPayTab()">
+        <select id="srchOTA" style="border:1.5px solid var(--b);border-radius:6px;padding:5px 8px;font-size:.78em;outline:none" onchange="renderPayTab()">
+          <option value="">OTA 全て</option>
+          <option value="Booking.com">Booking.com</option>
+          <option value="Airbnb">Airbnb</option>
+        </select>
+        <select id="srchStatus" style="border:1.5px solid var(--b);border-radius:6px;padding:5px 8px;font-size:.78em;outline:none" onchange="renderPayTab()">
+          <option value="">状態 全て</option>
+          <option value="paid">入金済</option>
+          <option value="unpaid">未確認</option>
+        </select>
+        <button onclick="clearPaySearch()" style="background:transparent;border:1px solid var(--b);border-radius:6px;padding:5px 9px;font-size:.75em;cursor:pointer">クリア</button>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:.75em;color:var(--t2);font-weight:600">IN日：</span>
+        <input id="srchCiFrom" type="date" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.76em;outline:none" onchange="renderPayTab()">
+        <span style="font-size:.75em;color:var(--t3)">〜</span>
+        <input id="srchCiTo" type="date" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.76em;outline:none" onchange="renderPayTab()">
+        <span style="font-size:.75em;color:var(--t2);font-weight:600;margin-left:8px">着金日：</span>
+        <input id="srchPayFrom" type="date" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.76em;outline:none" onchange="renderPayTab()">
+        <span style="font-size:.75em;color:var(--t3)">〜</span>
+        <input id="srchPayTo" type="date" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.76em;outline:none" onchange="renderPayTab()">
+      </div>
+    </div>
+    <div class="pay-mtabs" id="payMtabs"></div>
+    <div class="pay-sum" id="paySum"></div>
+    <!-- ⑤ Bulk date edit bar -->
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding:8px 10px;background:#f0f2ff;border-radius:8px">
+      <span style="font-size:.78em;color:var(--t2);font-weight:600">選択した件の着金日を一括変更：</span>
+      <input type="date" id="bulkPayDate" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.78em;outline:none">
+      <button onclick="bulkUpdatePayDate()" style="background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">一括適用</button>
+      <button onclick="paySelectSamePayoutId()" style="background:transparent;border:1.5px solid var(--p);color:var(--p);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.75em">同Payout IDを選択</button>
+    </div>
+    <div class="pay-tbl-wrap"><table class="pay-tbl"><thead>
+  <tr>
+    <th><input type="checkbox" id="paySelAll" onclick="paySelectAll(this.checked)" style="width:14px;height:14px;cursor:pointer"></th>
+    <th>IN日</th><th>部屋</th><th>ゲスト</th><th>OTA</th><th>実受取(税込)</th><th>着金日</th><th>状態</th><th>🔒</th><th></th>
+  </tr>
+</thead><tbody id="payBody"></tbody></table></div>
+  </div>
+
+  <!-- 請求書 -->
+  <div class="pane" id="invPane">
+    <div class="sec">
+      <h2>📄 請求書作成</h2>
+      <div class="inv-row"><span class="inv-lbl">対象月：</span><select class="inv-inp" id="invMonth" style="flex:none;width:155px" onchange="buildInv()"></select></div>
+      <div class="inv-row"><span class="inv-lbl">入金期日：</span><input class="inv-inp" id="invDue" type="date" style="flex:none;width:170px"></div>
+    </div>
+    <div class="sec">
+      <h2>明細（部屋単位）</h2>
+      <table class="inv-tbl">
+        <thead><tr><th>摘要</th><th class="ra" style="width:70px">数量</th><th class="ra" style="width:90px">単価</th><th class="ra" style="width:100px">金額</th><th style="width:30px"></th></tr></thead>
+        <tbody id="invBody"></tbody>
+      </table>
+      <button class="inv-add" onclick="addInvItem()">＋ 行を追加</button>
+      <div class="inv-total" id="invTotal"></div>
+    </div>
+    <div class="sec">
+      <h2>備考</h2>
+      <textarea class="inv-inp" id="invNote" rows="3" style="resize:vertical">振込手数料は御社負担でお願い致します。
+※代行費用・清掃費用はチェックインベースで計算しています。</textarea>
+    </div>
+    <button class="inv-print" onclick="printInv()">🖨️ PDFで印刷・保存</button>
+  </div>
+  <!-- 会計 -->
+  <div class="pane" id="accPane">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <select id="accMonth" style="border:1.5px solid var(--b);border-radius:6px;padding:6px 9px;font-size:.85em;outline:none;width:160px" onchange="renderAcc()"></select>
+      <button onclick="dlAccExcel()" style="background:var(--green);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">📥 CSVダウンロード</button>
+    </div>
+    <div class="sec"><h2>📒 民泊手数料まとめ（税込）</h2>
+      <div id="accContent"><div class="nd">CSVを読み込んでください</div></div>
+      <button onclick="addAccRow()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em;margin-top:10px">＋ 手動入力行を追加（スクエア等）</button>
+    </div>
+  </div>
+
+  <!-- ユーザー管理 -->
+  <div class="pane" id="usersPane">
+    <div class="sec">
+      <h2>👥 ユーザー管理</h2>
+      <button onclick="addNewUser()" style="background:var(--p);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85em;font-weight:600;margin-bottom:14px">＋ ユーザーを追加</button>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.83em" id="userMgmtTbl">
+          <thead><tr style="background:#f4f4f8">
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2);font-weight:600">名前</th>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2);font-weight:600">ユーザーID</th>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2);font-weight:600">権限</th>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2);font-weight:600">状態</th>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2);font-weight:600">操作</th>
+          </tr></thead>
+          <tbody id="userMgmtBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- 権限一覧表 -->
+    <div class="sec" style="margin-top:14px">
+      <h2>🔑 権限について</h2>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.82em;white-space:nowrap">
+          <thead>
+            <tr style="background:#f4f4f8">
+              <th style="padding:9px 12px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2)">機能</th>
+              <th style="padding:9px 12px;text-align:center;border-bottom:2px solid var(--b);color:var(--red)">管理者</th>
+              <th style="padding:9px 12px;text-align:center;border-bottom:2px solid var(--b);color:var(--p)">事務経理</th>
+              <th style="padding:9px 12px;text-align:center;border-bottom:2px solid var(--b);color:var(--t3)">スタッフ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">📊 運営タブ</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・編集</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・編集</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">🧹 清掃タブ</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・完了チェック</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">📋 掲示板タブ</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・投稿</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・投稿</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">💰 入金管理タブ</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">📄 請求書タブ</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">📒 会計タブ</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">👥 ユーザー管理タブ</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・編集</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・編集</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">⚙️ 設定（CSV更新・スナップ）</td><td style="padding:8px 12px;text-align:center">✅</td><td style="padding:8px 12px;text-align:center">✅</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 掲示板 -->
+  <div class="pane" id="bbPane">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button onclick="bbNav(-1)" style="background:#fff;border:1.5px solid var(--b);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.82em">← 前の週末</button>
+      <span id="bbWeekLabel" style="font-size:.95em;font-weight:700"></span>
+      <button onclick="bbNav(1)" style="background:#fff;border:1.5px solid var(--b);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.82em">次の週末 →</button>
+      <button onclick="addBBDate()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:.8em">📅 日付を追加</button>
+    </div>
+    <div id="bbContent"></div>
+  </div>
+
+</div>
+
+<!-- ════ MODALS ════ -->
+<!-- CSV Modal -->
+<div class="overlay" id="csvModal" onclick="if(event.target===this)closeModal('csvModal')">
+  <div class="modal">
+    <h2>📂 CSVを更新</h2>
+    <div class="upload-zone" id="bkZone">
+      <input type="file" id="bkFiles" accept=".csv" multiple onchange="handleBk(this.files)">
+      <div style="font-size:1.5em;margin-bottom:4px">📋</div>
+      <div style="font-weight:600;font-size:.86em">予約CSV（Booking_...）</div>
+      <div style="font-size:.73em;color:var(--t3);margin-top:2px">複数ファイルOK</div>
+      <div id="bkList" style="margin-top:6px;text-align:left"></div>
+    </div>
+    <div class="upload-zone" id="clZone">
+      <input type="file" id="clFile" accept=".csv" onchange="handleCl(this.files)">
+      <div style="font-size:1.5em;margin-bottom:4px">🧹</div>
+      <div style="font-weight:600;font-size:.86em">清掃CSV（cleaning_tasks_...）</div>
+      <div style="font-size:.73em;color:var(--t3);margin-top:2px">1ファイル</div>
+      <div id="clList" style="margin-top:6px;text-align:left"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('csvModal')">キャンセル</button>
+      <button class="btn-ok" id="loadBtn" onclick="loadCSVs()" disabled>読み込む</button>
+    </div>
+  </div>
+</div>
+
+<!-- Snapshot Modal -->
+<div class="overlay" id="snapModal" onclick="if(event.target===this)closeModal('snapModal')">
+  <div class="modal">
+    <h2>📸 スナップショット</h2>
+    <p style="font-size:.83em;color:var(--t2);margin-bottom:10px">現在のデータを保存して次回との比較に使います。</p>
+    <div id="snapInfo"></div>
+    <div class="modal-btns">
+      <button style="background:var(--red);color:#fff;border:none;padding:8px 14px;border-radius:7px;cursor:pointer;font-size:.83em" onclick="clearSnap()">削除</button>
+      <button class="btn-cancel" onclick="closeModal('snapModal')">閉じる</button>
+      <button class="btn-ok" onclick="saveSnap()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="overlay" id="settingsModal" onclick="if(event.target===this)closeModal('settingsModal')">
+  <div class="modal">
+    <h2>⚙️ 設定</h2>
+    <!-- ⑬ User management -->
+    <div style="font-size:.85em;font-weight:700;margin-bottom:8px">👥 ユーザー管理</div>
+    <div id="userListEl" style="margin-bottom:10px"></div>
+    <button onclick="addUserRow()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em;margin-bottom:12px">＋ ユーザーを追加</button>
+    <hr style="border:none;border-top:1px solid var(--b2);margin:10px 0">
+    <div class="set-row"><span class="set-lbl">🔑 管理者パスワード変更</span>
+      <input class="set-inp" id="setPw1" type="password" placeholder="新しいパスワード">
+      <input class="set-inp" id="setPw2" type="password" placeholder="確認" style="margin-top:4px">
+    </div>
+    <div class="set-row"><span class="set-lbl">🏠 デフォルト家賃（月・全物件合計）</span>
+      <input class="set-inp" id="setRent" type="number" step="1000">
+    </div>
+    <hr class="set-divider">
+    <div style="font-size:.85em;font-weight:700;margin-bottom:10px">🏢 事務所管理</div>
+    <div style="font-size:.75em;color:var(--t3);margin-bottom:8px">事務所タグ → 紐づく物件グループ（例: 亀有408 → 亀有）</div>
+    <div id="officeList"></div>
+    <button class="add-office-btn" onclick="addOfficeRow()">＋ 事務所を追加</button>
+    <hr class="set-divider">
+    <div style="font-size:.85em;font-weight:700;margin-bottom:10px">📄 請求書設定</div>
+    <div class="set-row"><span class="set-lbl">発行者名</span><input class="set-inp" id="setIssuer"></div>
+    <div class="set-row"><span class="set-lbl">住所</span><input class="set-inp" id="setAddr"></div>
+    <div class="set-row"><span class="set-lbl">TEL / FAX</span><input class="set-inp" id="setTel"></div>
+    <div class="set-row"><span class="set-lbl">登録番号</span><input class="set-inp" id="setReg"></div>
+    <div class="set-row"><span class="set-lbl">宛先（会社名）</span><input class="set-inp" id="setRecip"></div>
+    <div class="set-row"><span class="set-lbl">代行手数料（1部屋・税抜）</span><input class="set-inp" id="setFee" type="number" step="1000"></div>
+    <div class="set-row"><span class="set-lbl">振込先</span><textarea class="set-inp" id="setBank" rows="2" style="resize:vertical"></textarea></div>
+    <div class="set-row"><span class="set-lbl">次の請求書番号</span><input class="set-inp" id="setInvNum" type="number"></div>
+    <hr class="set-divider">
+    <div style="font-size:.85em;font-weight:700;margin-bottom:8px">⚠️ 直前予約注意対象物件</div>
+    <div style="font-size:.75em;color:var(--t3);margin-bottom:8px">土日に空室の場合、掲示板に「予約が入ったら掃除手配が必要」として表示される物件</div>
+    <div id="lastMinuteRoomsList" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('settingsModal')">閉じる</button>
+      <button class="btn-ok" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+//  CONFIG & STORAGE
+// ════════════════════════════════════════════
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6';
+
+let cfg={
+  pw:'minpaku2026',defaultRent:3912091,
+  issuer:'株式会社シザースエステート',addr:'335-0013 埼玉県戸田市喜沢1-11-6',
+  tel:'048-299-9821 / FAX:048-299-9822',reg:'T7030001122008',
+  recip:'株式会社シザースコーポレーション',fee:10000,
+  bank:'埼玉りそな銀行(0017) 浦和中央支店(256)\n普通 5629454 ｶ)ｼｻﾞｰｽｴｽﾃｰﾄ',
+  nextInv:24,
+  lastMinuteGroups:['亀有','SC','梅島'],
+  offices:[
+    {tag:'亀有408',group:'亀有'},
+    {tag:'SC205',group:'SC'},
+    {tag:'両国602',group:'両国'},
+    {tag:'Belmont102',group:'梅島'},
+    {tag:'レジデンスカープ青戸105',group:'青戸'}
+  ]
+};
+
+// ⑬ Users
+let USERS=[
+  {id:'admin',name:'管理者',pw:'minpaku2026',role:'admin'},
+  {id:'office1',name:'事務経理',pw:'office2026',role:'admin'},
+  {id:'staff1',name:'スタッフ',pw:'staff2026',role:'staff'}
+];
+let currentUser=null;
+
+const S={
+  get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+function loadCfg(){
+  const s=S.get(CONF_KEY);if(s)Object.assign(cfg,s);
+  const u=S.get('mp_users6');if(u&&u.length)USERS=u;
+}
+function saveCfg(){S.set(CONF_KEY,cfg);}
+
+// ════════════════════════════════════════════
+//  PASSWORD
+// ════════════════════════════════════════════
+function populateLoginUsers(){
+  const sel=document.getElementById('loginUser');
+  if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">ユーザーを選択してください</option>'+
+    USERS.filter(u=>u.active!==false).map(u=>`<option value="${u.id}" ${u.id===cur?'selected':''}>${u.name}</option>`).join('');
+  // If no custom users loaded yet, the hardcoded defaults remain from HTML
+  if(USERS.length>0)sel.querySelector('option[value=""]') && (sel.options[0].text='ユーザーを選択してください');
+}
+
+function filterUserList(val){
+  const dd=document.getElementById('userDropdown');
+  if(!dd)return;
+  const filtered=USERS.filter(u=>u.active!==false&&(u.name.includes(val)||u.id.includes(val)));
+  if(!filtered.length){dd.style.display='none';return;}
+  dd.style.display='block';
+  dd.innerHTML=filtered.map(u=>`<div onclick="selectLoginUser('${u.id}','${u.name}')" style="padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--b2);font-size:.9em;display:flex;gap:8px;align-items:center">
+    <span style="font-weight:600">${u.name}</span>
+    <span style="color:var(--t3);font-size:.85em">${u.id}</span>
+    <span style="margin-left:auto;font-size:.75em;padding:1px 6px;border-radius:99px;background:${u.role==='admin'?'var(--red)':u.role==='office'?'var(--p)':'var(--t3)'};color:#fff">${u.role==='admin'?'管理者':u.role==='office'?'事務経理':'スタッフ'}</span>
+  </div>`).join('');
+}
+function showUserList(){
+  const val=document.getElementById('loginUser').value;
+  filterUserList(val||'');
+}
+function hideUserList(){
+  const dd=document.getElementById('userDropdown');
+  if(dd)dd.style.display='none';
+}
+function selectLoginUser(id,name){
+  const inp=document.getElementById('loginUser');
+  if(inp){inp.value=name;inp.dataset.uid=id;}
+  hideUserList();
+  document.getElementById('pwInp').focus();
+}
+
+function checkPw(){
+  const sel=document.getElementById('loginUser');
+  const uid=sel?sel.value:'';
+  const pwEl=document.getElementById('pwInp');
+  const pw=pwEl?pwEl.value:'';
+  if(!uid){
+    alert('ユーザーを選択してください');return;
+  }
+  const user=USERS.find(u=>u.active!==false&&u.id===uid&&u.pw===pw);
+  if(!user){
+    alert('パスワードが違います。ID:'+uid+' PW文字数:'+pw.length+' USERS数:'+USERS.length);
+    if(pwEl)pwEl.value='';return;
+  }
+  currentUser=user;
+  document.getElementById('pwScreen').style.display='none';
+  document.getElementById('mainApp').style.display='flex';
+  document.getElementById('mainApp').style.flexDirection='column';
+  // ⑬ Apply role restrictions
+  const isStaff=currentUser.role==='staff';
+  ['tabPay','tabInv','tabAcc','tabBb'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isStaff?'none':'';});
+  // Users tab: admin + office
+  const isAdmin=currentUser&&(currentUser.role==='admin'||currentUser.role==='office');
+  const tabUsers=document.getElementById('tabUsers');
+  if(tabUsers)tabUsers.style.display=isAdmin?'':'none';
+  initApp();
+}
+
+// ════════════════════════════════════════════
+//  DATA
+// ════════════════════════════════════════════
+let ROOMS={},BK={},CH={},CM={},MS={};
+let curM=null,payM=null,opsFilt='all',cF={props:new Set(['all']),states:new Set(['all']),cleaners:new Set(['all'])};
+let invItems=[];
+let _bkTexts=[],_clText='',_bkReady=false;
+const excl=v=>Math.round(parseFloat(v||0)/1.1);
+
+// ② Full amount format
+const fmtF=n=>'¥'+Math.round(n).toLocaleString('ja-JP');
+const oc=v=>v>=50?'gh':v>=30?'gm':'gl';
+const occBg=v=>v>=50?'#4CAF50':v>=30?'#FF9800':'#f5576c';
+function pv(cur,prv){
+  if(prv===undefined||prv===null)return'';
+  const df=cur-prv,sg=df>=0?'+':'';
+  const pct=prv?((df/Math.abs(prv))*100).toFixed(1):0;
+  const cl=df>=0?'#155724':'#721c24';const bg=df>=0?'#d4edda':'#f8d7da';
+  return`<div class="kprev"><span style="background:${bg};color:${cl};padding:1px 5px;border-radius:3px;font-weight:700">${sg}${Math.abs(df).toLocaleString()}(${sg}${pct}%)</span></div>`;
+}
+
+// ════════════════════════════════════════════
+//  CSV PARSER
+// ════════════════════════════════════════════
+function parseCSV(text){
+  if(!text||!text.trim())return[];
+  const rows=[],result=[];
+  let cur='',inQ=false,cols=[];
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(c==='"'){inQ=!inQ;}
+    else if(c===','&&!inQ){cols.push(cur);cur='';}
+    else if((c==='\n'||c==='\r')&&!inQ){
+      cols.push(cur);cur='';
+      if(cols.some(x=>x.trim()))rows.push([...cols]);
+      cols=[];
+      if(c==='\r'&&text[i+1]==='\n')i++;
+    }else cur+=c;
+  }
+  if(cur||cols.length){cols.push(cur);if(cols.some(x=>x.trim()))rows.push(cols);}
+  if(!rows.length)return[];
+  const hdr=rows[0].map(h=>h.trim().replace(/^"|"$/g,''));
+  for(let r=1;r<rows.length;r++){
+    if(!rows[r].some(c=>c.trim()))continue;
+    const obj={};
+    hdr.forEach((h,i)=>{obj[h]=(rows[r][i]||'').trim().replace(/^"|"$/g,'');});
+    result.push(obj);
+  }
+  return result;
+}
+function normDate(s){if(!s)return'';return s.trim().replace(/\//g,'-').replace(/\s.+/,'').substring(0,10);}
+
+// ════════════════════════════════════════════
+//  PARSE BOOKINGS
+// ════════════════════════════════════════════
+function parseBookings(){
+  ROOMS={};BK={};
+  _bkTexts.forEach(txt=>{
+    parseCSV(txt).forEach(r=>{
+      if((r['状態']||'').trim()!=='確認済み')return;
+      const tag=(r['ルームタイプメニュー']||r['部屋番号']||'').trim();
+      const prop=(r['物件名']||'').trim();
+      if(!tag||!prop)return;
+      ROOMS[tag]=prop;
+      const ci=normDate(r['チェックイン']),co=normDate(r['チェックアウト']);
+      if(!ci||!co)return;
+      if(!BK[tag])BK[tag]=[];
+      BK[tag].push({
+        id:(r['チャンネル予約ID']||r['AirHost予約ID']||'').trim(),
+        g:(r['ゲスト名']||r['宿泊者名']||'').trim(),
+        ci,co,n:parseInt(r['ゲスト数']||r['大人']||1),
+        s:(r['予約サイト']||'').trim(),nat:(r['国籍']||'').trim(),
+        sales:excl(r['販売']),commission:excl(r['OTA サービス料']),
+        cleaning:excl(r['クリーニング代']),net:excl(r['受取金']),
+        days:parseInt(r['合計日数']||0),prop
+      });
+    });
+  });
+  Object.keys(BK).forEach(t=>BK[t].sort((a,b)=>a.ci.localeCompare(b.ci)));
+}
+
+function parseCleaning(){
+  CH={};CM={};
+  parseCSV(_clText).forEach(r=>{
+    const rp=(r['ルーム']||'').trim();if(!rp)return;
+    const parts=rp.split('/');
+    const prop=parts[0]||'',tag=parts[1]||parts[0]||'';
+    if(!tag)return;
+    if(!ROOMS[tag]&&prop)ROOMS[tag]=prop;
+    const cl=(r['クリーナー']||'').trim()||'未割当';
+    const cm2=(r['コメント']||'').trim();
+    const raw=(r['清掃日']||'').trim();
+    if(!CH[tag])CH[tag]=[];
+    CH[tag].push({d:raw.replace(/-/g,'/'),c:cl,cm:cm2});
+    const nci=normDate(r['次回チェックイン日']||'');
+    if(nci)CM[nci+'_'+tag]={cl,sd:(r['同日入替']||'').trim()||'無',
+      cit:(r['到着予定時刻']||r['次回のチェックイン時間']||'').trim()||'—',
+      cot:(r['チェックアウト時間']||'').trim()||'—',cm:cm2,cd:raw.replace(/-/g,'/')};
+  });
+  Object.keys(CH).forEach(t=>CH[t].sort((a,b)=>a.d.localeCompare(b.d)));
+}
+
+// ════════════════════════════════════════════
+//  MONTHLY STATS
+// ════════════════════════════════════════════
+function getDays(y,m){return new Date(y,m,0).getDate();}
+
+function computeMS(){
+  MS={};
+  const savedExp=S.get(EXP_KEY)||{};
+  const tags=Object.keys(ROOMS);
+  // ④ count direct/subcon rooms (exclude offices)
+  const officeTags=new Set(cfg.offices.map(o=>o.tag));
+  let dR=0,sR=0;
+  tags.forEach(t=>{
+    if(officeTags.has(t))return;
+    (ROOMS[t]||'').includes('代行')?sR++:dR++;
+  });
+  const tR=dR+sR;
+
+  Object.keys(BK).forEach(tag=>{
+    if(officeTags.has(tag))return; // skip offices
+    const isSub=(ROOMS[tag]||'').includes('代行');
+    BK[tag].forEach(bk=>{
+      const ciD=new Date(bk.ci),coD=new Date(bk.co);
+      const totN=Math.round((coD-ciD)/86400000);
+      if(totN<=0)return;
+      let cur=new Date(ciD);
+      while(cur<coD){
+        const mEnd=new Date(cur.getFullYear(),cur.getMonth()+1,1);
+        const pEnd=mEnd<coD?mEnd:coD;
+        const nights=Math.round((pEnd-cur)/86400000);
+        const ratio=nights/totN;
+        const mk=cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0');
+        if(!MS[mk]){
+          const dm=getDays(cur.getFullYear(),cur.getMonth()+1);
+          const ex=savedExp[mk]||{};
+          const rent=ex.rent!==undefined?ex.rent:cfg.defaultRent;
+          const util=ex.util||0; // ③ total utility from utility data
+          MS[mk]={mk,dm,
+            d:{sales:0,net:0,days:0,gu:0,comm:0,cl:0,cnt:0},
+            s:{sales:0,net:0,days:0,gu:0,comm:0,cl:0,cnt:0},
+            rooms:{},ota:{},
+            exp:{rent,util,tot:rent+util}};
+        }
+        const ms=MS[mk];const tgt=isSub?ms.s:ms.d;
+        const isFirst=cur.getTime()===ciD.getTime();
+        const sp=Math.round(bk.sales*ratio),cp=Math.round(bk.commission*ratio),clp=Math.round(bk.cleaning*ratio);
+        const np=sp-cp-clp;
+        tgt.sales+=sp;tgt.comm+=cp;tgt.cl+=clp;tgt.net+=np;tgt.days+=nights;
+        if(isFirst){tgt.gu+=bk.n||0;tgt.cnt++;}
+        if(!ms.rooms[tag])ms.rooms[tag]={tag,prop:ROOMS[tag]||'',isSub,sales:0,comm:0,cl:0,net:0,days:0,cnt:0,gu:0};
+        const rm=ms.rooms[tag];
+        rm.sales+=sp;rm.comm+=cp;rm.cl+=clp;rm.net+=np;rm.days+=nights;
+        if(isFirst){rm.cnt++;rm.gu+=bk.n||0;}
+        const ota=bk.s||'不明';
+        if(!ms.ota[ota])ms.ota[ota]={name:ota,sales:0,comm:0,cnt:0};
+        ms.ota[ota].sales+=sp;ms.ota[ota].comm+=cp;
+        if(isFirst)ms.ota[ota].cnt++;
+        cur=mEnd;
+      }
+    });
+  });
+
+  Object.keys(MS).forEach(mk=>{
+    const ms=MS[mk];const d=ms.d,s=ms.s;
+    ms.tot={sales:d.sales+s.sales,net:d.net+s.net,days:d.days+s.days,cnt:d.cnt+s.cnt,comm:d.comm+s.comm,cl:d.cl+s.cl};
+    ms.occ={d:+(d.days/(dR*ms.dm||1)*100).toFixed(1),s:+(s.days/(sR*ms.dm||1)*100).toFixed(1),t:+(ms.tot.days/(tR*ms.dm||1)*100).toFixed(1)};
+    // ③ add utility costs
+    const utilData=S.get(UTIL_KEY)||{};
+    const utilMonth=utilData[mk]||{};
+    let totalUtil=0;
+    Object.values(utilMonth).forEach(r=>{totalUtil+=(parseInt(r.elec)||0)+(parseInt(r.gas)||0)+(parseInt(r.water)||0);});
+    ms.exp.util=totalUtil;
+    ms.exp.tot=ms.exp.rent+totalUtil;
+    ms.profit=ms.tot.net-ms.exp.tot;
+    // ② 稼働率順（高い順）
+    ms.roomList=Object.values(ms.rooms).sort((a,b)=>(b.days/ms.dm)-(a.days/ms.dm));
+    ms.otaList=Object.values(ms.ota).sort((a,b)=>b.comm-a.comm);
+    ms.dR=dR;ms.sR=sR;ms.tR=tR;
+  });
+}
+
+// ════════════════════════════════════════════
+//  ④ FILTER
+// ════════════════════════════════════════════
+function swSubTab(id,btn){
+  document.getElementById('revSubPane').style.display=id==='rev'?'block':'none';
+  document.getElementById('expSubPane').style.display=id==='exp'?'block':'none';
+  // Update button styles
+  const revBtn=document.getElementById('subRevBtn');const expBtn=document.getElementById('subExpBtn');
+  if(revBtn){revBtn.style.background=id==='rev'?'#fff':'#f5f5f5';revBtn.style.color=id==='rev'?'var(--p)':'var(--t2)';revBtn.style.borderBottom=id==='rev'?'3px solid var(--p)':'3px solid transparent';revBtn.style.fontWeight=id==='rev'?'600':'500';}
+  if(expBtn){expBtn.style.background=id==='exp'?'#fff':'#f5f5f5';expBtn.style.color=id==='exp'?'var(--p)':'var(--t2)';expBtn.style.borderBottom=id==='exp'?'3px solid var(--p)':'3px solid transparent';expBtn.style.fontWeight=id==='exp'?'600':'500';}
+  if(id==='exp')renderExpPane();
+}
+
+function renderExpPane(){
+  const el=document.getElementById('expContent');
+  if(!el)return;
+  if(!curM||!MS[curM]){el.innerHTML='<div class="nd">データなし</div>';return;}
+  const ms=MS[curM];const{exp,profit,tot}=ms;
+  el.innerHTML=`
+    <div class="sec"><h2>💸 支出入力</h2>
+      <div class="exprow">
+        <label>家賃:</label><input class="expinp" type="number" id="ri2" value="${exp.rent}" step="1000" onchange="updExp('rent',this.value)">
+      </div>
+      <div style="font-size:.85em;font-weight:600;margin-bottom:8px">⚡ 光熱費（部屋別）</div>
+      <div style="border:2px dashed var(--p);border-radius:9px;padding:12px;text-align:center;cursor:pointer;margin-bottom:10px;background:#fafbff;position:relative">
+        <input type="file" id="utilFile2" accept=".csv" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleUtilCSV(this.files)">
+        <div style="font-size:.88em;font-weight:600">電気代CSVをアップロード</div>
+        <div style="font-size:.72em;color:var(--t3);margin-top:2px">店舗名で自動マッチング</div>
+      </div>
+      <div class="util-room-grid" id="utilRoomGrid2"></div>
+    </div>
+    <div class="sec"><h2>収支サマリー</h2>
+      <table class="tbl"><thead><tr><th>項目</th><th class="r">金額</th></tr></thead><tbody>
+        <tr><td><b>実受取合計</b></td><td class="r" style="color:var(--green)"><b>${fmtF(tot.net)}</b></td></tr>
+        <tr><td>- 家賃</td><td class="r" style="color:var(--red)">-${fmtF(exp.rent)}</td></tr>
+        <tr><td>- 光熱費合計</td><td class="r" style="color:var(--red)">-${fmtF(exp.util)}</td></tr>
+        <tr class="prf"><td><b>営業利益</b></td><td class="r"><b>${fmtF(profit)}</b></td></tr>
+      </tbody></table>
+    </div>`;
+  // Render util grid in exp pane
+  const grid=document.getElementById('utilRoomGrid2');
+  if(!grid)return;
+  const utilData=S.get(UTIL_KEY)||{};
+  const utilMonth=utilData[curM]||{};
+  grid.innerHTML=Object.keys(ROOMS).sort().map(tag=>{
+    const d=utilMonth[tag]||{elec:0,gas:0,water:0};
+    return`<div class="util-room">
+      <div class="util-room-tag">${tag}</div>
+      <div class="util-inp-row"><span class="util-inp-lbl">電気</span><input class="util-inp" type="number" value="${d.elec||''}" placeholder="0" onchange="saveUtil('${tag}','elec',this.value)"></div>
+      <div class="util-inp-row"><span class="util-inp-lbl">ガス</span><input class="util-inp" type="number" value="${d.gas||''}" placeholder="0" onchange="saveUtil('${tag}','gas',this.value)"></div>
+      <div class="util-inp-row"><span class="util-inp-lbl">水道</span><input class="util-inp" type="number" value="${d.water||''}" placeholder="0" onchange="saveUtil('${tag}','water',this.value)"></div>
+    </div>`;
+  }).join('');
+}
+
+function setFilt(f,btn){
+  opsFilt=f;
+  document.querySelectorAll('.filt-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderOps();
+}
+
+function getFilteredData(ms){
+  if(!ms)return null;
+  if(opsFilt==='direct')return{...ms,tot:ms.d,occ:{t:ms.occ.d},showExp:true};
+  if(opsFilt==='subcon')return{...ms,tot:ms.s,occ:{t:ms.occ.s},showExp:false};
+  return{...ms,showExp:true};
+}
+
+// ════════════════════════════════════════════
+//  OPS RENDER
+// ════════════════════════════════════════════
+function renderOpsTabs(){
+  const months=Object.keys(MS).sort();
+  const el=document.getElementById('mlist');
+  if(!months.length){
+    el.innerHTML='<div style="padding:10px;font-size:.8em;color:#999">CSVを読み込んでください</div>';
+    document.getElementById('opsContent').innerHTML='<div class="nd">📂 右上の「CSV更新」からCSVを読み込んでください</div>';
+    return;
+  }
+  // ① 今月を自動選択、なければ直近月
+  const todayM=new Date().toISOString().substring(0,7);
+  if(!curM||!MS[curM]){
+    curM=months.includes(todayM)?todayM:months[months.length-1];
+  }
+  el.innerHTML=months.map(m=>`<button class="mtab ${m===curM?'on':''}" onclick="swM('${m}',this)">${m}</button>`).join('');
+  renderOps();
+}
+function swM(m,btn){
+  curM=m;
+  document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderOps();
+}
+
+function renderOps(){
+  const el=document.getElementById('opsContent');
+  if(!curM||!MS[curM]){el.innerHTML='<div class="nd">データなし</div>';return;}
+  const ms=MS[curM];
+  const fd=getFilteredData(ms);
+  const{d,s,exp,profit,roomList,otaList}=ms;
+  const tot=fd.tot;
+  const showExp=fd.showExp;
+  const snap=S.get(SNAP_KEY);const prev=snap?snap.data[curM]:null;
+  const tR=ms.tR||Object.keys(ROOMS).length;
+
+  // KPI
+  let occDays=tot.days||0,occTotal=tR*ms.dm||1;
+  if(opsFilt==='direct'){occDays=d.days;occTotal=ms.dR*ms.dm||1;}
+  else if(opsFilt==='subcon'){occDays=s.days;occTotal=ms.sR*ms.dm||1;}
+  const occRate=+(occDays/occTotal*100).toFixed(1);
+
+  // ① 前回値（スナップショット）
+  const prevSales=prev?.tot?.sales,prevNet=prev?.tot?.net,prevOcc=prev?.occ?.t,prevCnt=prev?.tot?.cnt;
+  const prevLbl=(v,isMoney=true)=>v!==undefined&&v!==null
+    ?`<div style="margin-top:5px;font-size:.67em;color:var(--t3)">前回: ${isMoney?fmtF(v):v+(typeof v==='number'&&v<100?'%':'件')}</div>`:'';
+
+  const kpiH=`
+    <div class="kgrid">
+      <div class="kcard"><div class="klbl">売上（税抜）</div><div class="kval">${fmtF(tot.sales)}</div>${pv(tot.sales,prevSales)}${prevLbl(prevSales)}</div>
+      <div class="kcard green"><div class="klbl">実受取</div><div class="kval">${fmtF(tot.net)}</div>${pv(tot.net,prevNet)}${prevLbl(prevNet)}</div>
+      <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${occRate}%</div><div class="ksub">${occDays}日/${occTotal}日</div>${pv(occRate,prevOcc)}${prevLbl(prevOcc,false)}</div>
+      <div class="kcard"><div class="klbl">予約件数</div><div class="kval">${tot.cnt}件</div>${pv(tot.cnt,prevCnt)}${prevLbl(prevCnt,false)}</div>
+    </div>`;
+
+  // OTA
+  const otaColors=['#667eea','#f093fb','#4CAF50','#FF9800','#f5576c','#764ba2'];
+  const otaH=otaList.length?`<div class="sec"><h2>OTA別コミッション</h2><div class="ota-grid">${otaList.map((o,i)=>`
+    <div class="ota-card" style="border-top-color:${otaColors[i%otaColors.length]}">
+      <div class="ota-name">${o.name}</div>
+      <div class="ota-row"><span>コミッション</span><span style="color:var(--red);font-weight:600">-${fmtF(o.comm)}</span></div>
+      <div class="ota-row"><span>件数</span><span style="color:var(--p);font-weight:600">${o.cnt}件</span></div>
+      <div class="ota-row"><span>売上</span><span style="font-weight:600">${fmtF(o.sales)}</span></div>
+    </div>`).join('')}</div></div>`:'';
+
+  // ④ Side-by-side or single
+  let cmpH='';
+  if(opsFilt==='all'){
+    cmpH=`<div class="sec"><h2>直営 vs 代行</h2>
+      <div class="side-grid">
+        <div class="side-panel direct">
+          <h3>直営</h3>
+          <div class="kgrid" style="grid-template-columns:repeat(2,1fr)">
+            <div class="kcard"><div class="klbl">売上</div><div class="kval">${fmtF(d.sales)}</div></div>
+            <div class="kcard green"><div class="klbl">実受取</div><div class="kval">${fmtF(d.net)}</div></div>
+            <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${ms.occ.d}%</div><div class="ksub">${d.days}日/${ms.dR*ms.dm}日</div></div>
+            <div class="kcard"><div class="klbl">予約件数</div><div class="kval">${d.cnt}件</div></div>
+          </div>
+        </div>
+        <div class="side-panel subcon">
+          <h3>代行</h3>
+          <div class="kgrid" style="grid-template-columns:repeat(2,1fr)">
+            <div class="kcard" style="border-left-color:var(--pink)"><div class="klbl">売上</div><div class="kval">${fmtF(s.sales)}</div></div>
+            <div class="kcard green"><div class="klbl">実受取</div><div class="kval">${fmtF(s.net)}</div></div>
+            <div class="kcard" style="border-left-color:var(--pink)"><div class="klbl">稼働率</div><div class="kval">${ms.occ.s}%</div><div class="ksub">${s.days}日/${ms.sR*ms.dm}日</div></div>
+            <div class="kcard" style="border-left-color:var(--pink)"><div class="klbl">予約件数</div><div class="kval">${s.cnt}件</div></div>
+          </div>
+        </div>
+      </div>
+      
+    </div>`;
+  } else {
+    const lbl=opsFilt==='direct'?'直営':'代行';
+    const color=opsFilt==='direct'?'var(--p)':'var(--pink)';
+    cmpH=`<div class="sec"><h2>${lbl}のみ</h2>
+      <div class="kgrid">
+        <div class="kcard" style="border-left-color:${color}"><div class="klbl">コミッション</div><div class="kval" style="color:var(--red)">-${fmtF(tot.comm)}</div></div>
+        <div class="kcard" style="border-left-color:${color}"><div class="klbl">清掃費</div><div class="kval" style="color:var(--orange)">-${fmtF(tot.cl)}</div></div>
+        <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${occRate}%</div></div>
+        <div class="kcard" style="border-left-color:${color}"><div class="klbl">ゲスト数</div><div class="kval">${tot.gu||0}名</div></div>
+      </div>
+    </div>`;
+  }
+
+  // Waterfall
+  const wfH=`<div class="sec"><h2>売上内訳</h2>
+    <div class="wf-row main"><span class="wf-lbl">💰 売上（税抜）</span><span class="wf-val neutral">${fmtF(tot.sales)}</span></div>
+    <div class="wf-row sub"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--red)">- コミッション</span><span class="wf-val minus">-${fmtF(tot.comm)}</span></div>
+    <div class="wf-row result"><span class="wf-arrow">└</span><span class="wf-lbl">= 実受取</span><span class="wf-val plus">${fmtF(tot.net)}</span></div>
+    <div class="wf-row sub2"><span class="wf-arrow">├</span><span class="wf-lbl" style="color:var(--t2)">内：宿泊費</span><span class="wf-val neutral">${fmtF(tot.net-tot.cl)}</span></div>
+    <div class="wf-row sub2"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--t2)">内：清掃費</span><span class="wf-val neutral">${fmtF(tot.cl)}</span></div>
+  </div>`;
+
+  // ③ Expense + Utility
+  const expH=showExp?`<div class="sec"><h2>支出</h2>
+    <div class="exprow">
+      <label>家賃:</label><input class="expinp" type="number" id="ri" value="${exp.rent}" step="1000" onchange="updExp('rent',this.value)">
+    </div>
+    <div class="util-section">
+      <div style="font-size:.82em;font-weight:600;margin-bottom:7px">⚡ 光熱費（部屋別）</div>
+      <div class="util-upload" id="utilUpZone">
+        <input type="file" id="utilFile" accept=".csv" onchange="handleUtilCSV(this.files)">
+        <div style="font-size:.85em;font-weight:600">電気代CSVをアップロード</div>
+        <div style="font-size:.72em;color:var(--t3);margin-top:2px">店舗名で自動マッチング</div>
+      </div>
+      <div class="util-room-grid" id="utilRoomGrid"></div>
+    </div>
+    <div style="margin-top:12px">
+      <table class="tbl"><thead><tr><th>項目</th><th class="r">金額</th></tr></thead><tbody>
+        <tr><td><b>実受取合計</b></td><td class="r" style="color:var(--green)"><b>${fmtF(tot.net)}</b></td></tr>
+        <tr><td>- 家賃</td><td class="r" style="color:var(--red)">-${fmtF(exp.rent)}</td></tr>
+        <tr><td>- 光熱費合計</td><td class="r" style="color:var(--red)">-${fmtF(exp.util)}</td></tr>
+        <tr class="prf"><td><b>営業利益</b></td><td class="r"><b>${fmtF(profit)}</b></td></tr>
+      </tbody></table>
+    </div>
+  </div>`:'';
+
+  // ① Gauge
+  const gaugeH=`<div class="sec"><h2>稼働率</h2>
+    <div class="grows">
+      ${opsFilt!=='subcon'?`<div class="gauge"><div class="glbl">直営</div><div class="gc ${oc(ms.occ.d)}">${ms.occ.d}%</div></div>`:''}
+      ${opsFilt!=='direct'?`<div class="gauge"><div class="glbl">代行</div><div class="gc ${oc(ms.occ.s)}">${ms.occ.s}%</div></div>`:''}
+      <div class="gauge"><div class="glbl">全体</div><div class="gc ${oc(ms.occ.t)}">${ms.occ.t}%</div></div>
+    </div>
+  </div>`;
+
+  // Rooms
+  const filteredRooms=opsFilt==='direct'?roomList.filter(r=>!r.isSub):opsFilt==='subcon'?roomList.filter(r=>r.isSub):roomList;
+  const roomH=`<div class="sec"><h2>部屋別詳細 <span class="pill">${filteredRooms.length}部屋</span></h2>
+    <div style="font-size:.7em;color:var(--t3);margin-bottom:7px">タップで内訳を表示</div>
+    <div class="room-list">${filteredRooms.map((rm,i)=>{
+      const occR=+(rm.days/ms.dm*100).toFixed(1);
+      const unitP=Math.round(rm.net/ms.dm);
+      return`<div class="room-card ${rm.isSub?'sub':''}">
+        <div class="room-hdr" onclick="togRoom('rd_${i}','ti_${i}')">
+          <div style="display:flex;align-items:center">
+            <span class="room-tag">${rm.tag}</span>
+            <span class="occ-badge" style="background:${occBg(occR)}">${occR}%</span>
+            ${rm.isSub?'<span style="font-size:.65em;color:var(--pink);font-weight:600;margin-left:4px">代行</span>':''}
+          </div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="font-size:.82em;color:var(--t2);font-family:ui-monospace,monospace">${fmtF(rm.sales)}</span>
+            <span id="ti_${i}" style="font-size:.72em;color:var(--t3)">▼</span>
+          </div>
+        </div>
+        <div class="room-detail" id="rd_${i}">
+          <div class="rs-grid">
+            <div class="rs"><div class="rs-lbl">稼働日数</div><div class="rs-val">${rm.days}日<span style="font-size:.68em;color:var(--t3)">/${ms.dm}日</span></div><div class="rs-sub">稼働率 ${occR}%</div></div>
+            <div class="rs"><div class="rs-lbl">予約件数</div><div class="rs-val">${rm.cnt}件</div><div class="rs-sub">${rm.gu}名</div></div>
+            <div class="rs"><div class="rs-lbl">平均単価</div><div class="rs-val">${fmtF(unitP)}</div><div class="rs-sub">実受取÷${ms.dm}日</div></div>
+            <div class="rs"><div class="rs-lbl">清掃費</div><div class="rs-val" style="color:var(--orange)">${fmtF(rm.cl)}</div></div>
+          </div>
+          <div class="wf-row main" style="font-size:.8em"><span class="wf-lbl">売上</span><span class="wf-val neutral">${fmtF(rm.sales)}</span></div>
+          <div class="wf-row sub" style="font-size:.8em"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--red)">- コミッション</span><span class="wf-val minus">-${fmtF(rm.comm)}</span></div>
+          <div class="wf-row sub" style="font-size:.8em"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--orange)">- 清掃費</span><span class="wf-val" style="color:var(--orange)">-${fmtF(rm.cl)}</span></div>
+          <div class="wf-row result" style="font-size:.8em"><span class="wf-arrow">└</span><span class="wf-lbl">= 実受取</span><span class="wf-val plus">${fmtF(rm.net)}</span></div>
+        </div>
+      </div>`;
+    }).join('')}</div>
+  </div>`;
+
+  // ③ 表示順変更
+  el.innerHTML=kpiH+otaH+cmpH+roomH+wfH+expH;
+  renderUtilGrid();
+}
+
+function mkChart(d,s){
+  const bD=[{l:'売上',d:d.sales,s:s.sales},{l:'実受取',d:d.net,s:s.net},{l:'コミッション',d:d.comm,s:s.comm},{l:'清掃費',d:d.cl,s:s.cl}];
+  const mV=Math.max(...bD.map(b=>Math.max(b.d,b.s)),1);
+  const bw=52,bh=105,gap=6,pL=4,pB=20;
+  const sW=(bw*2+gap)*bD.length+pL*2+20,sH=bh+pB+14;
+  const bars=bD.map((b,i)=>{
+    const x=pL+i*(bw*2+gap+8);
+    const dh=Math.round(b.d/mV*bh),sh=Math.round(b.s/mV*bh);
+    return`<rect x="${x}" y="${bh-dh+5}" width="${bw}" height="${dh}" fill="#667eea" rx="3"/>
+    <rect x="${x+bw+4}" y="${bh-sh+5}" width="${bw}" height="${sh}" fill="#f093fb" rx="3"/>
+    <text x="${x+bw+2}" y="${bh+18}" text-anchor="middle" font-size="8" fill="#555">${b.l}</text>`;
+  }).join('');
+  return`<div class="chart-wrap"><svg width="${sW}" height="${sH}" style="min-width:${sW}px">
+    <rect x="2" y="2" width="10" height="7" fill="#667eea" rx="1"/><text x="15" y="9" font-size="8" fill="#555">直営</text>
+    <rect x="44" y="2" width="10" height="7" fill="#f093fb" rx="1"/><text x="57" y="9" font-size="8" fill="#555">代行</text>
+    ${bars}</svg></div>`;
+}
+
+function togRoom(rdId,tiId){
+  const rd=document.getElementById(rdId),ti=document.getElementById(tiId);
+  if(!rd)return;
+  rd.classList.toggle('open');
+  if(ti)ti.textContent=rd.classList.contains('open')?'▲':'▼';
+}
+
+function updExp(key,val){
+  const v=parseInt(val)||0;
+  const saved=S.get(EXP_KEY)||{};
+  if(!saved[curM])saved[curM]={rent:cfg.defaultRent,util:0};
+  saved[curM][key]=v;
+  S.set(EXP_KEY,saved);
+  if(MS[curM]){
+    MS[curM].exp[key]=v;
+    MS[curM].exp.tot=MS[curM].exp.rent+MS[curM].exp.util;
+    MS[curM].profit=MS[curM].tot.net-MS[curM].exp.tot;
+    renderOps();
+  }
+}
+
+// ════════════════════════════════════════════
+//  ③ UTILITY
+// ════════════════════════════════════════════
+// Normalize full-width chars to half-width for matching
+function normText(s){
+  return s.replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+           .replace(/　/g,' ').trim();
+}
+
+function handleUtilCSV(files){
+  if(!files.length)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const rows=parseCSV(ev.target.result);
+    const utilData=S.get(UTIL_KEY)||{};
+    let matched=0;
+    rows.forEach(row=>{
+      const shopName=normText(row['店舗名']||'');
+      const billMonth=normDate((row['請求月']||'').trim()+'/01').substring(0,7);
+      // Try to match shop name to room tag
+      let matchedTag=null;
+      Object.keys(ROOMS).forEach(tag=>{
+        const normTag=normText(tag);
+        // Try partial match
+        if(shopName&&(shopName.includes(normTag)||normTag.includes(shopName))){
+          matchedTag=tag;
+        }
+        // Also try: strip spaces
+        const shopNoSp=shopName.replace(/\s/g,'');
+        const tagNoSp=normTag.replace(/\s/g,'');
+        if(shopNoSp&&(shopNoSp.includes(tagNoSp)||tagNoSp.includes(shopNoSp))){
+          matchedTag=tag;
+        }
+      });
+      if(matchedTag&&billMonth){
+        const amount=parseInt(row['請求金額合計']||0);
+        if(!utilData[billMonth])utilData[billMonth]={};
+        if(!utilData[billMonth][matchedTag])utilData[billMonth][matchedTag]={elec:0,gas:0,water:0};
+        utilData[billMonth][matchedTag].elec=amount;
+        matched++;
+      }
+    });
+    S.set(UTIL_KEY,utilData);
+    computeMS();
+    renderOps();
+    alert(`✅ ${matched}件の電気代を取込みました`);
+  };
+  r.readAsText(files[0],'UTF-8');
+}
+
+function renderUtilGrid(){
+  const grid=document.getElementById('utilRoomGrid');
+  if(!grid||!curM)return;
+  const utilData=S.get(UTIL_KEY)||{};
+  const utilMonth=utilData[curM]||{};
+  const tags=Object.keys(ROOMS).sort();
+  grid.innerHTML=tags.map(tag=>{
+    const d=utilMonth[tag]||{elec:0,gas:0,water:0};
+    return`<div class="util-room">
+      <div class="util-room-tag">${tag}</div>
+      <div class="util-inp-row"><span class="util-inp-lbl">電気</span><input class="util-inp" type="number" value="${d.elec||''}" placeholder="0" onchange="saveUtil('${tag}','elec',this.value)"></div>
+      <div class="util-inp-row"><span class="util-inp-lbl">ガス</span><input class="util-inp" type="number" value="${d.gas||''}" placeholder="0" onchange="saveUtil('${tag}','gas',this.value)"></div>
+      <div class="util-inp-row"><span class="util-inp-lbl">水道</span><input class="util-inp" type="number" value="${d.water||''}" placeholder="0" onchange="saveUtil('${tag}','water',this.value)"></div>
+    </div>`;
+  }).join('');
+}
+
+function saveUtil(tag,type,val){
+  const v=parseInt(val)||0;
+  const utilData=S.get(UTIL_KEY)||{};
+  if(!utilData[curM])utilData[curM]={};
+  if(!utilData[curM][tag])utilData[curM][tag]={elec:0,gas:0,water:0};
+  utilData[curM][tag][type]=v;
+  S.set(UTIL_KEY,utilData);
+  // Recalc utility total
+  if(MS[curM]){
+    let total=0;
+    Object.values(utilData[curM]).forEach(r=>{total+=(r.elec||0)+(r.gas||0)+(r.water||0);});
+    MS[curM].exp.util=total;
+    MS[curM].exp.tot=MS[curM].exp.rent+total;
+    MS[curM].profit=MS[curM].tot.net-MS[curM].exp.tot;
+  }
+}
+
+// Drag & drop for util upload
+setTimeout(()=>{
+  const z=document.getElementById('utilUpZone');
+  if(z){
+    z.addEventListener('dragover',e=>{e.preventDefault();z.style.background='#f0f0ff';});
+    z.addEventListener('dragleave',()=>{z.style.background='#fafbff';});
+    z.addEventListener('drop',e=>{e.preventDefault();z.style.background='#fafbff';handleUtilCSV(e.dataTransfer.files);});
+  }
+},1000);
+
+// ════════════════════════════════════════════
+//  CLEANING
+// ════════════════════════════════════════════
+// ③ Selection-based bulk complete
+function getSelectedTags(){
+  const tags=[];
+  document.querySelectorAll('.card-sel-chk:checked').forEach(el=>tags.push(el.dataset.tag));
+  return tags;
+}
+function selectAllCards(val){
+  document.querySelectorAll('.card-sel-chk').forEach(el=>{el.checked=val;});
+}
+function bulkCompleteSelected(){
+  const ds=document.getElementById('cleanDate').value;
+  const tags=getSelectedTags();
+  if(!tags.length){alert('カードを選択してください');return;}
+  if(!confirm(tags.length+'件を完了にしますか？'))return;
+  const c=S.get(CHK_KEY)||{};
+  tags.forEach(tag=>{
+    c[ds+'_'+tag]='1';
+    const bks=BK[tag]||[];
+    const nextCI=bks.map(b=>b.ci).filter(ci=>ci>ds).sort()[0];
+    let cur=new Date(ds);cur.setDate(cur.getDate()+1);
+    const limit=nextCI?new Date(nextCI):null;
+    let safety=0;
+    while(safety<60){
+      const dStr=cur.toISOString().split('T')[0];
+      c[dStr+'_'+tag]='1';safety++;
+      if(limit&&cur>=limit)break;if(!limit)break;
+      cur.setDate(cur.getDate()+1);
+    }
+  });
+  S.set(CHK_KEY,c);renderClean();
+}
+
+function chgDate(d){const inp=document.getElementById('cleanDate');const dt=new Date(inp.value);dt.setDate(dt.getDate()+d);inp.value=dt.toISOString().split('T')[0];renderClean();}
+// ② Multi-select filter functions
+function toggleProp(p){
+  if(p==='all'){cF.props=new Set(['all']);}
+  else{cF.props.delete('all');if(cF.props.has(p))cF.props.delete(p);else cF.props.add(p);if(cF.props.size===0)cF.props=new Set(['all']);}
+  renderClean();
+}
+function toggleState(sf){
+  if(sf==='all'){cF.states=new Set(['all']);}
+  else{cF.states.delete('all');if(cF.states.has(sf))cF.states.delete(sf);else cF.states.add(sf);if(cF.states.size===0)cF.states=new Set(['all']);}
+  document.querySelectorAll('[data-sf]').forEach(b=>{b.classList.toggle('on',cF.states.has(b.dataset.sf)||(b.dataset.sf==='all'&&cF.states.has('all')));});
+  renderClean();
+}
+function toggleCleaner(cl){
+  if(cl==='all'){cF.cleaners=new Set(['all']);}
+  else{cF.cleaners.delete('all');if(cF.cleaners.has(cl))cF.cleaners.delete(cl);else cF.cleaners.add(cl);if(cF.cleaners.size===0)cF.cleaners=new Set(['all']);}
+  renderClean();
+}
+function setSF(btn,sf){toggleState(sf);}
+function getRoomSt(tag,ds){
+  const bks=BK[tag]||[];const d=new Date(ds);
+  for(const b of bks){
+    const ci=new Date(b.ci),co=new Date(b.co);
+    if(b.ci===ds){const cm=CM[ds+'_'+tag];if(!cm)return{type:'danger',b};if(cm.cl==='未割当')return{type:'unassigned',b,cm};if(cm.sd==='有')return{type:'warn',b,cm};return{type:'checkin',b,cm};}
+    if(ci<d&&d<co)return{type:'staying',b,nb:bks.find(bb=>new Date(bb.ci)>d)};
+  }
+  const today=ds.replace(/-/g,'/');
+  const hist=(CH[tag]||[]).filter(h=>new Date(h.d.replace(/\//g,'-'))<=d);
+  const lc=hist.length?hist[hist.length-1]:null;
+  const nb=bks.find(b=>new Date(b.ci)>d);
+  const ce=(CH[tag]||[]).find(e=>e.d===today);
+  if(ce)return{type:'cleanonly',lc,nb,cleaner:ce.c,cmt:ce.cm||''};
+  return{type:'vacant',lc,nb};
+}
+function getClr(tag,ds){const cm=CM[ds+'_'+tag];if(cm)return cm.cl;const ce=(CH[tag]||[]).find(e=>e.d===ds.replace(/-/g,'/'));return ce?ce.c:null;}
+function isChk(ds,tag){try{const c=S.get(CHK_KEY)||{};return c[ds+'_'+tag]==='1';}catch(e){return false;}}
+function getPhotoUrl(ds,tag){try{const p=S.get(PHOTO_KEY)||{};return p[ds+'_'+tag]||'';}catch(e){return'';}}
+function savePhotoUrl(ds,tag,url){
+  try{const p=S.get(PHOTO_KEY)||{};p[ds+'_'+tag]=url;S.set(PHOTO_KEY,p);}catch(e){}
+}
+// ④ Confirm helper
+let _confirmCb=null;
+function showConfirm(title,msg,cb){
+  if(confirm(title+'\n'+msg)){cb(true);}else{cb(false);}
+}
+
+function togChk(ds,tag,val,chkEl){
+  // ④ 2-step confirm
+  if(chkEl)chkEl.checked=!val; // revert until confirmed
+  const action=val?'完了にする':'完了を解除する';
+  showConfirm('確認',`${tag}を${action}しますか？`,ok=>{
+    if(!ok){if(chkEl)chkEl.checked=!val;return;}
+    try{
+      const c=S.get(CHK_KEY)||{};
+      c[ds+'_'+tag]=val?'1':'0';
+      if(val){
+        const bks=BK[tag]||[];
+        const nextCI=bks.map(b=>b.ci).filter(ci=>ci>ds).sort()[0];
+        let cur=new Date(ds);cur.setDate(cur.getDate()+1);
+        const limit=nextCI?new Date(nextCI):null;
+        let safety=0;
+        while(safety<60){
+          const dStr=cur.toISOString().split('T')[0];
+          c[dStr+'_'+tag]='1';safety++;
+          if(limit&&cur>=limit)break;if(!limit)break;
+          cur.setDate(cur.getDate()+1);
+        }
+      }
+      S.set(CHK_KEY,c);
+    }catch(e){}
+    renderClean();
+  });
+}
+function resetChks(){
+  const ds=document.getElementById('cleanDate').value;
+  try{const c=S.get(CHK_KEY)||{};Object.keys(ROOMS).forEach(t=>{delete c[ds+'_'+t];});S.set(CHK_KEY,c);}catch(e){}
+  renderClean();
+}
+const fd2=s=>{if(!s)return'—';const d=new Date(s.replace(/\//g,'-'));return(d.getMonth()+1)+'/'+(d.getDate());};
+const diffD=(a,b)=>Math.round((new Date(b)-new Date(a))/86400000);
+
+function buildCard(tag,r,ds){
+  const chk=isChk(ds,tag);
+  // ③ Determine status line color and label
+  function getStatusLine(){
+    const type=r.type;
+    if(type==='staying') return{cls:'sl-black',lcls:'sl-label-black',icon:'⬛',text:'滞在中'};
+    if(['checkin','warn','unassigned','danger'].includes(type)){
+      if(chk) return{cls:'sl-green',lcls:'sl-label-green',icon:'✅',text:'当日IN・🧹済'};
+      else return{cls:'sl-red',lcls:'sl-label-red',icon:'🔴',text:'当日IN・🧹未'};
+    }
+    if(type==='cleanonly'){
+      if(chk) return{cls:'sl-green',lcls:'sl-label-green',icon:'✅',text:'🧹のみ'};
+      else{
+        const nbIn=r.nb?`（IN ${fd2(r.nb.ci)}）`:'';
+        return{cls:'sl-red',lcls:'sl-label-red',icon:'🔴',text:'🧹のみ'+nbIn};
+      }
+    }
+    if(type==='vacant'){
+      if(chk) return{cls:'sl-green',lcls:'sl-label-green',icon:'✅',text:'空室・🧹済'};
+      return{cls:'sl-red',lcls:'sl-label-red',icon:'🔴',text:'空室・🧹未（清掃予定なし）'};
+    }
+    return{cls:'sl-gray',lcls:'sl-label-gray',icon:'○',text:'空室'};
+  }
+  const sl=getStatusLine();
+  const statusBar=`<div class="status-line ${sl.cls}"></div><div class="status-label ${sl.lcls}">${sl.icon} ${sl.text}</div>`;
+  const done=chk?' done':'';const db=chk?'<span class="sb bdone">完了</span>':'';
+  const photoUrl=getPhotoUrl(ds,tag);
+  const photoBox=chk?`<div style="margin-top:5px;display:flex;align-items:center;gap:5px">
+    <span style="font-size:.67em;color:var(--t3);flex-shrink:0">📎</span>
+    <input style="border:1px solid var(--b);border-radius:4px;padding:2px 6px;font-size:.67em;width:100%;outline:none;color:var(--t2)"
+      placeholder="GoogleドライブURLをペースト"
+      value="${photoUrl.replace(/"/g,'&quot;')}"
+      onclick="event.stopPropagation()"
+      onchange="savePhotoUrl('${ds}','${tag}',this.value)"
+      onblur="savePhotoUrl('${ds}','${tag}',this.value)">
+    ${photoUrl?`<a href="${photoUrl}" target="_blank" style="font-size:.67em;color:var(--p);white-space:nowrap;flex-shrink:0">開く</a>`:''}
+  </div>`:'';
+  const chkBox=`<label class="rchk"><input type="checkbox" ${chk?'checked':''} onchange="togChk('${ds}','${tag}',this.checked)"><span>${chk?'完了済み':'完了にする'}</span></label>${photoBox}`;
+  const selChk=!chk?`<div class="sel-row"><input type="checkbox" class="card-sel-chk sel-chk" data-tag="${tag}" onclick="event.stopPropagation()"><span style="font-size:.7em;color:var(--t2)">選択</span></div>`:'';
+  const clsM={checkin:'ci',warn:'wn',unassigned:'un',danger:'dg',staying:'st',cleanonly:'co',vacant:'vc'};
+  const lblM={checkin:'当日IN',warn:'同日入替',unassigned:'未割当',danger:'要確認',staying:'滞在中',cleanonly:'清掃予定',vacant:'空室'};
+  const bM={checkin:'bci',warn:'bwn',unassigned:'bun',danger:'bdg',staying:'bst',cleanonly:'bco',vacant:'bvc'};
+  const k=clsM[r.type]||'vc',bc=bM[r.type]||'bvc',bl=lblM[r.type]||'空室';
+  const bgM={ci:'var(--ci-bg)',wn:'var(--wn-bg)',dg:'var(--dg-bg)',un:'var(--un-bg)',st:'var(--st-bg)',vc:'var(--vc-bg)',co:'var(--co-bg)'};
+  const brdM={ci:'#639922',wn:'#BA7517',dg:'#E24B4A',un:'#378ADD',st:'#888780',vc:'#7F77DD',co:'#1D9E75'};
+  let top='',bot='';
+  if(['checkin','warn','unassigned','danger'].includes(r.type)){
+    top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span></div><div class="rdates">IN:${fd2(r.b.ci)} → OUT:${fd2(r.b.co)}</div>`; // ⑧⑰
+    const cm=r.cm;
+    bot=`<div class="rclr"><div class="rcname"><div class="rcico">人</div>${cm?cm.cl:'タスクなし'}</div>${cm?`<span class="rct">CO ${cm.cot}/CI ${cm.cit}</span>`:''}</div>${cm&&cm.cd?`<div style="font-size:.65em;color:#999;margin-top:2px">清掃: ${cm.cd}</div>`:''}${cm&&cm.cm?`<div class="rcmt">${cm.cm}</div>`:''}${chkBox}`;
+  } else if(r.type==='staying'){
+    const dl=diffD(ds,r.b.co);
+    top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span><span>${r.b.nat}</span><span>${r.b.s}</span></div><div class="rdates">OUT:${fd2(r.b.co)}（あと${dl}泊）</div>${r.nb?`<div style="font-size:.65em;color:#085041;margin-top:2px;font-weight:500">次IN:${fd2(r.nb.ci)} ${r.nb.g}</div>`:''}`;
+    const lcDaysSt=r.lc?diffD(r.lc.d.replace(/\//g,'-'),ds):null;
+    const lastHSt=r.lc?`<span style="font-size:.67em;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 5px;margin-top:2px;display:inline-block">📅 最終: ${fd2(r.lc.d)}（${lcDaysSt}日前）</span>`:'<span style="font-size:.65em;color:#999">清掃履歴なし</span>';
+    bot=lastHSt;
+  } else if(r.type==='cleanonly'){
+    top=r.nb?`<div class="rg">${r.nb.g}</div><div class="rm2"><span>${r.nb.n||'?'}名</span><span>${r.nb.nat||''}</span></div><div class="rdates">次IN:${fd2(r.nb.ci)}</div>`:`<div class="rg" style="color:#999">次予約なし</div>`;
+    bot=`<div class="rcname"><div class="rcico">人</div>${r.cleaner||'未割当'}</div>${r.cmt?`<div class="rcmt">${r.cmt}</div>`:''}${chkBox}`;
+  } else {
+    top=r.nb?`<div class="rg">${r.nb.g}</div><div class="rm2"><span>${r.nb.n||'?'}名</span><span>${r.nb.nat||''}</span></div><div class="rdates">次IN:${fd2(r.nb.ci)}</div>`:`<div class="rg" style="color:#999">次予約なし</div>`;
+    const lcStDays=r.lc?diffD(r.lc.d.replace(/\//g,'-'),ds):null;
+    bot=r.lc?`<span style="font-size:.67em;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 6px;display:inline-block">📅 最終清掃: ${fd2(r.lc.d)}（${lcStDays}日前）</span>`:'<span style="font-size:.65em;color:#999">清掃履歴なし</span>';
+  }
+  // Use status line color as border-left
+  const borderColor=sl.cls==='sl-green'?'#2e7d32':sl.cls==='sl-red'?'#c62828':sl.cls==='sl-black'?'#212121':'#9e9e9e';
+  const bgColor=sl.cls==='sl-green'?'#f0fff4':sl.cls==='sl-red'?'#fff5f5':sl.cls==='sl-black'?'#f5f5f5':'#fafafa';
+  // スタンプ：滞在中→「滞在中」、清掃済→「清掃完了」
+  let stampHtml='';
+  if(r.type==='staying') stampHtml='<div class="stamp" style="color:rgba(33,33,33,0.18);border-color:rgba(33,33,33,0.18)">滞在中</div>';
+  else if(chk) stampHtml='<div class="stamp">清掃完了</div>';
+  return`<div class="rc" data-tag="${tag}" style="border-left:5px solid ${borderColor}">
+    ${statusBar}
+    ${!chk?selChk:''}
+    <div class="rc-top stamp-wrap" style="background:${bgColor}">
+      ${stampHtml}
+      <div class="rc-top-hdr"><span class="rtag">${tag}</span><div class="sbs"><span class="sb ${bc}">${bl}</span></div></div>
+      ${top}
+    </div><div class="rc-bot">${bot}</div>
+  </div>`;
+}
+
+function renderClean(){
+  const ds=document.getElementById('cleanDate').value;if(!ds)return;
+  const tags=Object.keys(ROOMS);
+  if(!tags.length){document.getElementById('cleanMain').innerHTML='<div class="nd">CSVを読み込んでください</div>';return;}
+  // ② Multi-select props
+  const propSet=['all',...new Set(Object.values(ROOMS))];
+  document.getElementById('propBar').innerHTML=propSet.map(p=>{
+    const lbl=p==='all'?'全て':p.replace(/^\d+_/,'').replace('代行_','代行/');
+    const isOn=cF.props.has(p)||(p==='all'&&cF.props.has('all'));
+    return`<button class="mfb ${isOn?'on':''}" onclick="toggleProp('${p}')">${lbl}</button>`;
+  }).join('');
+  const cS=new Set(['all','未割当']);
+  tags.forEach(t=>{const c=getClr(t,ds);if(c&&c!=='未割当')cS.add(c);});
+  document.getElementById('clBar').innerHTML=[...cS].map(c=>{
+    const isOn=cF.cleaners.has(c)||(c==='all'&&cF.cleaners.has('all'));
+    return`<button class="mfb ${isOn?'on':''}" onclick="toggleCleaner('${c}')">${c==='all'?'全員':c}</button>`;
+  }).join('');
+  document.getElementById('clRow').style.display=cS.size>2?'flex':'none';
+  let cnt={t:tags.length,ci_wait:0,ci_done:0,st:0,co_wait:0,co_done:0,vc_done:0,vc_wait:0,wn:0,dg:0};
+  tags.forEach(t=>{
+    const r=getRoomSt(t,ds);const chkT=isChk(ds,t);
+    if(['checkin','warn','unassigned','danger'].includes(r.type)){chkT?cnt.ci_done++:cnt.ci_wait++;}
+    if(r.type==='staying')cnt.st++;
+    if(r.type==='cleanonly'){chkT?cnt.co_done++:cnt.co_wait++;}
+    if(r.type==='vacant'){chkT?cnt.vc_done++:cnt.vc_wait++;}
+    if(r.type==='warn'||r.type==='unassigned')cnt.wn++;
+    if(r.type==='danger')cnt.dg++;
+  });
+  document.getElementById('csum').innerHTML=`
+    <div class="sc t"><div class="sclbl">全部屋</div><div class="scval">${cnt.t}</div><div class="scb">合計</div></div>
+    <div class="sc dg"><div class="sclbl">当日IN・🧹未</div><div class="scval" style="color:var(--red)">${cnt.ci_wait}</div><div class="scb">清掃待ち</div></div>
+    <div class="sc ci"><div class="sclbl">当日IN・🧹済</div><div class="scval" style="color:var(--green)">${cnt.ci_done}</div><div class="scb">清掃完了</div></div>
+    <div class="sc st"><div class="sclbl">滞在中</div><div class="scval">${cnt.st}</div><div class="scb">宿泊中</div></div>
+    <div class="sc dg"><div class="sclbl">🧹のみ</div><div class="scval" style="color:var(--red)">${cnt.co_wait}</div><div class="scb">清掃待ち</div></div>
+    <div class="sc dg"><div class="sclbl">空室・🧹未</div><div class="scval" style="color:var(--red)">${cnt.vc_wait}</div><div class="scb">清掃待ち</div></div>
+    <div class="sc ci"><div class="sclbl">空室・🧹済</div><div class="scval" style="color:var(--green)">${cnt.vc_done}</div><div class="scb">完了</div></div>
+    <div class="sc wn"><div class="sclbl">要注意</div><div class="scval">${cnt.wn}</div><div class="scb">同日入替等</div></div>`;
+  const ord={danger:0,unassigned:1,warn:2,checkin:3,cleanonly:4,staying:5,vacant:6};
+  const grouped={};
+  tags.forEach(tag=>{
+    if(!cF.props.has('all')&&!cF.props.has(ROOMS[tag]))return;
+    const r=getRoomSt(tag,ds);
+    const chkF=isChk(ds,tag);
+    // ③ New state classification
+    let stateKey;
+    if(['checkin','warn','unassigned','danger'].includes(r.type)){
+      stateKey=chkF?'ci_done':'ci_wait';
+    } else if(r.type==='staying'){
+      stateKey='st';
+    } else if(r.type==='cleanonly'){
+      stateKey='co_wait'; // ③ 🧹のみは完了前後どちらもco_waitフィルターで表示
+    } else {
+      stateKey=chkF?'vc_done':'vc_wait';
+    }
+    if(!cF.states.has('all')&&!cF.states.has(stateKey))return;
+    if(!cF.cleaners.has('all')){const c=getClr(tag,ds)||'未割当';if(!cF.cleaners.has(c))return;}
+    const prop=ROOMS[tag]||'?';if(!grouped[prop])grouped[prop]=[];grouped[prop].push({tag,r});
+  });
+  const main=document.getElementById('cleanMain');
+  if(!Object.keys(grouped).length){main.innerHTML='<div class="nd">該当なし</div>';return;}
+  main.innerHTML=Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).map(([prop,rooms])=>{
+    const lbl=prop.replace(/^\d+_/,'');
+    const sorted=[...rooms].sort((a,b)=>(ord[a.r.type]||6)-(ord[b.r.type]||6));
+    return`<div class="psec"><div class="phdr"><span class="pnm">${lbl}</span><span class="pcnt">${rooms.length}部屋</span></div>
+    <div class="rgrid">${sorted.map(({tag,r})=>buildCard(tag,r,ds)).join('')}</div></div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════
+//  ⑤ PAYMENT - Booking.com & Airbnb
+// ════════════════════════════════════════════
+function renderPayTab(){
+  const months=Object.keys(MS).sort().reverse();
+  const mt=document.getElementById('payMtabs');
+  if(!months.length){mt.innerHTML='';document.getElementById('paySum').innerHTML='';document.getElementById('payBody').innerHTML='<tr><td colspan="8" style="text-align:center;color:#999;padding:18px">CSVを読み込んでください</td></tr>';return;}
+  if(!payM||!MS[payM])payM=months[0];
+  mt.innerHTML=months.map(m=>`<button class="pay-mtab ${m===payM?'on':''}" onclick="payM='${m}';renderPayTab()">${m}</button>`).join('');
+  const pays=S.get(PAY_KEY)||{};
+  const allBks=[];
+  Object.keys(BK).forEach(tag=>{BK[tag].forEach(bk=>{if(bk.ci.startsWith(payM))allBks.push({...bk,tag,prop:ROOMS[tag]||''});});});
+  allBks.sort((a,b)=>a.ci.localeCompare(b.ci));
+  const paid=allBks.filter(b=>pays[b.id]&&pays[b.id].status==='1');
+  const unpaid=allBks.filter(b=>!pays[b.id]||pays[b.id].status!=='1');
+  document.getElementById('paySum').innerHTML=`
+    <div class="pay-si"><div class="pay-sl">全予約</div><div class="pay-sv">${allBks.length}件</div></div>
+    <div class="pay-si"><div class="pay-sl">入金済</div><div class="pay-sv" style="color:var(--green)">${paid.length}件</div></div>
+    <div class="pay-si"><div class="pay-sl">未確認</div><div class="pay-sv" style="color:var(--orange)">${unpaid.length}件</div></div>
+    <div class="pay-si"><div class="pay-sl">入金済金額</div><div class="pay-sv" style="color:var(--green)">${fmtF(paid.reduce((s,b)=>s+b.net,0))}</div></div>
+    <div class="pay-si"><div class="pay-sl">未確認金額</div><div class="pay-sv" style="color:var(--orange)">${fmtF(unpaid.reduce((s,b)=>s+b.net,0))}</div></div>`;
+  // ④⑩ Apply search filters
+  let filteredBks=[...allBks];
+  const g=id=>(document.getElementById(id)||{}).value||'';
+  const srchRoom=g('srchRoom'),srchOTA=g('srchOTA'),srchStatus=g('srchStatus');
+  const srchCiFrom=g('srchCiFrom'),srchCiTo=g('srchCiTo');
+  const srchPayFrom=g('srchPayFrom'),srchPayTo=g('srchPayTo');
+  if(srchRoom)filteredBks=filteredBks.filter(b=>b.tag.includes(srchRoom)||b.g.toLowerCase().includes(srchRoom.toLowerCase()));
+  if(srchOTA)filteredBks=filteredBks.filter(b=>b.s===srchOTA);
+  if(srchStatus==='paid')filteredBks=filteredBks.filter(b=>pays[b.id]&&pays[b.id].status==='1');
+  if(srchStatus==='unpaid')filteredBks=filteredBks.filter(b=>!pays[b.id]||pays[b.id].status!=='1');
+  if(srchCiFrom)filteredBks=filteredBks.filter(b=>b.ci>=srchCiFrom);
+  if(srchCiTo)filteredBks=filteredBks.filter(b=>b.ci<=srchCiTo);
+  if(srchPayFrom)filteredBks=filteredBks.filter(b=>{const pd=pays[b.id]||{};return pd.payDate&&pd.payDate>=srchPayFrom;});
+  if(srchPayTo)filteredBks=filteredBks.filter(b=>{const pd=pays[b.id]||{};return pd.payDate&&pd.payDate<=srchPayTo;});
+
+  document.getElementById('payBody').innerHTML=filteredBks.map(bk=>{
+    const pd=pays[bk.id]||{};const ip=pd.status==='1';
+    const payDate=pd.payDate||'';
+    const isLocked=pd.locked==='1';
+    const rowStyle=isLocked?'background:#f9f9f9;':'';
+    return`<tr style="${rowStyle}">
+      <td><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer" ${isLocked?'disabled':''}></td>
+      <td>${bk.ci}</td><td>${bk.tag}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${bk.g}</td>
+      <td>${bk.s}</td>
+      <td style="text-align:right;font-family:ui-monospace,monospace">${fmtF(Math.round(parseFloat(bk.rawNet||bk.net*1.1)))}</td>
+      <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)"></td>
+      <td>${ip?'<span class="tag-paid">入金済</span>':'<span class="tag-unpaid">未確認</span>'}</td>
+      <td><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em">${isLocked?'🔒':'🔓'}</button></td>
+      <td><button class="pay-btn ${ip?'paid':''}" ${isLocked?'disabled':''} onclick="togPay('${bk.id}',${!ip})">${ip?'✓ 済':'確認する'}</button></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="8" style="text-align:center;color:#999;padding:16px">この月の予約がありません</td></tr>';
+}
+
+// ⑤ Bulk payment date functions
+function paySelectAll(val){
+  document.querySelectorAll('.pay-sel-chk:not(:disabled)').forEach(el=>{el.checked=val;});
+}
+function bulkUpdatePayDate(){
+  const date=document.getElementById('bulkPayDate').value;
+  if(!date){alert('着金日を入力してください');return;}
+  const ids=[];
+  document.querySelectorAll('.pay-sel-chk:checked').forEach(el=>ids.push(el.dataset.id));
+  if(!ids.length){alert('行を選択してください');return;}
+  if(!confirm(ids.length+'件の着金日を'+date+'に変更しますか？'))return;
+  const pays=S.get(PAY_KEY)||{};
+  ids.forEach(id=>{if(!pays[id])pays[id]={};pays[id].payDate=date;});
+  S.set(PAY_KEY,pays);renderPayTab();
+}
+function paySelectSamePayoutId(){
+  // Group by payDate as proxy for payout ID
+  const firstChecked=document.querySelector('.pay-sel-chk:checked');
+  if(!firstChecked){alert('まず1件選択してください');return;}
+  const pays=S.get(PAY_KEY)||{};
+  const targetDate=(pays[firstChecked.dataset.id]||{}).payDate;
+  if(!targetDate){alert('着金日が設定されていません');return;}
+  document.querySelectorAll('.pay-sel-chk:not(:disabled)').forEach(el=>{
+    const pd=pays[el.dataset.id]||{};
+    el.checked=pd.payDate===targetDate;
+  });
+}
+
+// ⑫ Lock
+function togLock(id,val){
+  if(val){
+    // Locking - 2 step confirm
+    if(!confirm('この予約をロックしますか？\nロックすると着金日・状態の変更ができなくなります。'))return;
+    if(!confirm('本当にロックしますか？'))return;
+  } else {
+    if(!confirm('ロックを解除しますか？'))return;
+    if(!confirm('本当に解除しますか？'))return;
+  }
+  const pays=S.get(PAY_KEY)||{};
+  if(!pays[id])pays[id]={};
+  pays[id].locked=val?'1':'0';
+  S.set(PAY_KEY,pays);renderPayTab();
+}
+
+function clearPaySearch(){
+  ['srchRoom','srchOTA','srchStatus','srchCiFrom','srchCiTo','srchPayFrom','srchPayTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderPayTab();
+}
+
+function togPay(id,val){
+  const pays=S.get(PAY_KEY)||{};
+  if(!pays[id])pays[id]={};
+  pays[id].status=val?'1':'0';
+  S.set(PAY_KEY,pays);
+  renderPayTab();
+}
+function updatePayDate(id,date){
+  const pays=S.get(PAY_KEY)||{};
+  if(!pays[id])pays[id]={};
+  pays[id].payDate=date;
+  S.set(PAY_KEY,pays);
+}
+
+// ⑤ Parse both OTA CSV formats
+function handlePayCSV(files){
+  [...files].forEach(f=>{
+    const r=new FileReader();
+    r.onload=ev=>{
+      const text=ev.target.result;
+      const rows=parseCSV(text);
+      if(!rows.length)return;
+      const pays=S.get(PAY_KEY)||{};
+      let matched=0;
+      // Detect format: Airbnb has '確認コード', Booking.com has 'Reference number'
+      const isAirbnb=!!(rows[0]&&rows[0]['確認コード']!==undefined);
+      if(isAirbnb){
+        // Airbnb format
+        rows.forEach(row=>{
+          const code=(row['確認コード']||'').trim();
+          if(!code)return;
+          const payDate=normDate((row['入金予定日']||'').replace(/\//g,'-'));
+          // Match by confirmation code against BK id or search
+          Object.keys(BK).forEach(tag=>{
+            BK[tag].forEach(bk=>{
+              if(bk.id===code||(bk.id&&code&&bk.id.includes(code))){
+                if(!pays[bk.id])pays[bk.id]={};
+                pays[bk.id].status='1';
+                if(payDate)pays[bk.id].payDate=payDate;
+                matched++;
+              }
+            });
+          });
+        });
+      } else {
+        // Booking.com format
+        rows.forEach(row=>{
+          const refNum=(row['Reference number']||'').trim();
+          if(!refNum)return;
+          const payDate=normDate((row['Payout date']||'').replace(/ /g,'-'));
+          Object.keys(BK).forEach(tag=>{
+            BK[tag].forEach(bk=>{
+              if(bk.id===refNum){
+                if(!pays[bk.id])pays[bk.id]={};
+                pays[bk.id].status='1';
+                if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate; // ⑪ pre-fill if empty
+                matched++;
+              }
+            });
+          });
+        });
+      }
+      S.set(PAY_KEY,pays);
+      renderPayTab();
+      alert(`✅ ${isAirbnb?'Airbnb':'Booking.com'} CSV: ${matched}件を入金済みとして消込しました`);
+    };
+    r.readAsText(f,'UTF-8');
+  });
+}
+
+// Drag & drop for pay upload
+const payZ=document.getElementById('payUpZone');
+payZ.addEventListener('dragover',e=>{e.preventDefault();payZ.style.background='#f0f0ff';});
+payZ.addEventListener('dragleave',()=>{payZ.style.background='#fafbff';});
+payZ.addEventListener('drop',e=>{e.preventDefault();payZ.style.background='#fafbff';handlePayCSV(e.dataTransfer.files);});
+
+// ════════════════════════════════════════════
+//  ⑥ INVOICE - room-level detail
+// ════════════════════════════════════════════
+function populateInvMonths(){
+  const sel=document.getElementById('invMonth');
+  const months=Object.keys(MS).sort().reverse();
+  sel.innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(months.length)buildInv();
+}
+
+function buildInv(){
+  const month=document.getElementById('invMonth').value;if(!month)return;
+  invItems=[];
+  // ⑥ Room-level: find subcon rooms with CI in this month
+  const officeTags=new Set(cfg.offices.map(o=>o.tag));
+  const subconTags=Object.keys(ROOMS).filter(t=>(ROOMS[t]||'').includes('代行')&&!officeTags.has(t));
+  // Group by property for ordering, then list each room
+  const propGroups={};
+  subconTags.forEach(tag=>{
+    const prop=(ROOMS[tag]||'').replace(/^\d+_/,'').replace('代行_','').replace('代行','');
+    if(!propGroups[prop])propGroups[prop]=[];
+    propGroups[prop].push(tag);
+  });
+  Object.entries(propGroups).forEach(([prop,tags])=>{
+    tags.sort().forEach(tag=>{
+      // Agency fee per room
+      invItems.push({desc:`代行費用（${tag}）`,qty:1,unit:cfg.fee});
+      // Cleaning: count CI-based bookings with cleaning fee
+      let cleanCnt=0,cleanTotal=0;
+      (BK[tag]||[]).forEach(bk=>{
+        if(bk.ci.startsWith(month)&&bk.cleaning>0){cleanCnt++;cleanTotal+=bk.cleaning;}
+      });
+      if(cleanCnt>0){
+        const unitP=Math.round(cleanTotal/cleanCnt);
+        invItems.push({desc:`清掃費用（${tag}）`,qty:cleanCnt,unit:unitP});
+      }
+    });
+  });
+  renderInvItems();
+}
+
+function renderInvItems(){
+  document.getElementById('invBody').innerHTML=invItems.map((it,i)=>`
+    <tr>
+      <td><input class="inv-inp" style="padding:4px 6px;font-size:.78em" value="${it.desc}" onchange="invItems[${i}].desc=this.value;renderInvTotal()"></td>
+      <td class="ra"><input class="inv-inp" type="number" style="width:58px;padding:4px 6px;text-align:right;font-size:.78em;font-family:ui-monospace,monospace" value="${it.qty}" onchange="invItems[${i}].qty=parseInt(this.value)||0;renderInvTotal()"></td>
+      <td class="ra"><input class="inv-inp" type="number" style="width:85px;padding:4px 6px;text-align:right;font-size:.78em;font-family:ui-monospace,monospace" value="${it.unit}" onchange="invItems[${i}].unit=parseInt(this.value)||0;renderInvTotal()"></td>
+      <td class="ra" style="font-family:ui-monospace,monospace;font-size:.8em">${fmtF(it.qty*it.unit)}</td>
+      <td><button class="inv-del" onclick="invItems.splice(${i},1);renderInvItems()">✕</button></td>
+    </tr>`).join('');
+  renderInvTotal();
+}
+function addInvItem(){invItems.push({desc:'',qty:1,unit:0});renderInvItems();}
+function renderInvTotal(){
+  const sub=invItems.reduce((s,it)=>s+it.qty*it.unit,0);
+  const tax=Math.round(sub*.1),tot=sub+tax;
+  document.getElementById('invTotal').innerHTML=`
+    <div class="inv-trow"><span>小計（税抜）</span><span style="font-family:ui-monospace,monospace">${fmtF(sub)}</span></div>
+    <div class="inv-trow"><span>消費税（10%）</span><span style="font-family:ui-monospace,monospace">${fmtF(tax)}</span></div>
+    <div class="inv-trow big"><span>請求金額</span><span>${fmtF(tot)}</span></div>`;
+}
+
+function printInv(){
+  const month=document.getElementById('invMonth').value||'';
+  const due=document.getElementById('invDue').value||'';
+  const note=document.getElementById('invNote').value||'';
+  const sub=invItems.reduce((s,it)=>s+it.qty*it.unit,0);
+  const tax=Math.round(sub*.1),tot=sub+tax;
+  const invNum=`INV-${String(cfg.nextInv).padStart(10,'0')}`;
+  const today=new Date().toISOString().split('T')[0];
+  const rows=invItems.map(it=>`<tr><td>${it.desc}</td><td class="ra">${it.qty} 件</td><td class="ra">${it.unit.toLocaleString('ja-JP')}</td><td class="ra">${(it.qty*it.unit).toLocaleString('ja-JP')}</td></tr><tr><td colspan="4" style="padding:1px 0;border:none"></td></tr>`).join('');
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>請求書 ${invNum}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;padding:28px;font-size:13px;max-width:780px;margin:0 auto}
+  h1{text-align:center;font-size:20px;font-weight:700;margin-bottom:20px;letter-spacing:2px}
+  .hrow{display:flex;justify-content:space-between;margin-bottom:18px}
+  .rec{font-size:16px;font-weight:700;margin-bottom:5px}
+  .mt td:first-child{color:#555;padding-right:14px;padding-bottom:3px}
+  .mt td:last-child{font-family:monospace}
+  .ib{text-align:right;font-size:12px;line-height:1.8}
+  .sum,.bank{border:1px solid #ccc;margin-bottom:14px}
+  .sum table,.bank table{width:100%;border-collapse:collapse}
+  .sum th,.bank th{background:#f0f0f0;padding:7px;text-align:center;font-weight:700;border:1px solid #ccc;font-size:12px}
+  .sum td,.bank td{padding:7px;text-align:center;border:1px solid #ccc;white-space:pre-line}
+  .bigamt{font-size:18px;font-weight:700}
+  .dtbl{width:100%;border-collapse:collapse;margin-bottom:14px}
+  .dtbl th{background:#f0f0f0;padding:7px;text-align:left;font-weight:700;border:1px solid #ccc}
+  .dtbl th.ra,.dtbl td.ra{text-align:right}
+  .dtbl td{padding:6px 7px;border:1px solid #ccc}
+  .stot{text-align:right;border:1px solid #ccc;padding:9px;margin-bottom:14px;background:#fafafa}
+  .sr{display:flex;justify-content:flex-end;gap:36px;margin-bottom:3px;font-size:12px}
+  .memo{border:1px solid #ccc;padding:9px;font-size:11px;line-height:1.7;background:#fafafa}
+  @media print{body{padding:12px}@page{margin:8mm}}</style></head><body>
+  <h1>請　求　書</h1>
+  <div class="hrow">
+    <div><div class="rec">${cfg.recip} 御中</div>
+    <div style="margin-top:12px;font-size:13px"><b>件名</b>&nbsp;&nbsp;民泊代行手数料として</div></div>
+    <div><table class="mt"><tr><td>請求日</td><td>${today}</td></tr><tr><td>請求書番号</td><td>${invNum}</td></tr><tr><td>登録番号</td><td>${cfg.reg}</td></tr></table>
+    <div class="ib" style="margin-top:10px"><div style="font-size:14px;font-weight:700">${cfg.issuer}</div><div>${cfg.addr}</div><div>${cfg.tel}</div></div></div>
+  </div>
+  <div class="sum"><table><tr><th>小計</th><th>消費税</th><th>請求金額</th></tr>
+  <tr><td>${fmtF(sub)}</td><td>${fmtF(tax)}</td><td><span class="bigamt">${fmtF(tot)}</span></td></tr></table></div>
+  <div class="bank"><table><tr><th>入金期日</th><th>振込先</th></tr>
+  <tr><td>${due||'　'}</td><td>${cfg.bank.replace(/\n/g,'<br>')}</td></tr></table></div>
+  <table class="dtbl"><thead><tr><th>摘要</th><th class="ra">数量</th><th class="ra">単価</th><th class="ra">明細金額</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="stot"><div class="sr"><span>内訳 10%対象（税抜）</span><span>${fmtF(sub)}</span></div><div class="sr"><span>10%消費税</span><span>${fmtF(tax)}</span></div></div>
+  <div class="memo"><b>備考</b><br>${note.replace(/\n/g,'<br>')}</div>
+  <script>window.onload=()=>{window.print();}<\/script></body></html>`;
+  const win=window.open('','_blank');win.document.write(html);win.document.close();
+  cfg.nextInv++;saveCfg();
+}
+
+// ════════════════════════════════════════════
+//  CSV UPLOAD
+// ════════════════════════════════════════════
+function handleBk(files){
+  if(!files.length)return;
+  _bkTexts=[];_bkReady=false;
+  let done=0;
+  const listEl=document.getElementById('bkList');listEl.innerHTML='';
+  [...files].forEach(f=>{
+    const r=new FileReader();
+    r.onload=ev=>{_bkTexts.push(ev.target.result);done++;if(done===files.length){_bkReady=true;chkReady();}};
+    r.readAsText(f,'UTF-8');
+    listEl.innerHTML+=`<div class="fi">${f.name}</div>`;
+  });
+}
+function handleCl(files){
+  if(!files.length)return;
+  const r=new FileReader();
+  r.onload=ev=>{_clText=ev.target.result;chkReady();};
+  r.readAsText(files[0],'UTF-8');
+  document.getElementById('clList').innerHTML=`<div class="fi">${files[0].name}</div>`;
+}
+function chkReady(){
+  const btn=document.getElementById('loadBtn');
+  btn.disabled=!_bkReady;
+  btn.textContent=_bkReady?'読み込む':'予約CSVを選択してください';
+}
+function loadCSVs(){
+  try{
+    parseBookings();parseCleaning();computeMS();
+    const now=new Date().toLocaleString('ja-JP');
+    document.getElementById('meta').textContent='CSV取込: '+now;
+    const prevSnap={};
+    Object.keys(MS).forEach(mk=>{const ms=MS[mk];if(ms&&ms.tot)prevSnap[mk]={sales:ms.tot.sales,net:ms.tot.net,occ:ms.occ.t,cnt:ms.tot.cnt};});
+    S.set(PREV_KEY,prevSnap);
+    saveBookingsToFb();
+    renderOpsTabs();
+    renderClean();
+    renderPayTab();
+    populateInvMonths();
+    try{populateAccMonths();}catch(e){}
+    closeModal('csvModal');
+  }catch(e){
+    console.error('loadCSVs error:',e);
+    alert('読み込みエラー: '+e.message);
+  }
+}
+['bkZone','clZone'].forEach(id=>{
+  const z=document.getElementById(id);
+  z.addEventListener('dragover',e=>{e.preventDefault();z.style.background='#f0f0ff';});
+  z.addEventListener('dragleave',()=>{z.style.background='#fafbff';});
+  z.addEventListener('drop',e=>{
+    e.preventDefault();z.style.background='#fafbff';
+    const inp=z.querySelector('input');const dt=new DataTransfer();
+    [...e.dataTransfer.files].forEach(f=>dt.items.add(f));
+    inp.files=dt.files;inp.dispatchEvent(new Event('change'));
+  });
+});
+
+// ════════════════════════════════════════════
+//  SNAPSHOT
+// ════════════════════════════════════════════
+function openSnap(){
+  const snap=S.get(SNAP_KEY);
+  document.getElementById('snapInfo').innerHTML=snap
+    ?`<div style="font-size:.82em;padding:9px;background:#f4f4f8;border-radius:7px"><b>保存日時:</b> ${new Date(snap.timestamp).toLocaleString('ja-JP')}<br><span style="color:#555">上書きしますか？</span></div>`
+    :'<div style="font-size:.82em;color:#555">スナップショットはまだありません。</div>';
+  openModal('snapModal');
+}
+function saveSnap(){S.set(SNAP_KEY,{timestamp:new Date().toISOString(),data:MS});closeModal('snapModal');alert('✅ 保存しました');renderOps();}
+function clearSnap(){if(confirm('削除しますか？')){S.set(SNAP_KEY,null);closeModal('snapModal');renderOps();}}
+
+// ════════════════════════════════════════════
+//  SETTINGS
+// ════════════════════════════════════════════
+function renderOfficeList(){
+  const el=document.getElementById('officeList');
+  el.innerHTML=(cfg.offices||[]).map((o,i)=>`
+    <div class="office-row">
+      <input placeholder="部屋タグ（例: 亀有408）" value="${o.tag||''}" onchange="cfg.offices[${i}].tag=this.value">
+      <input placeholder="物件グループ（例: 亀有）" value="${o.group||''}" onchange="cfg.offices[${i}].group=this.value">
+      <button class="office-del" onclick="cfg.offices.splice(${i},1);renderOfficeList()">✕</button>
+    </div>`).join('');
+}
+function addOfficeRow(){cfg.offices.push({tag:'',group:''});renderOfficeList();}
+
+function openSettings(){
+  renderUserList();
+  renderLastMinuteList();
+  document.getElementById('setPw1').value='';document.getElementById('setPw2').value='';
+  document.getElementById('setRent').value=cfg.defaultRent;
+  document.getElementById('setIssuer').value=cfg.issuer;
+  document.getElementById('setAddr').value=cfg.addr;
+  document.getElementById('setTel').value=cfg.tel;
+  document.getElementById('setReg').value=cfg.reg;
+  document.getElementById('setRecip').value=cfg.recip;
+  document.getElementById('setFee').value=cfg.fee;
+  document.getElementById('setBank').value=cfg.bank;
+  document.getElementById('setInvNum').value=cfg.nextInv;
+  renderOfficeList();
+  openModal('settingsModal');
+}
+function saveSettings(){
+  const p1=document.getElementById('setPw1').value,p2=document.getElementById('setPw2').value;
+  if(p1){if(p1!==p2){alert('パスワードが一致しません');return;}cfg.pw=p1;}
+  cfg.defaultRent=parseInt(document.getElementById('setRent').value)||cfg.defaultRent;
+  cfg.issuer=document.getElementById('setIssuer').value||cfg.issuer;
+  cfg.addr=document.getElementById('setAddr').value||cfg.addr;
+  cfg.tel=document.getElementById('setTel').value||cfg.tel;
+  cfg.reg=document.getElementById('setReg').value||cfg.reg;
+  cfg.recip=document.getElementById('setRecip').value||cfg.recip;
+  cfg.fee=parseInt(document.getElementById('setFee').value)||cfg.fee;
+  cfg.bank=document.getElementById('setBank').value||cfg.bank;
+  cfg.nextInv=parseInt(document.getElementById('setInvNum').value)||cfg.nextInv;
+  // ⑬ Save users
+  S.set('mp_users6',USERS);
+  populateLoginUsers();
+  saveCfg();closeModal('settingsModal');alert('✅ 設定を保存しました');
+}
+
+// ════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════
+function openModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+function swTab(id,btn){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById(id+'Pane').classList.add('on');
+  if(id==='pay')renderPayTab();
+  if(id==='inv')populateInvMonths();
+  if(id==='acc'){populateAccMonths();}
+  if(id==='bb'){renderBB();}
+  if(id==='users'){renderUserMgmt();}
+  if(id==='acc'){populateAccMonths();}
+  if(id==='bb'){renderBB();}
+  if(id==='users'){renderUserMgmt();}
+}
+
+// ════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════
+function initApp(){
+  initFirebase();
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('cleanDate').value=today;
+  // ① ログイン後は必ず運営タブ・収益サブタブを表示
+  const isStaff=currentUser&&currentUser.role==='staff';
+  if(!isStaff){
+    // 運営タブをアクティブに
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+    document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+    document.querySelector('.tab[onclick*="ops"]').classList.add('on');
+    document.getElementById('opsPane').classList.add('on');
+    // 収益サブタブをアクティブに
+    const revBtn=document.getElementById('subRevBtn');
+    const expBtn=document.getElementById('subExpBtn');
+    if(revBtn){revBtn.style.background='#fff';revBtn.style.color='var(--p)';revBtn.style.borderBottom='3px solid var(--p)';revBtn.style.fontWeight='600';}
+    if(expBtn){expBtn.style.background='#f5f5f5';expBtn.style.color='var(--t2)';expBtn.style.borderBottom='3px solid transparent';expBtn.style.fontWeight='500';}
+    document.getElementById('revSubPane').style.display='block';
+    document.getElementById('expSubPane').style.display='none';
+  }
+  renderOpsTabs();renderClean();renderPayTab();populateInvMonths();
+  setTimeout(()=>{populateAccMonths();renderBB();},500);
+}
+
+// ════════════════════════════════════════════
+//  FIREBASE
+// ════════════════════════════════════════════
+const FB_CFG = {
+  apiKey: "AIzaSyAFnDiOwrVzN_4gYC-yR4WA2wj71nUi93w",
+  authDomain: "minpaku-app-bfc7c.firebaseapp.com",
+  databaseURL: "https://minpaku-app-bfc7c-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "minpaku-app-bfc7c",
+  storageBucket: "minpaku-app-bfc7c.firebasestorage.app",
+  messagingSenderId: "840350585260",
+  appId: "1:840350585260:web:d279b79436055668c72a09"
+};
+
+let fbDB = null;
+let fbReady = false;
+
+function initFirebase(){
+  try {
+    if(!firebase.apps.length) firebase.initializeApp(FB_CFG);
+    fbDB = firebase.database();
+    fbReady = true;
+
+    // リアルタイムリスナー設定
+    fbDB.ref('bookings').on('value', snap => {
+      const val = snap.val();
+      if(val){
+        // Restore BK and ROOMS from Firebase
+        const stored = val;
+        if(stored.BK) { Object.assign(BK, stored.BK); }
+        if(stored.ROOMS) { Object.assign(ROOMS, stored.ROOMS); }
+        if(stored.CH) { Object.assign(CH, stored.CH); }
+        if(stored.CM) { Object.assign(CM, stored.CM); }
+        computeMS();
+        renderOpsTabs();
+        // ② cleanDateが設定されている事を確認してからrenderClean
+        const cdEl=document.getElementById('cleanDate');
+        if(cdEl&&!cdEl.value){cdEl.value=new Date().toISOString().split('T')[0];}
+        renderClean();
+        renderPayTab();
+        populateInvMonths();
+        try{populateAccMonths();}catch(e){}
+        if(stored.meta) document.getElementById('meta').textContent = stored.meta + '（クラウド同期済）';
+      }
+    });
+    fbDB.ref('checks').on('value', snap => {
+      const val = snap.val();
+      if(val) S.set(CHK_KEY, val);
+    });
+    fbDB.ref('payments').on('value', snap => {
+      const val = snap.val();
+      if(val) S.set(PAY_KEY, val);
+    });
+    fbDB.ref('expenses').on('value', snap => {
+      const val = snap.val();
+      if(val) S.set(EXP_KEY, val);
+    });
+    fbDB.ref('utilities').on('value', snap => {
+      const val = snap.val();
+      if(val) S.set(UTIL_KEY, val);
+    });
+    fbDB.ref('photos').on('value', snap => {
+      const val = snap.val();
+      if(val) S.set(PHOTO_KEY, val);
+    });
+    console.log('✅ Firebase接続成功');
+  } catch(e) {
+    console.warn('Firebase接続失敗:', e.message);
+    fbReady = false;
+  }
+}
+
+// Firebase に書き込む
+function fbWrite(path, data){
+  if(!fbReady || !fbDB) return;
+  try { fbDB.ref(path).set(data); } catch(e) { console.warn('fbWrite error:', e); }
+}
+function fbUpdate(path, data){
+  if(!fbReady || !fbDB) return;
+  try { fbDB.ref(path).update(data); } catch(e) { console.warn('fbUpdate error:', e); }
+}
+
+// CSVロード後にFirebaseへ保存
+function saveBookingsToFb(){
+  if(!fbReady) return;
+  const now = new Date().toLocaleString('ja-JP');
+  fbWrite('bookings', { BK, ROOMS, CH, CM, meta: 'CSV取込: ' + now });
+}
+
+// チェック・支払い・光熱費・写真の変更をFirebaseに同期
+const _origSset = S.set.bind(S);
+S.set = function(k, v){
+  _origSset(k, v);
+  if(!fbReady) return;
+  if(k === CHK_KEY)   fbWrite('checks', v);
+  if(k === PAY_KEY)   fbWrite('payments', v);
+  if(k === EXP_KEY)   fbWrite('expenses', v);
+  if(k === UTIL_KEY)  fbWrite('utilities', v);
+  if(k === PHOTO_KEY) fbWrite('photos', v);
+};
+
+// ⑬ User management functions
+function renderUserList(){
+  const el=document.getElementById('userListEl');if(!el)return;
+  el.innerHTML=(USERS||[]).map((u,i)=>`
+    <div style="display:grid;grid-template-columns:1fr 1fr 80px auto;gap:5px;align-items:center;margin-bottom:5px">
+      <input style="border:1.5px solid var(--b);border-radius:5px;padding:4px 7px;font-size:.78em;outline:none" value="${u.name}" onchange="USERS[${i}].name=this.value">
+      <input style="border:1.5px solid var(--b);border-radius:5px;padding:4px 7px;font-size:.78em;outline:none" type="password" placeholder="パスワード変更" onchange="USERS[${i}].pw=this.value||USERS[${i}].pw">
+      <select style="border:1.5px solid var(--b);border-radius:5px;padding:4px 5px;font-size:.75em;outline:none" onchange="USERS[${i}].role=this.value">
+        <option value="admin" ${u.role==='admin'?'selected':''}>管理者</option>
+        <option value="staff" ${u.role==='staff'?'selected':''}>スタッフ</option>
+      </select>
+      <button onclick="USERS.splice(${i},1);renderUserList()" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:.9em">✕</button>
+    </div>`).join('');
+}
+function addUserRow(){
+  const newId='user'+Date.now();
+  USERS.push({id:newId,name:'新ユーザー',pw:'pass'+Math.floor(Math.random()*9000+1000),role:'staff'});
+  renderUserList();
+}
+
+// ════════════════════════════════════════════
+//  ⑯ BULLETIN BOARD
+// ════════════════════════════════════════════
+const STAFF_MAP={'Yasaki Junichi':'矢﨑','Ohara Jun':'大原','Kondo Kensuke':'近藤'};
+let bbWeekOffset=0;
+
+// Japan public holidays (fixed + approximate movable)
+function getJPHolidays(year){
+  const h=new Set();
+  // Fixed
+  [[1,1],[2,11],[2,23],[4,29],[5,3],[5,4],[5,5],[7,20],[8,11],[9,15],[10,14],[11,3],[11,23],[12,23]].forEach(([m,d])=>h.add(year+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0')));
+  // Approximate movable (simplified)
+  h.add(year+'-01-'+String(getSecondMonday(year,1)).padStart(2,'0')); // 成人の日
+  h.add(year+'-07-'+String(getThirdMonday(year,7)).padStart(2,'0')); // 海の日
+  h.add(year+'-09-'+String(getThirdMonday(year,9)).padStart(2,'0')); // 敬老の日
+  h.add(year+'-10-'+String(getSecondMonday(year,10)).padStart(2,'0')); // スポーツの日
+  return h;
+}
+function getNthWeekday(year,month,weekday,n){
+  let d=new Date(year,month-1,1);
+  let count=0;
+  while(d.getMonth()===month-1){
+    if(d.getDay()===weekday){count++;if(count===n)return d.getDate();}
+    d.setDate(d.getDate()+1);
+  }
+  return 1;
+}
+function getSecondMonday(y,m){return getNthWeekday(y,m,1,2);}
+function getThirdMonday(y,m){return getNthWeekday(y,m,1,3);}
+
+function isTargetDay(ds){
+  const d=new Date(ds);
+  const dow=d.getDay();
+  if(dow===0||dow===6)return true; // 土日
+  const holidays=getJPHolidays(d.getFullYear());
+  if(holidays.has(ds))return true;
+  // Manual added dates
+  const bbData=S.get(BB_KEY)||{};
+  if(bbData._extra&&bbData._extra.includes(ds))return true;
+  return false;
+}
+
+function getWeekDates(offset){
+  const now=new Date();
+  const day=now.getDay();
+  const daysToSun=((0-day)+7)%7;
+  const sun=new Date(now);sun.setDate(now.getDate()+daysToSun+(offset*7));
+  const sat=new Date(sun);sat.setDate(sun.getDate()-1);
+  return[sat,sun];
+}
+
+function dateToStr(d){return d.toISOString().split('T')[0];}
+function dayLabel(d){const w=['日','月','火','水','木','金','土'];return d.getMonth()+1+'/'+d.getDate()+'（'+w[d.getDay()]+'）';}
+
+function bbNav(dir){bbWeekOffset+=dir;renderBB();}
+
+function addBBDate(){
+  const ds=prompt('追加する日付を入力してください（例: 2026-08-13）');
+  if(!ds||!/\d{4}-\d{2}-\d{2}/.test(ds))return;
+  const bbData=S.get(BB_KEY)||{};
+  if(!bbData._extra)bbData._extra=[];
+  if(!bbData._extra.includes(ds))bbData._extra.push(ds);
+  S.set(BB_KEY,bbData);renderBB();
+}
+
+function removeBBDate(ds){
+  const bbData=S.get(BB_KEY)||{};
+  if(bbData._extra)bbData._extra=bbData._extra.filter(d=>d!==ds);
+  S.set(BB_KEY,bbData);renderBB();
+}
+
+function renderBB(){
+  const[sat,sun]=getWeekDates(bbWeekOffset);
+  const satStr=dateToStr(sat),sunStr=dateToStr(sun);
+  document.getElementById('bbWeekLabel').textContent=dayLabel(sat)+'・'+dayLabel(sun);
+  
+  // Collect all target dates in this week range + nearby
+  const bbData=S.get(BB_KEY)||{};
+  const extraDates=(bbData._extra||[]).filter(ds=>{
+    const d=new Date(ds);
+    const ref=new Date(sat);ref.setDate(ref.getDate()-7);
+    const ref2=new Date(sun);ref2.setDate(ref2.getDate()+7);
+    return d>=ref&&d<=ref2;
+  });
+  
+  // Show Sat + Sun + any extra dates in this week
+  const weekStart=new Date(sat);weekStart.setDate(sat.getDate()-1);
+  const weekEnd=new Date(sun);weekEnd.setDate(sun.getDate()+1);
+  const daysToShow=[satStr,sunStr];
+  extraDates.forEach(ds=>{if(!daysToShow.includes(ds)){const d=new Date(ds);if(d>=weekStart&&d<=weekEnd)daysToShow.push(ds);}});
+  daysToShow.sort();
+
+  const content=document.getElementById('bbContent');
+  content.innerHTML=daysToShow.map(ds=>{
+    const day=new Date(ds);
+    const w=['日','月','火','水','木','金','土'];
+    const isExtra=(bbData._extra||[]).includes(ds);
+    const isWeekend=day.getDay()===0||day.getDay()===6;
+    const title=day.getMonth()+1+'/'+day.getDate()+'（'+w[day.getDay()]+'）'+(isExtra&&!isWeekend?' ⭐追加日':'');
+    
+    // CI rooms for this day
+    const ciRooms=Object.keys(ROOMS).map(tag=>{
+      const r=getRoomSt(tag,ds);
+      if(!['checkin','warn','unassigned'].includes(r.type))return null;
+      const cm=r.cm;
+      return{tag,cleaner:cm?cm.cl:'未割当',cit:cm?cm.cit:'—'};
+    }).filter(Boolean);
+    
+    const cleanTags=Object.keys(ROOMS).filter(tag=>{
+      const r=getRoomSt(tag,ds);
+      return['checkin','warn','unassigned','cleanonly'].includes(r.type);
+    });
+    
+    const staffOnDuty=new Set();
+    const parterSet=new Set();
+    Object.keys(ROOMS).forEach(tag=>{
+      const cl=getClr(tag,ds);
+      if(!cl)return;
+      if(STAFF_MAP[cl])staffOnDuty.add(STAFF_MAP[cl]);
+      else if(cl&&cl!=='未割当')parterSet.add(cl);
+    });
+    
+    const note=bbData[ds]||'';
+    return`<div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.07)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--p)">
+        <div style="font-size:1em;font-weight:700">■ ${title}</div>
+        ${isExtra?`<button onclick="removeBBDate('${ds}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.72em">削除</button>`:''}
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <div style="background:#f8f9ff;border-radius:8px;padding:8px 14px;text-align:center">
+          <div style="font-size:.67em;color:var(--t3);font-weight:600;margin-bottom:2px">清掃件数</div>
+          <div style="font-size:1.4em;font-weight:700">${cleanTags.length}件</div>
+        </div>
+        <div style="background:#f8f9ff;border-radius:8px;padding:8px 14px;text-align:center">
+          <div style="font-size:.67em;color:var(--t3);font-weight:600;margin-bottom:2px">パート</div>
+          <div style="font-size:1.4em;font-weight:700">${parterSet.size}名</div>
+        </div>
+        ${staffOnDuty.size>0?`<div style="background:#fff3cd;border-radius:8px;padding:8px 14px">
+          <div style="font-size:.67em;color:#856404;font-weight:700;margin-bottom:2px">出勤社員</div>
+          <div style="font-size:.9em;font-weight:700;color:#533f03">${[...staffOnDuty].join('・')}</div>
+        </div>`:''}
+      </div>
+      ${ciRooms.length>0?`<div style="background:#f0f2ff;border-radius:8px;margin-bottom:10px;overflow:hidden">
+        <div onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.ci-arr').textContent=open?'▶':'▼';" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:.78em;font-weight:700;color:var(--p)">★ 当日INの部屋（${ciRooms.length}件）</span>
+          <span class="ci-arr" style="font-size:.7em;color:var(--p)">▼</span>
+        </div>
+        <div style="padding:0 10px 10px;display:block">
+          ${ciRooms.map(rm=>`<div style="display:flex;align-items:center;gap:8px;font-size:.75em;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05)">
+            <span style="font-family:ui-monospace,monospace;font-weight:600;min-width:75px">${rm.tag}</span>
+            <span style="flex:1;color:var(--t2)">→ ${rm.cleaner}</span>
+            <span style="color:var(--p);font-family:ui-monospace,monospace">IN ${rm.cit}</span>
+          </div>`).join('')}
+        </div>
+      </div>`:''}  
+      ${renderLastMinuteSection(ds)}
+      <div style="font-size:.8em;font-weight:600;margin-bottom:5px;color:var(--t2)">📝 申し送り事項</div>
+      <textarea style="width:100%;border:1.5px solid var(--b);border-radius:8px;padding:8px 10px;font-size:.82em;resize:vertical;min-height:80px;outline:none;font-family:system-ui,sans-serif" placeholder="自由に記入してください..." onblur="saveBBNote('${ds}',this.value)">${note}</textarea>
+    </div>`;
+  }).join('');
+}
+
+function saveBBNote(ds,note){
+  const bbData=S.get(BB_KEY)||{};
+  bbData[ds]=note;S.set(BB_KEY,bbData);
+}
+
+// ════════════════════════════════════════════
+//  ⑱ ACCOUNTING
+// ════════════════════════════════════════════
+let accManualRows=[];
+
+function populateAccMonths(){
+  const sel=document.getElementById('accMonth');if(!sel)return;
+  const months=Object.keys(MS).sort().reverse();
+  sel.innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(months.length&&!sel.value){sel.value=months[0];}
+  renderAcc();
+}
+
+function renderAcc(){
+  const sel=document.getElementById('accMonth');if(!sel)return;
+  const month=sel.value;if(!month)return;
+  const pays=S.get(PAY_KEY)||{};
+  const savedAcc=S.get(ACC_KEY)||{};
+  const manualRows=savedAcc[month+'_manual']||[];
+  
+  // Collect OTA-based rows from paid bookings
+  const airbnbRows=[],bookingRows=[];
+  Object.keys(BK).forEach(tag=>{
+    BK[tag].forEach(bk=>{
+      if(!bk.ci.startsWith(month))return;
+      const pd=pays[bk.id]||{};
+      if(pd.status!=='1')return; // only paid
+      const netTaxInc=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
+      const commTaxInc=Math.round(bk.commission*1.1);
+      const row={date:pd.payDate||'',facility:bk.tag,guest:bk.g,amount:netTaxInc,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s};
+      if((bk.s||'').includes('Airbnb'))airbnbRows.push(row);
+      else bookingRows.push(row);
+    });
+  });
+  airbnbRows.sort((a,b)=>a.date.localeCompare(b.date));
+  bookingRows.sort((a,b)=>a.date.localeCompare(b.date));
+
+  const tblStyle='width:100%;border-collapse:collapse;font-size:.79em;margin-bottom:8px';
+  const thStyle='padding:6px 8px;text-align:left;font-weight:600;border-bottom:2px solid';
+  const tdStyle='padding:6px 8px;border-bottom:1px solid var(--b2)';
+  const hdr=`<tr><th style="${thStyle} var(--b)">入金日</th><th style="${thStyle} var(--b)">摘要</th><th style="${thStyle} var(--b)">施設名</th><th style="${thStyle} var(--b);text-align:right">入金額</th><th style="${thStyle} var(--b);text-align:right">宿泊料金</th><th style="${thStyle} var(--b);text-align:right">手数料</th></tr>`;
+
+  const renderRows=(rows,bg)=>rows.map(r=>`<tr style="background:${bg}">
+    <td style="${tdStyle}">${r.date}</td>
+    <td style="${tdStyle}">${r.ota.includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM'}</td>
+    <td style="${tdStyle}">${r.facility}</td>
+    <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace">${fmtF(r.amount)}</td>
+    <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace">${fmtF(r.stay)}</td>
+    <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(r.comm)}</td>
+  </tr>`).join('');
+
+  const airbnbTotal=airbnbRows.reduce((s,r)=>s+r.comm,0);
+  const bookingTotal=bookingRows.reduce((s,r)=>s+r.comm,0);
+
+  // Manual rows
+  const manualHtml=manualRows.map((r,i)=>`<tr style="background:#f0fff4">
+    <td style="${tdStyle}"><input style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:110px" value="${r.date||''}" onchange="updateAccRow(${i},'date',this.value,'${month}')"></td>
+    <td style="${tdStyle}"><input style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:120px" value="${r.desc||''}" onchange="updateAccRow(${i},'desc',this.value,'${month}')"></td>
+    <td style="${tdStyle}"><input style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px" value="${r.facility||''}" onchange="updateAccRow(${i},'facility',this.value,'${month}')"></td>
+    <td style="${tdStyle};text-align:right"><input type="number" style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px;text-align:right;font-family:ui-monospace,monospace" value="${r.amount||0}" onchange="updateAccRow(${i},'amount',parseInt(this.value)||0,'${month}')"></td>
+    <td style="${tdStyle};text-align:right"><input type="number" style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px;text-align:right;font-family:ui-monospace,monospace" value="${r.stay||0}" onchange="updateAccRow(${i},'stay',parseInt(this.value)||0,'${month}')"></td>
+    <td style="${tdStyle};text-align:right;color:var(--red)"><input type="number" style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px;text-align:right;font-family:ui-monospace,monospace" value="${r.comm||0}" onchange="updateAccRow(${i},'comm',parseInt(this.value)||0,'${month}')"></td>
+  </tr>`).join('');
+
+  const manualTotal=manualRows.reduce((s,r)=>s+(r.comm||0),0);
+
+  document.getElementById('accContent').innerHTML=`
+    <div style="font-size:.9em;font-weight:700;color:#FF9800;margin-bottom:6px">Airbnb</div>
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderRows(airbnbRows,'#fff8f0')}
+      <tr style="background:#f0f0f0;font-weight:700"><td colspan="5" style="${tdStyle}">Airbnb手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(airbnbTotal)}</td></tr>
+    </tbody></table>
+    <div style="font-size:.9em;font-weight:700;color:#667eea;margin:12px 0 6px">Booking.com</div>
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderRows(bookingRows,'#f0f4ff')}
+      <tr style="background:#f0f0f0;font-weight:700"><td colspan="5" style="${tdStyle}">Booking.com手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(bookingTotal)}</td></tr>
+    </tbody></table>
+    <div style="font-size:.9em;font-weight:700;color:#4CAF50;margin:12px 0 6px">その他（手動入力）</div>
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${manualHtml}
+      <tr style="background:#f0f0f0;font-weight:700"><td colspan="5" style="${tdStyle}">その他合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(manualTotal)}</td></tr>
+    </tbody></table>`;
+}
+
+function addAccRow(){
+  const sel=document.getElementById('accMonth');if(!sel)return;
+  const month=sel.value;
+  const savedAcc=S.get(ACC_KEY)||{};
+  if(!savedAcc[month+'_manual'])savedAcc[month+'_manual']=[];
+  savedAcc[month+'_manual'].push({date:'',desc:'スクエア',facility:'',amount:0,stay:0,comm:0});
+  S.set(ACC_KEY,savedAcc);renderAcc();
+}
+
+function updateAccRow(i,field,val,month){
+  const savedAcc=S.get(ACC_KEY)||{};
+  if(!savedAcc[month+'_manual'])return;
+  savedAcc[month+'_manual'][i][field]=val;
+  S.set(ACC_KEY,savedAcc);
+}
+
+function dlAccExcel(){
+  const sel=document.getElementById('accMonth');if(!sel)return;
+  const month=sel.value;
+  const pays=S.get(PAY_KEY)||{};
+  const savedAcc=S.get(ACC_KEY)||{};
+  let csv='入金日,摘要,施設名,入金額,宿泊料金,手数料\n';
+  Object.keys(BK).forEach(tag=>{
+    BK[tag].forEach(bk=>{
+      if(!bk.ci.startsWith(month))return;
+      const pd=pays[bk.id]||{};if(pd.status!=='1')return;
+      const netTax=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
+      const commTax=Math.round(bk.commission*1.1);
+      const desc=bk.s.includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM';
+      csv+=(pd.payDate||'')+','+desc+','+bk.tag+','+netTax+','+(netTax+commTax)+','+commTax+'\n';
+    });
+  });
+  (savedAcc[month+'_manual']||[]).forEach(function(r){
+    csv+=(r.date||'')+','+(r.desc||'')+','+(r.facility||'')+','+(r.amount||0)+','+(r.stay||0)+','+(r.comm||0)+'\n';
+  });
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='会計_'+month+'.csv';a.click();
+}
+// ════ USER MANAGEMENT ════
+function renderUserMgmt(){
+  const tbody=document.getElementById('userMgmtBody');
+  if(!tbody)return;
+  tbody.innerHTML=USERS.map((u,i)=>{
+    const roleLbl=u.role==='admin'?'管理者':u.role==='office'?'事務経理':'スタッフ';
+    const roleColor=u.role==='admin'?'var(--red)':u.role==='office'?'var(--p)':'var(--t3)';
+    const active=u.active!==false;
+    return`<tr style="border-bottom:1px solid var(--b2)${active?'':';opacity:.5'}">
+      <td style="padding:9px 10px;font-weight:600">${u.name}</td>
+      <td style="padding:9px 10px;color:var(--t2);font-size:.85em">${u.id}</td>
+      <td style="padding:9px 10px"><span style="background:${roleColor};color:#fff;padding:2px 8px;border-radius:99px;font-size:.75em;font-weight:700">${roleLbl}</span></td>
+      <td style="padding:9px 10px"><span style="background:${active?'var(--green)':'var(--t3)'};color:#fff;padding:2px 8px;border-radius:99px;font-size:.75em;font-weight:700">${active?'有効':'無効'}</span></td>
+      <td style="padding:9px 10px">
+        <button onclick="editUser(${i})" style="background:var(--p);color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em;margin-right:4px">編集</button>
+        <button onclick="changePw(${i})" style="background:var(--orange);color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em;margin-right:4px">PW変更</button>
+        <button onclick="toggleUserActive(${i})" style="background:${active?'#888':'var(--green)'};color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em">${active?'無効化':'有効化'}</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function addNewUser(){
+  const name=prompt('表示名を入力してください');
+  if(!name)return;
+  const id=prompt('ユーザーIDを入力してください');
+  if(!id)return;
+  const pw=prompt('初期パスワードを入力してください');
+  if(!pw)return;
+  const role=prompt('権限を入力してください（admin / office / staff）')||'staff';
+  USERS.push({id,name,pw,role,active:true});
+  S.set('mp_users6',USERS);
+  renderUserMgmt();populateLoginUsers();
+  alert('✅ ユーザーを追加しました');
+}
+
+function editUser(i){
+  const u=USERS[i];
+  const name=prompt('表示名',u.name);if(name===null)return;
+  const id=prompt('ユーザーID',u.id);if(id===null)return;
+  const role=prompt('権限（admin / office / staff）',u.role);if(role===null)return;
+  USERS[i]={...u,name,id,role};
+  S.set('mp_users6',USERS);renderUserMgmt();populateLoginUsers();
+  alert('✅ 更新しました');
+}
+
+function changePw(i){
+  const pw1=prompt('新しいパスワードを入力');if(!pw1)return;
+  const pw2=prompt('確認のため再入力');
+  if(pw1!==pw2){alert('パスワードが一致しません');return;}
+  USERS[i].pw=pw1;
+  S.set('mp_users6',USERS);alert('✅ パスワードを変更しました');
+}
+
+function toggleUserActive(i){
+  const active=USERS[i].active!==false;
+  if(active&&!confirm(`${USERS[i].name}を無効化しますか？`))return;
+  USERS[i].active=!active;
+  S.set('mp_users6',USERS);renderUserMgmt();populateLoginUsers();
+}
+
+// ════ 直前予約注意部屋 ════
+function renderLastMinuteList(){
+  const el=document.getElementById('lastMinuteRoomsList');
+  if(!el)return;
+  const groups=[...new Set(Object.values(ROOMS))].filter(g=>g);
+  el.innerHTML=groups.map(g=>{
+    const isOn=(cfg.lastMinuteGroups||[]).includes(g);
+    return`<label style="display:flex;align-items:center;gap:4px;font-size:.8em;cursor:pointer;background:${isOn?'var(--p)':'#f0f0f0'};color:${isOn?'#fff':'var(--t2)'};padding:4px 10px;border-radius:99px">
+      <input type="checkbox" ${isOn?'checked':''} onchange="toggleLastMinuteGroup('${g}',this.checked)" style="display:none">
+      ${g}
+    </label>`;
+  }).join('');
+}
+function toggleLastMinuteGroup(g,val){
+  if(!cfg.lastMinuteGroups)cfg.lastMinuteGroups=[];
+  if(val&&!cfg.lastMinuteGroups.includes(g))cfg.lastMinuteGroups.push(g);
+  if(!val)cfg.lastMinuteGroups=cfg.lastMinuteGroups.filter(x=>x!==g);
+  renderLastMinuteList();
+}
+
+function excludeLmRoom(dayStr,tag){
+  if(!confirm(tag+'（'+dayStr+'）をリストから除外しますか？'))return;
+  const ex=S.get('mp_lm_excluded')||{};
+  ex[dayStr+'_'+tag]='1';
+  S.set('mp_lm_excluded',ex);
+  renderBB();
+}
+function resetLmExcluded(){
+  if(!confirm('除外リストをリセットしますか？'))return;
+  S.set('mp_lm_excluded',{});renderBB();
+}
+
+function renderLastMinuteSection(ds){
+  const lmRooms=getLastMinuteRooms(ds);
+  if(!lmRooms.length)return'';
+  // Count total vacant room-days
+  let totalCount=0;
+  const rows=lmRooms.map(r=>{
+    totalCount+=r.vacantDays.length;
+    return r.vacantDays.map(vd=>`<div style="display:flex;align-items:center;gap:8px;font-size:.75em;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)">
+      <span style="font-family:ui-monospace,monospace;font-weight:600;min-width:85px">${r.tag}</span>
+      <span style="flex:1;color:#c62828;font-weight:600">${vd.label} 空室</span>
+      <button onclick="excludeLmRoom('${vd.str}','${r.tag}')" style="background:none;border:1px solid #c62828;color:#c62828;border-radius:4px;padding:1px 6px;cursor:pointer;font-size:.7em;white-space:nowrap">×除外</button>
+    </div>`).join('');
+  }).join('');
+  return`<div style="background:#fff8e1;border-radius:8px;padding:10px;margin-bottom:10px;border:1.5px solid #f6ad55">
+    <div onclick="var b=this.nextElementSibling;var o=b.style.display!=='none';b.style.display=o?'none':'block';this.querySelector('.lm-arr').textContent=o?'▶':'▼';" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:.78em;font-weight:700;color:#744210">⚠️ 予約が入ったら掃除手配が必要な部屋⚠️（${totalCount}件）</span>
+      <span class="lm-arr" style="font-size:.7em;color:#744210">▼</span>
+    </div>
+    <div style="margin-top:8px">
+      ${rows}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+        <span style="font-size:.7em;color:#744210">※ 直前予約が入った場合は清掃手配が必要です</span>
+        <button onclick="resetLmExcluded()" style="background:none;border:1px solid #999;color:#999;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:.68em">除外リストをリセット</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function getLastMinuteRooms(ds){
+  const groups=cfg.lastMinuteGroups||[];
+  const excluded=S.get('mp_lm_excluded')||{};
+  const d=new Date(ds);
+  const dow=d.getDay();
+  // 土曜なら土・日両方、日曜なら日のみチェック
+  const daysToCheck=[ds];
+  if(dow===6){
+    const sun=new Date(d);sun.setDate(d.getDate()+1);
+    daysToCheck.push(sun.toISOString().split('T')[0]);
+  }
+  const targets=[];
+  Object.keys(ROOMS).forEach(tag=>{
+    const prop=ROOMS[tag]||'';
+    if(!groups.some(g=>prop.includes(g)))return;
+    const bks=BK[tag]||[];
+    const vacantDays=[];
+    daysToCheck.forEach(dayStr=>{
+      const exKey=dayStr+'_'+tag;
+      if(excluded[exKey])return; // 除外済み
+      const isOccupied=bks.some(b=>b.ci<=dayStr&&dayStr<b.co);
+      if(!isOccupied){
+        const dd=new Date(dayStr);
+        const w=['日','月','火','水','木','金','土'];
+        vacantDays.push({str:dayStr,label:(dd.getMonth()+1)+'/'+(dd.getDate())+'（'+w[dd.getDay()]+'）'});
+      }
+    });
+    if(vacantDays.length>0){
+      targets.push({tag,vacantDays});
+    }
+  });
+  return targets;
+}
+
+loadCfg();
+// DOMが確実に読み込まれてから実行
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',populateLoginUsers);
+} else {
+  populateLoginUsers();
+}
+document.getElementById('pwInp').focus();
+</script>
+</body>
+</html>
