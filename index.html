@@ -193,6 +193,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .sfb.all.on{background:#888}.sfb.ci.on{background:#3B6D11}.sfb.co.on{background:#085041}.sfb.st.on{background:#5F5E5A}.sfb.vc.on{background:#3C3489}
 .cfb{font-size:.68em;font-weight:500;padding:3px 7px;border-radius:99px;border:1px solid var(--b);background:transparent;color:var(--t2);cursor:pointer;white-space:nowrap}
 .cfb.on{background:#444;color:#fff;border-color:#444}
+/* ② Multi-select */
+.mfb{font-size:.7em;font-weight:500;padding:3px 8px;border-radius:99px;border:1.5px solid var(--b);background:transparent;color:var(--t2);cursor:pointer;white-space:nowrap}
+.mfb.on{background:var(--p);color:#fff;border-color:var(--p)}
 .lgnd{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px}
 .li{display:flex;align-items:center;gap:3px;font-size:.68em;color:var(--t2)}
 .ld{width:7px;height:7px;border-radius:50%}
@@ -202,7 +205,24 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .pcnt{font-size:.65em;color:var(--t3);background:var(--bg);border-radius:99px;padding:2px 6px}
 .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
 .rc{border-radius:9px;border:1px solid var(--b2);border-left:4px solid;overflow:hidden}
-.rc.done{opacity:.45}
+.rc.done{}
+.done-banner{background:var(--green);color:#fff;font-size:.7em;font-weight:700;padding:3px 8px;text-align:center;letter-spacing:.5px}
+/* スタンプ */
+.stamp-wrap{position:relative;overflow:hidden}
+.stamp{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:2.2em;font-weight:900;color:rgba(46,125,50,0.22);border:4px solid rgba(46,125,50,0.22);border-radius:8px;padding:2px 10px;letter-spacing:4px;pointer-events:none;white-space:nowrap;z-index:5;font-family:serif}
+/* ③ Color line status */
+.status-line{height:5px;width:100%}
+.sl-green{background:#2e7d32}
+.sl-red{background:#c62828}
+.sl-black{background:#212121}
+.sl-gray{background:#9e9e9e}
+.status-label{font-size:.7em;font-weight:700;padding:4px 10px;display:flex;align-items:center;gap:5px}
+.sl-label-green{background:#2e7d32;color:#fff}
+.sl-label-red{background:#c62828;color:#fff}
+.sl-label-black{background:#212121;color:#fff}
+.sl-label-gray{background:#757575;color:#fff}
+.sel-chk{width:16px;height:16px;cursor:pointer;accent-color:var(--p);flex-shrink:0}
+.sel-row{display:flex;align-items:center;gap:6px;padding:5px 11px;background:#f0f2ff;border-top:1px solid var(--b2)}
 .rc-top{padding:9px 11px}
 .rc-top-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px}
 .rtag{font-family:ui-monospace,monospace;font-size:.9em;font-weight:600}
@@ -292,14 +312,18 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 </head>
 <body>
 
-<!-- ════ PASSWORD ════ -->
+<!-- ════ LOGIN ════ -->
 <div id="pwScreen">
   <div class="pw-card">
     <h1>🏠 民泊運営アプリ</h1>
-    <p>パスワードを入力してください</p>
-    <input class="pw-inp" id="pwInp" type="password" placeholder="●●●●●●●●" maxlength="32" onkeydown="if(event.key==='Enter')checkPw()">
+    <p>ログインしてください</p>
+    <div style="margin-bottom:10px;position:relative">
+      <input id="loginUser" class="pw-inp" type="text" placeholder="ユーザーIDを入力" style="letter-spacing:0" autocomplete="off" oninput="filterUserList(this.value)" onfocus="showUserList()" onblur="setTimeout(hideUserList,200)">
+      <div id="userDropdown" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1.5px solid var(--p);border-radius:0 0 9px 9px;z-index:10;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15)"></div>
+    </div>
+    <input class="pw-inp" id="pwInp" type="password" placeholder="パスワード" maxlength="32" onkeydown="if(event.key==='Enter')checkPw()">
     <button class="pw-btn" onclick="checkPw()">ログイン</button>
-    <div class="pw-err" id="pwErr">パスワードが違います</div>
+    <div class="pw-err" id="pwErr">ユーザー名またはパスワードが違います</div>
   </div>
 </div>
 
@@ -316,21 +340,34 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
   <div class="tabs">
     <button class="tab on" onclick="swTab('ops',this)">📊 運営</button>
     <button class="tab" onclick="swTab('clean',this)">🧹 清掃</button>
-    <button class="tab" onclick="swTab('pay',this)">💰 入金管理</button>
-    <button class="tab" onclick="swTab('inv',this)">📄 請求書</button>
+    <button class="tab" id="tabBb" onclick="swTab('bb',this)">📋 掲示板</button>
+    <button class="tab" id="tabPay" onclick="swTab('pay',this)">💰 入金管理</button>
+    <button class="tab" id="tabInv" onclick="swTab('inv',this)">📄 請求書</button>
+    <button class="tab" id="tabAcc" onclick="swTab('acc',this)">📒 会計</button>
+    <button class="tab" id="tabUsers" onclick="swTab('users',this)">👥 ユーザー管理</button>
   </div>
 
   <!-- 運営 -->
   <div class="pane on" id="opsPane">
     <div class="mtabs"><div class="mtabs-inner" id="mlist"></div></div>
-    <!-- ④ Filter -->
-    <div class="filter-bar">
-      <span>表示：</span>
-      <button class="filt-btn on" onclick="setFilt('all',this)">全体</button>
-      <button class="filt-btn" onclick="setFilt('direct',this)">直営のみ</button>
-      <button class="filt-btn" onclick="setFilt('subcon',this)">代行のみ</button>
+    <!-- ⑮ サブタブ -->
+    <div style="display:flex;background:#fff;border-radius:10px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.07)">
+      <button id="subRevBtn" onclick="swSubTab('rev',this)" style="flex:1;padding:10px;border:none;background:#fff;cursor:pointer;font-size:.85em;font-weight:600;color:var(--p);border-bottom:3px solid var(--p)">📈 収益</button>
+      <button id="subExpBtn" onclick="swSubTab('exp',this)" style="flex:1;padding:10px;border:none;background:#f5f5f5;cursor:pointer;font-size:.85em;font-weight:500;color:var(--t2);border-bottom:3px solid transparent">💸 支出</button>
     </div>
-    <div id="opsContent"></div>
+    <!-- ④ Filter (収益サブタブ内) -->
+    <div id="revSubPane">
+      <div class="filter-bar">
+        <span>表示：</span>
+        <button class="filt-btn on" onclick="setFilt('all',this)">全体</button>
+        <button class="filt-btn" onclick="setFilt('direct',this)">直営のみ</button>
+        <button class="filt-btn" onclick="setFilt('subcon',this)">代行のみ</button>
+      </div>
+      <div id="opsContent"></div>
+    </div>
+    <div id="expSubPane" style="display:none">
+      <div id="expContent"><div class="nd">CSVを読み込むと支出を入力できます</div></div>
+    </div>
   </div>
 
   <!-- 清掃 -->
@@ -338,6 +375,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div class="cl-hdr" style="max-width:1280px;margin:0 auto;width:100%">
       <div style="font-size:1em;font-weight:700">🧹 清掃確認ダッシュボード</div>
       <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+        <button onclick="bulkCompleteSelected()" style="background:var(--green);color:#fff;border:none;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:.73em;font-weight:600">✅ 選択を完了</button>
+        <button onclick="selectAllCards(true)" style="background:transparent;border:1px solid var(--b);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.7em">全選択</button>
+        <button onclick="selectAllCards(false)" style="background:transparent;border:1px solid var(--b);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.7em">全解除</button>
         <button class="rst-btn" onclick="resetChks()">消込リセット</button>
         <div class="dnav">
           <button onclick="chgDate(-1)">←</button>
@@ -349,7 +389,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div style="max-width:1280px;margin:0 auto;width:100%">
       <div class="sbar" id="csum"></div>
       <div class="lgnd">
-        <div class="li"><div class="ld" style="background:#639922"></div>本日CI</div>
+        <div class="li"><div class="ld" style="background:#639922"></div>当日IN</div>
         <div class="li"><div class="ld" style="background:#BA7517"></div>同日入替/未割当</div>
         <div class="li"><div class="ld" style="background:#E24B4A"></div>清掃タスクなし</div>
         <div class="li"><div class="ld" style="background:#1D9E75"></div>清掃のみ</div>
@@ -360,13 +400,14 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         <div class="frow"><span class="flbl">物件：</span><div id="propBar" style="display:flex;gap:4px;flex-wrap:wrap"></div></div>
         <div class="frow">
           <span class="flbl">状態：</span>
-          <button class="sfb all on" onclick="setSF(this,'all')">全て</button>
-          <button class="sfb ci" onclick="setSF(this,'ci')">CI当日</button>
-          <button class="sfb co" onclick="setSF(this,'co')">清掃のみ</button>
-          <button class="sfb st" onclick="setSF(this,'st')">滞在中</button>
-          <button class="sfb vc" onclick="setSF(this,'vc')">空室</button>
+          <button class="mfb on" data-sf="all" onclick="toggleState('all')">全て</button>
+          <button class="mfb" data-sf="ci_wait" onclick="toggleState('ci_wait')" style="border-color:#c62828;color:#c62828">🔴 当日IN待ち</button>
+          <button class="mfb" data-sf="ci_done" onclick="toggleState('ci_done')" style="border-color:#2e7d32;color:#2e7d32">✅ 当日IN済</button>
+          <button class="mfb" data-sf="st" onclick="toggleState('st')" style="border-color:#212121;color:#212121">⬛ 滞在中</button>
+          <button class="mfb" data-sf="vc_done" onclick="toggleState('vc_done')" style="border-color:#2e7d32;color:#2e7d32">✅ 空室清掃済</button>
+          <button class="mfb" data-sf="vc_wait" onclick="toggleState('vc_wait')" style="border-color:#c62828;color:#c62828">🔴 空室未完了</button>
         </div>
-        <div class="frow" id="clRow" style="display:none">
+        <div class="frow" id="clRow">
           <span class="flbl">クリーナー：</span>
           <div id="clBar" style="display:flex;gap:4px;flex-wrap:wrap"></div>
         </div>
@@ -383,9 +424,48 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <div style="font-size:.88em;font-weight:600">Booking.com / Airbnb の支払いCSVをアップロード</div>
       <div style="font-size:.73em;color:var(--t3);margin-top:3px">両フォーマット自動判別・ドラッグ&ドロップ可</div>
     </div>
+    <!-- ④⑩ 検索フィルター -->
+    <div style="background:#fff;padding:12px;border-radius:9px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:10px">
+      <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">
+        <input id="srchRoom" type="text" placeholder="部屋名・ゲスト名" style="border:1.5px solid var(--b);border-radius:6px;padding:5px 8px;font-size:.78em;outline:none;width:140px" oninput="renderPayTab()">
+        <select id="srchOTA" style="border:1.5px solid var(--b);border-radius:6px;padding:5px 8px;font-size:.78em;outline:none" onchange="renderPayTab()">
+          <option value="">OTA 全て</option>
+          <option value="Booking.com">Booking.com</option>
+          <option value="Airbnb">Airbnb</option>
+        </select>
+        <select id="srchStatus" style="border:1.5px solid var(--b);border-radius:6px;padding:5px 8px;font-size:.78em;outline:none" onchange="renderPayTab()">
+          <option value="">状態 全て</option>
+          <option value="paid">入金済</option>
+          <option value="unpaid">未確認</option>
+        </select>
+        <button onclick="clearPaySearch()" style="background:transparent;border:1px solid var(--b);border-radius:6px;padding:5px 9px;font-size:.75em;cursor:pointer">クリア</button>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:.75em;color:var(--t2);font-weight:600">IN日：</span>
+        <input id="srchCiFrom" type="date" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.76em;outline:none" onchange="renderPayTab()">
+        <span style="font-size:.75em;color:var(--t3)">〜</span>
+        <input id="srchCiTo" type="date" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.76em;outline:none" onchange="renderPayTab()">
+        <span style="font-size:.75em;color:var(--t2);font-weight:600;margin-left:8px">着金日：</span>
+        <input id="srchPayFrom" type="date" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.76em;outline:none" onchange="renderPayTab()">
+        <span style="font-size:.75em;color:var(--t3)">〜</span>
+        <input id="srchPayTo" type="date" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.76em;outline:none" onchange="renderPayTab()">
+      </div>
+    </div>
     <div class="pay-mtabs" id="payMtabs"></div>
     <div class="pay-sum" id="paySum"></div>
-    <div class="pay-tbl-wrap"><table class="pay-tbl"><thead><tr><th>日付</th><th>部屋</th><th>ゲスト</th><th>OTA</th><th>実受取</th><th>着金日</th><th>状態</th><th></th></tr></thead><tbody id="payBody"></tbody></table></div>
+    <!-- ⑤ Bulk date edit bar -->
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding:8px 10px;background:#f0f2ff;border-radius:8px">
+      <span style="font-size:.78em;color:var(--t2);font-weight:600">選択した件の着金日を一括変更：</span>
+      <input type="date" id="bulkPayDate" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.78em;outline:none">
+      <button onclick="bulkUpdatePayDate()" style="background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">一括適用</button>
+      <button onclick="paySelectSamePayoutId()" style="background:transparent;border:1.5px solid var(--p);color:var(--p);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.75em">同Payout IDを選択</button>
+    </div>
+    <div class="pay-tbl-wrap"><table class="pay-tbl"><thead>
+  <tr>
+    <th><input type="checkbox" id="paySelAll" onclick="paySelectAll(this.checked)" style="width:14px;height:14px;cursor:pointer"></th>
+    <th>IN日</th><th>部屋</th><th>ゲスト</th><th>OTA</th><th>実受取(税込)</th><th>着金日</th><th>状態</th><th>🔒</th><th></th>
+  </tr>
+</thead><tbody id="payBody"></tbody></table></div>
   </div>
 
   <!-- 請求書 -->
@@ -411,6 +491,76 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     </div>
     <button class="inv-print" onclick="printInv()">🖨️ PDFで印刷・保存</button>
   </div>
+  <!-- 会計 -->
+  <div class="pane" id="accPane">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <select id="accMonth" style="border:1.5px solid var(--b);border-radius:6px;padding:6px 9px;font-size:.85em;outline:none;width:160px" onchange="renderAcc()"></select>
+      <button onclick="dlAccExcel()" style="background:var(--green);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">📥 CSVダウンロード</button>
+    </div>
+    <div class="sec"><h2>📒 民泊手数料まとめ（税込）</h2>
+      <div id="accContent"><div class="nd">CSVを読み込んでください</div></div>
+      <button onclick="addAccRow()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em;margin-top:10px">＋ 手動入力行を追加（スクエア等）</button>
+    </div>
+  </div>
+
+  <!-- ユーザー管理 -->
+  <div class="pane" id="usersPane">
+    <div class="sec">
+      <h2>👥 ユーザー管理</h2>
+      <button onclick="addNewUser()" style="background:var(--p);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85em;font-weight:600;margin-bottom:14px">＋ ユーザーを追加</button>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.83em" id="userMgmtTbl">
+          <thead><tr style="background:#f4f4f8">
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2);font-weight:600">名前</th>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2);font-weight:600">ユーザーID</th>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2);font-weight:600">権限</th>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2);font-weight:600">状態</th>
+            <th style="padding:9px 10px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2);font-weight:600">操作</th>
+          </tr></thead>
+          <tbody id="userMgmtBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <!-- 権限一覧表 -->
+    <div class="sec" style="margin-top:14px">
+      <h2>🔑 権限について</h2>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:.82em;white-space:nowrap">
+          <thead>
+            <tr style="background:#f4f4f8">
+              <th style="padding:9px 12px;text-align:left;border-bottom:2px solid var(--b);color:var(--t2)">機能</th>
+              <th style="padding:9px 12px;text-align:center;border-bottom:2px solid var(--b);color:var(--red)">管理者</th>
+              <th style="padding:9px 12px;text-align:center;border-bottom:2px solid var(--b);color:var(--p)">事務経理</th>
+              <th style="padding:9px 12px;text-align:center;border-bottom:2px solid var(--b);color:var(--t3)">スタッフ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">📊 運営タブ</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・編集</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・編集</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">🧹 清掃タブ</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・完了チェック</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">📋 掲示板タブ</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・投稿</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・投稿</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">💰 入金管理タブ</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">📄 請求書タブ</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">📒 会計タブ</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">✅ 全機能</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">👥 ユーザー管理タブ</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・編集</td><td style="padding:8px 12px;text-align:center">✅ 閲覧・編集</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+<tr style="border-bottom:1px solid var(--b2)"><td style="padding:8px 12px;font-weight:500">⚙️ 設定（CSV更新・スナップ）</td><td style="padding:8px 12px;text-align:center">✅</td><td style="padding:8px 12px;text-align:center">✅</td><td style="padding:8px 12px;text-align:center">❌</td></tr>
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 掲示板 -->
+  <div class="pane" id="bbPane">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button onclick="bbNav(-1)" style="background:#fff;border:1.5px solid var(--b);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.82em">← 前の週末</button>
+      <span id="bbWeekLabel" style="font-size:.95em;font-weight:700"></span>
+      <button onclick="bbNav(1)" style="background:#fff;border:1.5px solid var(--b);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.82em">次の週末 →</button>
+      <button onclick="addBBDate()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:.8em">📅 日付を追加</button>
+    </div>
+    <div id="bbContent"></div>
+  </div>
+
 </div>
 
 <!-- ════ MODALS ════ -->
@@ -457,7 +607,12 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 <div class="overlay" id="settingsModal" onclick="if(event.target===this)closeModal('settingsModal')">
   <div class="modal">
     <h2>⚙️ 設定</h2>
-    <div class="set-row"><span class="set-lbl">🔑 パスワード変更</span>
+    <!-- ⑬ User management -->
+    <div style="font-size:.85em;font-weight:700;margin-bottom:8px">👥 ユーザー管理</div>
+    <div id="userListEl" style="margin-bottom:10px"></div>
+    <button onclick="addUserRow()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em;margin-bottom:12px">＋ ユーザーを追加</button>
+    <hr style="border:none;border-top:1px solid var(--b2);margin:10px 0">
+    <div class="set-row"><span class="set-lbl">🔑 管理者パスワード変更</span>
       <input class="set-inp" id="setPw1" type="password" placeholder="新しいパスワード">
       <input class="set-inp" id="setPw2" type="password" placeholder="確認" style="margin-top:4px">
     </div>
@@ -490,7 +645,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6';
 
 let cfg={
   pw:'minpaku2026',defaultRent:3912091,
@@ -508,34 +663,94 @@ let cfg={
   ]
 };
 
+// ⑬ Users
+let USERS=[
+  {id:'admin',name:'管理者',pw:'minpaku2026',role:'admin'},
+  {id:'office1',name:'事務経理',pw:'office2026',role:'admin'},
+  {id:'staff1',name:'スタッフ',pw:'staff2026',role:'staff'}
+];
+let currentUser=null;
+
 const S={
   get(k){try{return JSON.parse(localStorage.getItem(k))}catch{return null}},
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
 };
-function loadCfg(){const s=S.get(CONF_KEY);if(s)Object.assign(cfg,s);}
+function loadCfg(){
+  const s=S.get(CONF_KEY);if(s)Object.assign(cfg,s);
+  const u=S.get('mp_users6');if(u&&u.length)USERS=u;
+}
 function saveCfg(){S.set(CONF_KEY,cfg);}
 
 // ════════════════════════════════════════════
 //  PASSWORD
 // ════════════════════════════════════════════
+function populateLoginUsers(){
+  // Now using text input with dropdown
+}
+
+function filterUserList(val){
+  const dd=document.getElementById('userDropdown');
+  if(!dd)return;
+  const filtered=USERS.filter(u=>u.active!==false&&(u.name.includes(val)||u.id.includes(val)));
+  if(!filtered.length){dd.style.display='none';return;}
+  dd.style.display='block';
+  dd.innerHTML=filtered.map(u=>`<div onclick="selectLoginUser('${u.id}','${u.name}')" style="padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--b2);font-size:.9em;display:flex;gap:8px;align-items:center">
+    <span style="font-weight:600">${u.name}</span>
+    <span style="color:var(--t3);font-size:.85em">${u.id}</span>
+    <span style="margin-left:auto;font-size:.75em;padding:1px 6px;border-radius:99px;background:${u.role==='admin'?'var(--red)':u.role==='office'?'var(--p)':'var(--t3)'};color:#fff">${u.role==='admin'?'管理者':u.role==='office'?'事務経理':'スタッフ'}</span>
+  </div>`).join('');
+}
+function showUserList(){
+  const val=document.getElementById('loginUser').value;
+  filterUserList(val||'');
+}
+function hideUserList(){
+  const dd=document.getElementById('userDropdown');
+  if(dd)dd.style.display='none';
+}
+function selectLoginUser(id,name){
+  const inp=document.getElementById('loginUser');
+  if(inp){inp.value=name;inp.dataset.uid=id;}
+  hideUserList();
+  document.getElementById('loginPw').focus();
+}
+
 function checkPw(){
-  if(document.getElementById('pwInp').value===cfg.pw){
-    document.getElementById('pwScreen').style.display='none';
-    document.getElementById('mainApp').style.display='flex';
-    document.getElementById('mainApp').style.flexDirection='column';
-    initApp();
-  } else {
+  const inp=document.getElementById('loginUser');
+  const typed=(inp?inp.value:'').trim();
+  const uid=(inp&&inp.dataset&&inp.dataset.uid)?inp.dataset.uid:typed;
+  const pwEl=document.getElementById('loginPw')||document.getElementById('pwInp');
+  const pw=pwEl?pwEl.value:'';
+  if(!typed){
     document.getElementById('pwErr').style.display='block';
-    document.getElementById('pwInp').value='';
-    document.getElementById('pwInp').focus();
+    document.getElementById('pwErr').textContent='ユーザーIDを入力してください';return;
   }
+  // IDまたは名前でマッチ
+  const user=USERS.find(u=>u.active!==false&&(u.id===uid||u.name===typed||u.id===typed)&&u.pw===pw);
+  if(!user){
+    document.getElementById('pwErr').style.display='block';
+    document.getElementById('pwErr').textContent='IDまたはパスワードが違います';
+    if(pwEl)pwEl.value='';return;
+  }
+  currentUser=user;
+  document.getElementById('pwScreen').style.display='none';
+  document.getElementById('mainApp').style.display='flex';
+  document.getElementById('mainApp').style.flexDirection='column';
+  // ⑬ Apply role restrictions
+  const isStaff=currentUser.role==='staff';
+  ['tabPay','tabInv','tabAcc','tabBb'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isStaff?'none':'';});
+  // Users tab: admin + office
+  const isAdmin=currentUser&&(currentUser.role==='admin'||currentUser.role==='office');
+  const tabUsers=document.getElementById('tabUsers');
+  if(tabUsers)tabUsers.style.display=isAdmin?'':'none';
+  initApp();
 }
 
 // ════════════════════════════════════════════
 //  DATA
 // ════════════════════════════════════════════
 let ROOMS={},BK={},CH={},CM={},MS={};
-let curM=null,payM=null,opsFilt='all',cF={prop:'all',sf:'all',cl:'all'};
+let curM=null,payM=null,opsFilt='all',cF={props:new Set(['all']),states:new Set(['all']),cleaners:new Set(['all'])};
 let invItems=[];
 let _bkTexts=[],_clText='',_bkReady=false;
 const excl=v=>Math.round(parseFloat(v||0)/1.1);
@@ -717,6 +932,58 @@ function computeMS(){
 // ════════════════════════════════════════════
 //  ④ FILTER
 // ════════════════════════════════════════════
+function swSubTab(id,btn){
+  document.getElementById('revSubPane').style.display=id==='rev'?'block':'none';
+  document.getElementById('expSubPane').style.display=id==='exp'?'block':'none';
+  // Update button styles
+  const revBtn=document.getElementById('subRevBtn');const expBtn=document.getElementById('subExpBtn');
+  if(revBtn){revBtn.style.background=id==='rev'?'#fff':'#f5f5f5';revBtn.style.color=id==='rev'?'var(--p)':'var(--t2)';revBtn.style.borderBottom=id==='rev'?'3px solid var(--p)':'3px solid transparent';revBtn.style.fontWeight=id==='rev'?'600':'500';}
+  if(expBtn){expBtn.style.background=id==='exp'?'#fff':'#f5f5f5';expBtn.style.color=id==='exp'?'var(--p)':'var(--t2)';expBtn.style.borderBottom=id==='exp'?'3px solid var(--p)':'3px solid transparent';expBtn.style.fontWeight=id==='exp'?'600':'500';}
+  if(id==='exp')renderExpPane();
+}
+
+function renderExpPane(){
+  const el=document.getElementById('expContent');
+  if(!el)return;
+  if(!curM||!MS[curM]){el.innerHTML='<div class="nd">データなし</div>';return;}
+  const ms=MS[curM];const{exp,profit,tot}=ms;
+  el.innerHTML=`
+    <div class="sec"><h2>💸 支出入力</h2>
+      <div class="exprow">
+        <label>家賃:</label><input class="expinp" type="number" id="ri2" value="${exp.rent}" step="1000" onchange="updExp('rent',this.value)">
+      </div>
+      <div style="font-size:.85em;font-weight:600;margin-bottom:8px">⚡ 光熱費（部屋別）</div>
+      <div style="border:2px dashed var(--p);border-radius:9px;padding:12px;text-align:center;cursor:pointer;margin-bottom:10px;background:#fafbff;position:relative">
+        <input type="file" id="utilFile2" accept=".csv" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleUtilCSV(this.files)">
+        <div style="font-size:.88em;font-weight:600">電気代CSVをアップロード</div>
+        <div style="font-size:.72em;color:var(--t3);margin-top:2px">店舗名で自動マッチング</div>
+      </div>
+      <div class="util-room-grid" id="utilRoomGrid2"></div>
+    </div>
+    <div class="sec"><h2>収支サマリー</h2>
+      <table class="tbl"><thead><tr><th>項目</th><th class="r">金額</th></tr></thead><tbody>
+        <tr><td><b>実受取合計</b></td><td class="r" style="color:var(--green)"><b>${fmtF(tot.net)}</b></td></tr>
+        <tr><td>- 家賃</td><td class="r" style="color:var(--red)">-${fmtF(exp.rent)}</td></tr>
+        <tr><td>- 光熱費合計</td><td class="r" style="color:var(--red)">-${fmtF(exp.util)}</td></tr>
+        <tr class="prf"><td><b>営業利益</b></td><td class="r"><b>${fmtF(profit)}</b></td></tr>
+      </tbody></table>
+    </div>`;
+  // Render util grid in exp pane
+  const grid=document.getElementById('utilRoomGrid2');
+  if(!grid)return;
+  const utilData=S.get(UTIL_KEY)||{};
+  const utilMonth=utilData[curM]||{};
+  grid.innerHTML=Object.keys(ROOMS).sort().map(tag=>{
+    const d=utilMonth[tag]||{elec:0,gas:0,water:0};
+    return`<div class="util-room">
+      <div class="util-room-tag">${tag}</div>
+      <div class="util-inp-row"><span class="util-inp-lbl">電気</span><input class="util-inp" type="number" value="${d.elec||''}" placeholder="0" onchange="saveUtil('${tag}','elec',this.value)"></div>
+      <div class="util-inp-row"><span class="util-inp-lbl">ガス</span><input class="util-inp" type="number" value="${d.gas||''}" placeholder="0" onchange="saveUtil('${tag}','gas',this.value)"></div>
+      <div class="util-inp-row"><span class="util-inp-lbl">水道</span><input class="util-inp" type="number" value="${d.water||''}" placeholder="0" onchange="saveUtil('${tag}','water',this.value)"></div>
+    </div>`;
+  }).join('');
+}
+
 function setFilt(f,btn){
   opsFilt=f;
   document.querySelectorAll('.filt-btn').forEach(b=>b.classList.remove('on'));
@@ -742,7 +1009,11 @@ function renderOpsTabs(){
     document.getElementById('opsContent').innerHTML='<div class="nd">📂 右上の「CSV更新」からCSVを読み込んでください</div>';
     return;
   }
-  if(!curM||!MS[curM])curM=months[months.length-1];
+  // ① 今月を自動選択、なければ直近月
+  const todayM=new Date().toISOString().substring(0,7);
+  if(!curM||!MS[curM]){
+    curM=months.includes(todayM)?todayM:months[months.length-1];
+  }
   el.innerHTML=months.map(m=>`<button class="mtab ${m===curM?'on':''}" onclick="swM('${m}',this)">${m}</button>`).join('');
   renderOps();
 }
@@ -817,7 +1088,7 @@ function renderOps(){
           </div>
         </div>
       </div>
-      ${mkChart(d,s)}
+      
     </div>`;
   } else {
     const lbl=opsFilt==='direct'?'直営':'代行';
@@ -910,7 +1181,7 @@ function renderOps(){
   </div>`;
 
   // ③ 表示順変更
-  el.innerHTML=kpiH+otaH+cmpH+gaugeH+roomH+wfH+expH;
+  el.innerHTML=kpiH+otaH+cmpH+roomH+wfH+expH;
   renderUtilGrid();
 }
 
@@ -1050,8 +1321,57 @@ setTimeout(()=>{
 // ════════════════════════════════════════════
 //  CLEANING
 // ════════════════════════════════════════════
+// ③ Selection-based bulk complete
+function getSelectedTags(){
+  const tags=[];
+  document.querySelectorAll('.card-sel-chk:checked').forEach(el=>tags.push(el.dataset.tag));
+  return tags;
+}
+function selectAllCards(val){
+  document.querySelectorAll('.card-sel-chk').forEach(el=>{el.checked=val;});
+}
+function bulkCompleteSelected(){
+  const ds=document.getElementById('cleanDate').value;
+  const tags=getSelectedTags();
+  if(!tags.length){alert('カードを選択してください');return;}
+  if(!confirm(tags.length+'件を完了にしますか？'))return;
+  const c=S.get(CHK_KEY)||{};
+  tags.forEach(tag=>{
+    c[ds+'_'+tag]='1';
+    const bks=BK[tag]||[];
+    const nextCI=bks.map(b=>b.ci).filter(ci=>ci>ds).sort()[0];
+    let cur=new Date(ds);cur.setDate(cur.getDate()+1);
+    const limit=nextCI?new Date(nextCI):null;
+    let safety=0;
+    while(safety<60){
+      const dStr=cur.toISOString().split('T')[0];
+      c[dStr+'_'+tag]='1';safety++;
+      if(limit&&cur>=limit)break;if(!limit)break;
+      cur.setDate(cur.getDate()+1);
+    }
+  });
+  S.set(CHK_KEY,c);renderClean();
+}
+
 function chgDate(d){const inp=document.getElementById('cleanDate');const dt=new Date(inp.value);dt.setDate(dt.getDate()+d);inp.value=dt.toISOString().split('T')[0];renderClean();}
-function setSF(btn,sf){cF.sf=sf;document.querySelectorAll('.sfb').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');renderClean();}
+// ② Multi-select filter functions
+function toggleProp(p){
+  if(p==='all'){cF.props=new Set(['all']);}
+  else{cF.props.delete('all');if(cF.props.has(p))cF.props.delete(p);else cF.props.add(p);if(cF.props.size===0)cF.props=new Set(['all']);}
+  renderClean();
+}
+function toggleState(sf){
+  if(sf==='all'){cF.states=new Set(['all']);}
+  else{cF.states.delete('all');if(cF.states.has(sf))cF.states.delete(sf);else cF.states.add(sf);if(cF.states.size===0)cF.states=new Set(['all']);}
+  document.querySelectorAll('[data-sf]').forEach(b=>{b.classList.toggle('on',cF.states.has(b.dataset.sf)||(b.dataset.sf==='all'&&cF.states.has('all')));});
+  renderClean();
+}
+function toggleCleaner(cl){
+  if(cl==='all'){cF.cleaners=new Set(['all']);}
+  else{cF.cleaners.delete('all');if(cF.cleaners.has(cl))cF.cleaners.delete(cl);else cF.cleaners.add(cl);if(cF.cleaners.size===0)cF.cleaners=new Set(['all']);}
+  renderClean();
+}
+function setSF(btn,sf){toggleState(sf);}
 function getRoomSt(tag,ds){
   const bks=BK[tag]||[];const d=new Date(ds);
   for(const b of bks){
@@ -1073,34 +1393,38 @@ function getPhotoUrl(ds,tag){try{const p=S.get(PHOTO_KEY)||{};return p[ds+'_'+ta
 function savePhotoUrl(ds,tag,url){
   try{const p=S.get(PHOTO_KEY)||{};p[ds+'_'+tag]=url;S.set(PHOTO_KEY,p);}catch{}
 }
-function togChk(ds,tag,val){
-  try{
-    const c=S.get(CHK_KEY)||{};
-    c[ds+'_'+tag]=val?'1':'0';
-    if(val){
-      // チェーン方式：次のCI日まで全日程を自動✓
-      const bks=BK[tag]||[];
-      const checkedDate=new Date(ds);
-      // Find the next CI date after ds
-      const nextCI=bks.map(b=>b.ci).filter(ci=>ci>ds).sort()[0];
-      // Mark every day from ds+1 up to and including nextCI
-      let cur=new Date(checkedDate);
-      cur.setDate(cur.getDate()+1);
-      const limit=nextCI?new Date(nextCI):null;
-      let safety=0;
-      while(safety<60){
-        const dStr=cur.toISOString().split('T')[0];
-        c[dStr+'_'+tag]='1';
-        safety++;
-        // Stop at nextCI (inclusive) or after 60 days
-        if(limit&&cur>=limit)break;
-        if(!limit)break; // no next booking, just mark +1 day
-        cur.setDate(cur.getDate()+1);
+// ④ Confirm helper
+let _confirmCb=null;
+function showConfirm(title,msg,cb){
+  if(confirm(title+'\n'+msg)){cb(true);}else{cb(false);}
+}
+
+function togChk(ds,tag,val,chkEl){
+  // ④ 2-step confirm
+  if(chkEl)chkEl.checked=!val; // revert until confirmed
+  const action=val?'完了にする':'完了を解除する';
+  showConfirm('確認',`${tag}を${action}しますか？`,ok=>{
+    if(!ok){if(chkEl)chkEl.checked=!val;return;}
+    try{
+      const c=S.get(CHK_KEY)||{};
+      c[ds+'_'+tag]=val?'1':'0';
+      if(val){
+        const bks=BK[tag]||[];
+        const nextCI=bks.map(b=>b.ci).filter(ci=>ci>ds).sort()[0];
+        let cur=new Date(ds);cur.setDate(cur.getDate()+1);
+        const limit=nextCI?new Date(nextCI):null;
+        let safety=0;
+        while(safety<60){
+          const dStr=cur.toISOString().split('T')[0];
+          c[dStr+'_'+tag]='1';safety++;
+          if(limit&&cur>=limit)break;if(!limit)break;
+          cur.setDate(cur.getDate()+1);
+        }
       }
-    }
-    S.set(CHK_KEY,c);
-  }catch{}
-  renderClean();
+      S.set(CHK_KEY,c);
+    }catch{}
+    renderClean();
+  });
 }
 function resetChks(){
   const ds=document.getElementById('cleanDate').value;
@@ -1111,7 +1435,34 @@ const fd2=s=>{if(!s)return'—';const d=new Date(s.replace(/\//g,'-'));return(d.
 const diffD=(a,b)=>Math.round((new Date(b)-new Date(a))/86400000);
 
 function buildCard(tag,r,ds){
-  const chk=isChk(ds,tag);const done=chk?' done':'';const db=chk?'<span class="sb bdone">完了</span>':'';
+  const chk=isChk(ds,tag);
+  // ③ Determine status line color and label
+  function getStatusLine(){
+    const type=r.type;
+    if(type==='staying') return{cls:'sl-black',lcls:'sl-label-black',icon:'⬛',text:'滞在中'};
+    if(['checkin','warn','unassigned','danger'].includes(type)){
+      if(chk) return{cls:'sl-green',lcls:'sl-label-green',icon:'✅',text:'当日IN・清掃済'};
+      else return{cls:'sl-red',lcls:'sl-label-red',icon:'🔴',text:'当日IN・清掃待ち'};
+    }
+    if(type==='cleanonly'){
+      if(chk) return{cls:'sl-green',lcls:'sl-label-green',icon:'✅',text:'清掃済'};
+      else{
+        const nbIn=r.nb?`IN ${fd2(r.nb.ci)}・`:'';
+        return{cls:'sl-red',lcls:'sl-label-red',icon:'🔴',text:nbIn+'清掃待ち'};
+      }
+    }
+    if(type==='vacant'){
+      if(chk) return{cls:'sl-green',lcls:'sl-label-green',icon:'✅',text:'清掃済'};
+      // ① 次回清掃予定日を表示
+      const nextClean=(CH[tag]||[]).find(h=>h.d>ds.replace(/-/g,'/'));
+      const nextCleanLabel=nextClean?`空室・🧹 ${fd2(nextClean.d)}`:'空室・🧹 未定';
+      return{cls:'sl-red',lcls:'sl-label-red',icon:'🔴',text:nextCleanLabel};
+    }
+    return{cls:'sl-gray',lcls:'sl-label-gray',icon:'○',text:'空室'};
+  }
+  const sl=getStatusLine();
+  const statusBar=`<div class="status-line ${sl.cls}"></div><div class="status-label ${sl.lcls}">${sl.icon} ${sl.text}</div>`;
+  const done=chk?' done':'';const db=chk?'<span class="sb bdone">完了</span>':'';
   const photoUrl=getPhotoUrl(ds,tag);
   const photoBox=chk?`<div style="margin-top:5px;display:flex;align-items:center;gap:5px">
     <span style="font-size:.67em;color:var(--t3);flex-shrink:0">📎</span>
@@ -1124,31 +1475,45 @@ function buildCard(tag,r,ds){
     ${photoUrl?`<a href="${photoUrl}" target="_blank" style="font-size:.67em;color:var(--p);white-space:nowrap;flex-shrink:0">開く</a>`:''}
   </div>`:'';
   const chkBox=`<label class="rchk"><input type="checkbox" ${chk?'checked':''} onchange="togChk('${ds}','${tag}',this.checked)"><span>${chk?'完了済み':'完了にする'}</span></label>${photoBox}`;
+  const selChk=!chk?`<div class="sel-row"><input type="checkbox" class="card-sel-chk sel-chk" data-tag="${tag}" onclick="event.stopPropagation()"><span style="font-size:.7em;color:var(--t2)">選択</span></div>`:'';
   const clsM={checkin:'ci',warn:'wn',unassigned:'un',danger:'dg',staying:'st',cleanonly:'co',vacant:'vc'};
-  const lblM={checkin:'本日CI',warn:'同日入替',unassigned:'未割当',danger:'要確認',staying:'滞在中',cleanonly:'清掃予定',vacant:'空室'};
+  const lblM={checkin:'当日IN',warn:'同日入替',unassigned:'未割当',danger:'要確認',staying:'滞在中',cleanonly:'清掃予定',vacant:'空室'};
   const bM={checkin:'bci',warn:'bwn',unassigned:'bun',danger:'bdg',staying:'bst',cleanonly:'bco',vacant:'bvc'};
   const k=clsM[r.type]||'vc',bc=bM[r.type]||'bvc',bl=lblM[r.type]||'空室';
   const bgM={ci:'var(--ci-bg)',wn:'var(--wn-bg)',dg:'var(--dg-bg)',un:'var(--un-bg)',st:'var(--st-bg)',vc:'var(--vc-bg)',co:'var(--co-bg)'};
   const brdM={ci:'#639922',wn:'#BA7517',dg:'#E24B4A',un:'#378ADD',st:'#888780',vc:'#7F77DD',co:'#1D9E75'};
   let top='',bot='';
   if(['checkin','warn','unassigned','danger'].includes(r.type)){
-    top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span><span>${r.b.nat}</span><span>${r.b.s}</span></div><div class="rdates">CI:${fd2(r.b.ci)} → CO:${fd2(r.b.co)}</div>`;
+    top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span></div><div class="rdates">IN:${fd2(r.b.ci)} → OUT:${fd2(r.b.co)}</div>`; // ⑧⑰
     const cm=r.cm;
     bot=`<div class="rclr"><div class="rcname"><div class="rcico">人</div>${cm?cm.cl:'タスクなし'}</div>${cm?`<span class="rct">CO ${cm.cot}/CI ${cm.cit}</span>`:''}</div>${cm&&cm.cd?`<div style="font-size:.65em;color:#999;margin-top:2px">清掃: ${cm.cd}</div>`:''}${cm&&cm.cm?`<div class="rcmt">${cm.cm}</div>`:''}${chkBox}`;
   } else if(r.type==='staying'){
     const dl=diffD(ds,r.b.co);
-    top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span><span>${r.b.nat}</span><span>${r.b.s}</span></div><div class="rdates">CO:${fd2(r.b.co)}（あと${dl}泊）</div>${r.nb?`<div style="font-size:.65em;color:#085041;margin-top:2px;font-weight:500">次CI:${fd2(r.nb.ci)} ${r.nb.g}</div>`:''}`;
-    bot=`<div style="font-size:.7em;color:#999">${r.lc?'最終清掃: '+fd2(r.lc.d):'清掃履歴なし'}</div>`;
+    top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span><span>${r.b.nat}</span><span>${r.b.s}</span></div><div class="rdates">OUT:${fd2(r.b.co)}（あと${dl}泊）</div>${r.nb?`<div style="font-size:.65em;color:#085041;margin-top:2px;font-weight:500">次IN:${fd2(r.nb.ci)} ${r.nb.g}</div>`:''}`;
+    const lcDaysSt=r.lc?diffD(r.lc.d.replace(/\//g,'-'),ds):null;
+    const lastHSt=r.lc?`<span style="font-size:.67em;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 5px;margin-top:2px;display:inline-block">📅 最終: ${fd2(r.lc.d)}（${lcDaysSt}日前）</span>`:'<span style="font-size:.65em;color:#999">清掃履歴なし</span>';
+    bot=lastHSt;
   } else if(r.type==='cleanonly'){
-    top=r.nb?`<div class="rg">${r.nb.g}</div><div class="rm2"><span>${r.nb.n||'?'}名</span><span>${r.nb.nat||''}</span></div><div class="rdates">次CI:${fd2(r.nb.ci)}</div>`:`<div class="rg" style="color:#999">次予約なし</div>`;
+    top=r.nb?`<div class="rg">${r.nb.g}</div><div class="rm2"><span>${r.nb.n||'?'}名</span><span>${r.nb.nat||''}</span></div><div class="rdates">次IN:${fd2(r.nb.ci)}</div>`:`<div class="rg" style="color:#999">次予約なし</div>`;
     bot=`<div class="rcname"><div class="rcico">人</div>${r.cleaner||'未割当'}</div>${r.cmt?`<div class="rcmt">${r.cmt}</div>`:''}${chkBox}`;
   } else {
-    top=r.nb?`<div class="rg">${r.nb.g}</div><div class="rm2"><span>${r.nb.n||'?'}名</span><span>${r.nb.nat||''}</span></div><div class="rdates">次CI:${fd2(r.nb.ci)}</div>`:`<div class="rg" style="color:#999">次予約なし</div>`;
-    bot=`<div style="font-size:.65em;color:#999">${r.lc?'最終清掃: '+fd2(r.lc.d)+'（'+diffD(r.lc.d.replace(/\//g,'-'),ds)+'日前）':'清掃履歴なし'}</div>`;
+    top=r.nb?`<div class="rg">${r.nb.g}</div><div class="rm2"><span>${r.nb.n||'?'}名</span><span>${r.nb.nat||''}</span></div><div class="rdates">次IN:${fd2(r.nb.ci)}</div>`:`<div class="rg" style="color:#999">次予約なし</div>`;
+    const lcStDays=r.lc?diffD(r.lc.d.replace(/\//g,'-'),ds):null;
+    bot=r.lc?`<span style="font-size:.67em;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 6px;display:inline-block">📅 最終清掃: ${fd2(r.lc.d)}（${lcStDays}日前）</span>`:'<span style="font-size:.65em;color:#999">清掃履歴なし</span>';
   }
-  return`<div class="rc${done}" style="border-left-color:${brdM[k]}">
-    <div class="rc-top" style="background:${bgM[k]}">
-      <div class="rc-top-hdr"><span class="rtag">${tag}</span><div class="sbs"><span class="sb ${bc}">${bl}</span>${db}</div></div>
+  // Use status line color as border-left
+  const borderColor=sl.cls==='sl-green'?'#2e7d32':sl.cls==='sl-red'?'#c62828':sl.cls==='sl-black'?'#212121':'#9e9e9e';
+  const bgColor=sl.cls==='sl-green'?'#f0fff4':sl.cls==='sl-red'?'#fff5f5':sl.cls==='sl-black'?'#f5f5f5':'#fafafa';
+  // スタンプ：滞在中→「滞在中」、清掃済→「清掃完了」
+  let stampHtml='';
+  if(r.type==='staying') stampHtml='<div class="stamp" style="color:rgba(33,33,33,0.18);border-color:rgba(33,33,33,0.18)">滞在中</div>';
+  else if(chk) stampHtml='<div class="stamp">清掃完了</div>';
+  return`<div class="rc" data-tag="${tag}" style="border-left:5px solid ${borderColor}">
+    ${statusBar}
+    ${!chk?selChk:''}
+    <div class="rc-top stamp-wrap" style="background:${bgColor}">
+      ${stampHtml}
+      <div class="rc-top-hdr"><span class="rtag">${tag}</span><div class="sbs"><span class="sb ${bc}">${bl}</span></div></div>
       ${top}
     </div><div class="rc-bot">${bot}</div>
   </div>`;
@@ -1158,34 +1523,56 @@ function renderClean(){
   const ds=document.getElementById('cleanDate').value;if(!ds)return;
   const tags=Object.keys(ROOMS);
   if(!tags.length){document.getElementById('cleanMain').innerHTML='<div class="nd">CSVを読み込んでください</div>';return;}
-  const pS=['all',...new Set(Object.values(ROOMS))];
-  document.getElementById('propBar').innerHTML=pS.map(p=>`<button class="fb ${cF.prop===p?'on':''}" onclick="cF.prop='${p}';renderClean()">${p==='all'?'全て':p.replace(/^\d+_/,'').replace('代行_','代行/')}</button>`).join('');
+  // ② Multi-select props
+  const propSet=['all',...new Set(Object.values(ROOMS))];
+  document.getElementById('propBar').innerHTML=propSet.map(p=>{
+    const lbl=p==='all'?'全て':p.replace(/^\d+_/,'').replace('代行_','代行/');
+    const isOn=cF.props.has(p)||(p==='all'&&cF.props.has('all'));
+    return`<button class="mfb ${isOn?'on':''}" onclick="toggleProp('${p}')">${lbl}</button>`;
+  }).join('');
   const cS=new Set(['all','未割当']);
   tags.forEach(t=>{const c=getClr(t,ds);if(c&&c!=='未割当')cS.add(c);});
-  document.getElementById('clBar').innerHTML=[...cS].map(c=>`<button class="cfb ${cF.cl===c?'on':''}" onclick="cF.cl='${c}';renderClean()">${c==='all'?'全員':c}</button>`).join('');
+  document.getElementById('clBar').innerHTML=[...cS].map(c=>{
+    const isOn=cF.cleaners.has(c)||(c==='all'&&cF.cleaners.has('all'));
+    return`<button class="mfb ${isOn?'on':''}" onclick="toggleCleaner('${c}')">${c==='all'?'全員':c}</button>`;
+  }).join('');
   document.getElementById('clRow').style.display=cS.size>2?'flex':'none';
-  let cnt={t:tags.length,ci:0,st:0,vc:0,wn:0,dg:0,co:0};
-  tags.forEach(t=>{const r=getRoomSt(t,ds);
-    if(['checkin','warn','unassigned','danger'].includes(r.type))cnt.ci++;
-    if(r.type==='staying')cnt.st++;if(r.type==='vacant')cnt.vc++;if(r.type==='cleanonly')cnt.co++;
-    if(r.type==='warn'||r.type==='unassigned')cnt.wn++;if(r.type==='danger')cnt.dg++;
+  let cnt={t:tags.length,ci_wait:0,ci_done:0,st:0,vc_done:0,vc_wait:0,wn:0,dg:0};
+  tags.forEach(t=>{
+    const r=getRoomSt(t,ds);const chkT=isChk(ds,t);
+    if(['checkin','warn','unassigned','danger'].includes(r.type)){chkT?cnt.ci_done++:cnt.ci_wait++;}
+    if(r.type==='staying')cnt.st++;
+    if(r.type==='cleanonly'||r.type==='vacant'){chkT?cnt.vc_done++:cnt.vc_wait++;}
+    if(r.type==='warn'||r.type==='unassigned')cnt.wn++;
+    if(r.type==='danger')cnt.dg++;
   });
   document.getElementById('csum').innerHTML=`
     <div class="sc t"><div class="sclbl">全部屋</div><div class="scval">${cnt.t}</div><div class="scb">合計</div></div>
-    <div class="sc ci"><div class="sclbl">本日CI</div><div class="scval">${cnt.ci}</div><div class="scb">チェックイン</div></div>
-    <div class="sc co"><div class="sclbl">清掃のみ</div><div class="scval">${cnt.co}</div><div class="scb">CI無し</div></div>
+    <div class="sc dg"><div class="sclbl">当日IN待ち</div><div class="scval" style="color:var(--red)">${cnt.ci_wait}</div><div class="scb">清掃待ち</div></div>
+    <div class="sc ci"><div class="sclbl">当日IN済</div><div class="scval" style="color:var(--green)">${cnt.ci_done}</div><div class="scb">清掃完了</div></div>
     <div class="sc st"><div class="sclbl">滞在中</div><div class="scval">${cnt.st}</div><div class="scb">宿泊中</div></div>
-    <div class="sc vc"><div class="sclbl">空室</div><div class="scval">${cnt.vc}</div><div class="scb">空き</div></div>
-    <div class="sc wn"><div class="sclbl">要注意</div><div class="scval">${cnt.wn}</div><div class="scb">同日入替等</div></div>
-    <div class="sc dg"><div class="sclbl">要確認</div><div class="scval">${cnt.dg}</div><div class="scb">タスクなし</div></div>`;
+    <div class="sc dg"><div class="sclbl">空室未完了</div><div class="scval" style="color:var(--red)">${cnt.vc_wait}</div><div class="scb">清掃待ち</div></div>
+    <div class="sc ci"><div class="sclbl">空室清掃済</div><div class="scval" style="color:var(--green)">${cnt.vc_done}</div><div class="scb">完了</div></div>
+    <div class="sc wn"><div class="sclbl">要注意</div><div class="scval">${cnt.wn}</div><div class="scb">同日入替等</div></div>`;
   const ord={danger:0,unassigned:1,warn:2,checkin:3,cleanonly:4,staying:5,vacant:6};
   const grouped={};
   tags.forEach(tag=>{
-    if(cF.prop!=='all'&&ROOMS[tag]!==cF.prop)return;
+    if(!cF.props.has('all')&&!cF.props.has(ROOMS[tag]))return;
     const r=getRoomSt(tag,ds);
-    const base=['checkin','warn','unassigned','danger'].includes(r.type)?'ci':r.type==='staying'?'st':r.type==='cleanonly'?'co':'vc';
-    if(cF.sf!=='all'&&base!==cF.sf)return;
-    if(cF.cl!=='all'){const c=getClr(tag,ds);if(cF.cl==='未割当'&&c!=='未割当')return;if(cF.cl!=='未割当'&&c!==cF.cl)return;}
+    const chkF=isChk(ds,tag);
+    // ③ New state classification
+    let stateKey;
+    if(['checkin','warn','unassigned','danger'].includes(r.type)){
+      stateKey=chkF?'ci_done':'ci_wait';
+    } else if(r.type==='staying'){
+      stateKey='st';
+    } else if(r.type==='cleanonly'){
+      stateKey=chkF?'vc_done':'vc_wait';
+    } else {
+      stateKey=chkF?'vc_done':'vc_wait';
+    }
+    if(!cF.states.has('all')&&!cF.states.has(stateKey))return;
+    if(!cF.cleaners.has('all')){const c=getClr(tag,ds)||'未割当';if(!cF.cleaners.has(c))return;}
     const prop=ROOMS[tag]||'?';if(!grouped[prop])grouped[prop]=[];grouped[prop].push({tag,r});
   });
   const main=document.getElementById('cleanMain');
@@ -1219,19 +1606,87 @@ function renderPayTab(){
     <div class="pay-si"><div class="pay-sl">未確認</div><div class="pay-sv" style="color:var(--orange)">${unpaid.length}件</div></div>
     <div class="pay-si"><div class="pay-sl">入金済金額</div><div class="pay-sv" style="color:var(--green)">${fmtF(paid.reduce((s,b)=>s+b.net,0))}</div></div>
     <div class="pay-si"><div class="pay-sl">未確認金額</div><div class="pay-sv" style="color:var(--orange)">${fmtF(unpaid.reduce((s,b)=>s+b.net,0))}</div></div>`;
-  document.getElementById('payBody').innerHTML=allBks.map(bk=>{
+  // ④⑩ Apply search filters
+  let filteredBks=[...allBks];
+  const g=id=>(document.getElementById(id)||{}).value||'';
+  const srchRoom=g('srchRoom'),srchOTA=g('srchOTA'),srchStatus=g('srchStatus');
+  const srchCiFrom=g('srchCiFrom'),srchCiTo=g('srchCiTo');
+  const srchPayFrom=g('srchPayFrom'),srchPayTo=g('srchPayTo');
+  if(srchRoom)filteredBks=filteredBks.filter(b=>b.tag.includes(srchRoom)||b.g.toLowerCase().includes(srchRoom.toLowerCase()));
+  if(srchOTA)filteredBks=filteredBks.filter(b=>b.s===srchOTA);
+  if(srchStatus==='paid')filteredBks=filteredBks.filter(b=>pays[b.id]&&pays[b.id].status==='1');
+  if(srchStatus==='unpaid')filteredBks=filteredBks.filter(b=>!pays[b.id]||pays[b.id].status!=='1');
+  if(srchCiFrom)filteredBks=filteredBks.filter(b=>b.ci>=srchCiFrom);
+  if(srchCiTo)filteredBks=filteredBks.filter(b=>b.ci<=srchCiTo);
+  if(srchPayFrom)filteredBks=filteredBks.filter(b=>{const pd=pays[b.id]||{};return pd.payDate&&pd.payDate>=srchPayFrom;});
+  if(srchPayTo)filteredBks=filteredBks.filter(b=>{const pd=pays[b.id]||{};return pd.payDate&&pd.payDate<=srchPayTo;});
+
+  document.getElementById('payBody').innerHTML=filteredBks.map(bk=>{
     const pd=pays[bk.id]||{};const ip=pd.status==='1';
     const payDate=pd.payDate||'';
-    return`<tr>
+    const isLocked=pd.locked==='1';
+    const rowStyle=isLocked?'background:#f9f9f9;':'';
+    return`<tr style="${rowStyle}">
+      <td><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer" ${isLocked?'disabled':''}></td>
       <td>${bk.ci}</td><td>${bk.tag}</td>
-      <td style="max-width:130px;overflow:hidden;text-overflow:ellipsis">${bk.g}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${bk.g}</td>
       <td>${bk.s}</td>
-      <td style="text-align:right;font-family:ui-monospace,monospace">${fmtF(bk.net)}</td>
-      <td><input class="date-edit" type="date" value="${payDate}" onchange="updatePayDate('${bk.id}',this.value)" ${!ip?'disabled':''}></td>
+      <td style="text-align:right;font-family:ui-monospace,monospace">${fmtF(Math.round(parseFloat(bk.rawNet||bk.net*1.1)))}</td>
+      <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)"></td>
       <td>${ip?'<span class="tag-paid">入金済</span>':'<span class="tag-unpaid">未確認</span>'}</td>
-      <td><button class="pay-btn ${ip?'paid':''}" onclick="togPay('${bk.id}',${!ip})">${ip?'✓ 済':'確認する'}</button></td>
+      <td><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em">${isLocked?'🔒':'🔓'}</button></td>
+      <td><button class="pay-btn ${ip?'paid':''}" ${isLocked?'disabled':''} onclick="togPay('${bk.id}',${!ip})">${ip?'✓ 済':'確認する'}</button></td>
     </tr>`;
   }).join('')||'<tr><td colspan="8" style="text-align:center;color:#999;padding:16px">この月の予約がありません</td></tr>';
+}
+
+// ⑤ Bulk payment date functions
+function paySelectAll(val){
+  document.querySelectorAll('.pay-sel-chk:not(:disabled)').forEach(el=>{el.checked=val;});
+}
+function bulkUpdatePayDate(){
+  const date=document.getElementById('bulkPayDate').value;
+  if(!date){alert('着金日を入力してください');return;}
+  const ids=[];
+  document.querySelectorAll('.pay-sel-chk:checked').forEach(el=>ids.push(el.dataset.id));
+  if(!ids.length){alert('行を選択してください');return;}
+  if(!confirm(ids.length+'件の着金日を'+date+'に変更しますか？'))return;
+  const pays=S.get(PAY_KEY)||{};
+  ids.forEach(id=>{if(!pays[id])pays[id]={};pays[id].payDate=date;});
+  S.set(PAY_KEY,pays);renderPayTab();
+}
+function paySelectSamePayoutId(){
+  // Group by payDate as proxy for payout ID
+  const firstChecked=document.querySelector('.pay-sel-chk:checked');
+  if(!firstChecked){alert('まず1件選択してください');return;}
+  const pays=S.get(PAY_KEY)||{};
+  const targetDate=(pays[firstChecked.dataset.id]||{}).payDate;
+  if(!targetDate){alert('着金日が設定されていません');return;}
+  document.querySelectorAll('.pay-sel-chk:not(:disabled)').forEach(el=>{
+    const pd=pays[el.dataset.id]||{};
+    el.checked=pd.payDate===targetDate;
+  });
+}
+
+// ⑫ Lock
+function togLock(id,val){
+  if(val){
+    // Locking - 2 step confirm
+    if(!confirm('この予約をロックしますか？\nロックすると着金日・状態の変更ができなくなります。'))return;
+    if(!confirm('本当にロックしますか？'))return;
+  } else {
+    if(!confirm('ロックを解除しますか？'))return;
+    if(!confirm('本当に解除しますか？'))return;
+  }
+  const pays=S.get(PAY_KEY)||{};
+  if(!pays[id])pays[id]={};
+  pays[id].locked=val?'1':'0';
+  S.set(PAY_KEY,pays);renderPayTab();
+}
+
+function clearPaySearch(){
+  ['srchRoom','srchOTA','srchStatus','srchCiFrom','srchCiTo','srchPayFrom','srchPayTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderPayTab();
 }
 
 function togPay(id,val){
@@ -1289,7 +1744,7 @@ function handlePayCSV(files){
               if(bk.id===refNum){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
-                if(payDate)pays[bk.id].payDate=payDate;
+                if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate; // ⑪ pre-fill if empty
                 matched++;
               }
             });
@@ -1449,12 +1904,24 @@ function chkReady(){
   btn.textContent=_bkReady?'読み込む':'予約CSVを選択してください';
 }
 function loadCSVs(){
-  parseBookings();parseCleaning();computeMS();
-  const now=new Date().toLocaleString('ja-JP');
-  document.getElementById('meta').textContent='CSV取込: '+now;
-  saveBookingsToFb(); // Firebaseに保存
-  renderOpsTabs();renderClean();renderPayTab();populateInvMonths();
-  closeModal('csvModal');
+  try{
+    parseBookings();parseCleaning();computeMS();
+    const now=new Date().toLocaleString('ja-JP');
+    document.getElementById('meta').textContent='CSV取込: '+now;
+    const prevSnap={};
+    Object.keys(MS).forEach(mk=>{const ms=MS[mk];if(ms&&ms.tot)prevSnap[mk]={sales:ms.tot.sales,net:ms.tot.net,occ:ms.occ.t,cnt:ms.tot.cnt};});
+    S.set(PREV_KEY,prevSnap);
+    saveBookingsToFb();
+    renderOpsTabs();
+    renderClean();
+    renderPayTab();
+    populateInvMonths();
+    try{populateAccMonths();}catch(e){}
+    closeModal('csvModal');
+  }catch(e){
+    console.error('loadCSVs error:',e);
+    alert('読み込みエラー: '+e.message);
+  }
 }
 ['bkZone','clZone'].forEach(id=>{
   const z=document.getElementById(id);
@@ -1496,6 +1963,7 @@ function renderOfficeList(){
 function addOfficeRow(){cfg.offices.push({tag:'',group:''});renderOfficeList();}
 
 function openSettings(){
+  renderUserList();
   document.getElementById('setPw1').value='';document.getElementById('setPw2').value='';
   document.getElementById('setRent').value=cfg.defaultRent;
   document.getElementById('setIssuer').value=cfg.issuer;
@@ -1521,6 +1989,9 @@ function saveSettings(){
   cfg.fee=parseInt(document.getElementById('setFee').value)||cfg.fee;
   cfg.bank=document.getElementById('setBank').value||cfg.bank;
   cfg.nextInv=parseInt(document.getElementById('setInvNum').value)||cfg.nextInv;
+  // ⑬ Save users
+  S.set('mp_users6',USERS);
+  populateLoginUsers();
   saveCfg();closeModal('settingsModal');alert('✅ 設定を保存しました');
 }
 
@@ -1536,6 +2007,12 @@ function swTab(id,btn){
   document.getElementById(id+'Pane').classList.add('on');
   if(id==='pay')renderPayTab();
   if(id==='inv')populateInvMonths();
+  if(id==='acc'){populateAccMonths();}
+  if(id==='bb'){renderBB();}
+  if(id==='users'){renderUserMgmt();}
+  if(id==='acc'){populateAccMonths();}
+  if(id==='bb'){renderBB();}
+  if(id==='users'){renderUserMgmt();}
 }
 
 // ════════════════════════════════════════════
@@ -1545,7 +2022,24 @@ function initApp(){
   initFirebase();
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('cleanDate').value=today;
+  // ① ログイン後は必ず運営タブ・収益サブタブを表示
+  const isStaff=currentUser&&currentUser.role==='staff';
+  if(!isStaff){
+    // 運営タブをアクティブに
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+    document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+    document.querySelector('.tab[onclick*="ops"]').classList.add('on');
+    document.getElementById('opsPane').classList.add('on');
+    // 収益サブタブをアクティブに
+    const revBtn=document.getElementById('subRevBtn');
+    const expBtn=document.getElementById('subExpBtn');
+    if(revBtn){revBtn.style.background='#fff';revBtn.style.color='var(--p)';revBtn.style.borderBottom='3px solid var(--p)';revBtn.style.fontWeight='600';}
+    if(expBtn){expBtn.style.background='#f5f5f5';expBtn.style.color='var(--t2)';expBtn.style.borderBottom='3px solid transparent';expBtn.style.fontWeight='500';}
+    document.getElementById('revSubPane').style.display='block';
+    document.getElementById('expSubPane').style.display='none';
+  }
   renderOpsTabs();renderClean();renderPayTab();populateInvMonths();
+  setTimeout(()=>{populateAccMonths();renderBB();},500);
 }
 
 // ════════════════════════════════════════════
@@ -1582,9 +2076,13 @@ function initFirebase(){
         if(stored.CM) { Object.assign(CM, stored.CM); }
         computeMS();
         renderOpsTabs();
+        // ② cleanDateが設定されている事を確認してからrenderClean
+        const cdEl=document.getElementById('cleanDate');
+        if(cdEl&&!cdEl.value){cdEl.value=new Date().toISOString().split('T')[0];}
         renderClean();
         renderPayTab();
         populateInvMonths();
+        try{populateAccMonths();}catch(e){}
         if(stored.meta) document.getElementById('meta').textContent = stored.meta + '（クラウド同期済）';
       }
     });
@@ -1644,7 +2142,369 @@ S.set = function(k, v){
   if(k === PHOTO_KEY) fbWrite('photos', v);
 };
 
+// ⑬ User management functions
+function renderUserList(){
+  const el=document.getElementById('userListEl');if(!el)return;
+  el.innerHTML=(USERS||[]).map((u,i)=>`
+    <div style="display:grid;grid-template-columns:1fr 1fr 80px auto;gap:5px;align-items:center;margin-bottom:5px">
+      <input style="border:1.5px solid var(--b);border-radius:5px;padding:4px 7px;font-size:.78em;outline:none" value="${u.name}" onchange="USERS[${i}].name=this.value">
+      <input style="border:1.5px solid var(--b);border-radius:5px;padding:4px 7px;font-size:.78em;outline:none" type="password" placeholder="パスワード変更" onchange="USERS[${i}].pw=this.value||USERS[${i}].pw">
+      <select style="border:1.5px solid var(--b);border-radius:5px;padding:4px 5px;font-size:.75em;outline:none" onchange="USERS[${i}].role=this.value">
+        <option value="admin" ${u.role==='admin'?'selected':''}>管理者</option>
+        <option value="staff" ${u.role==='staff'?'selected':''}>スタッフ</option>
+      </select>
+      <button onclick="USERS.splice(${i},1);renderUserList()" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:.9em">✕</button>
+    </div>`).join('');
+}
+function addUserRow(){
+  const newId='user'+Date.now();
+  USERS.push({id:newId,name:'新ユーザー',pw:'pass'+Math.floor(Math.random()*9000+1000),role:'staff'});
+  renderUserList();
+}
+
+// ════════════════════════════════════════════
+//  ⑯ BULLETIN BOARD
+// ════════════════════════════════════════════
+const STAFF_MAP={'Yasaki Junichi':'矢﨑','Ohara Jun':'大原','Kondo Kensuke':'近藤'};
+let bbWeekOffset=0;
+
+// Japan public holidays (fixed + approximate movable)
+function getJPHolidays(year){
+  const h=new Set();
+  // Fixed
+  [[1,1],[2,11],[2,23],[4,29],[5,3],[5,4],[5,5],[7,20],[8,11],[9,15],[10,14],[11,3],[11,23],[12,23]].forEach(([m,d])=>h.add(year+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0')));
+  // Approximate movable (simplified)
+  h.add(year+'-01-'+String(getSecondMonday(year,1)).padStart(2,'0')); // 成人の日
+  h.add(year+'-07-'+String(getThirdMonday(year,7)).padStart(2,'0')); // 海の日
+  h.add(year+'-09-'+String(getThirdMonday(year,9)).padStart(2,'0')); // 敬老の日
+  h.add(year+'-10-'+String(getSecondMonday(year,10)).padStart(2,'0')); // スポーツの日
+  return h;
+}
+function getNthWeekday(year,month,weekday,n){
+  let d=new Date(year,month-1,1);
+  let count=0;
+  while(d.getMonth()===month-1){
+    if(d.getDay()===weekday){count++;if(count===n)return d.getDate();}
+    d.setDate(d.getDate()+1);
+  }
+  return 1;
+}
+function getSecondMonday(y,m){return getNthWeekday(y,m,1,2);}
+function getThirdMonday(y,m){return getNthWeekday(y,m,1,3);}
+
+function isTargetDay(ds){
+  const d=new Date(ds);
+  const dow=d.getDay();
+  if(dow===0||dow===6)return true; // 土日
+  const holidays=getJPHolidays(d.getFullYear());
+  if(holidays.has(ds))return true;
+  // Manual added dates
+  const bbData=S.get(BB_KEY)||{};
+  if(bbData._extra&&bbData._extra.includes(ds))return true;
+  return false;
+}
+
+function getWeekDates(offset){
+  const now=new Date();
+  const day=now.getDay();
+  const daysToSun=((0-day)+7)%7;
+  const sun=new Date(now);sun.setDate(now.getDate()+daysToSun+(offset*7));
+  const sat=new Date(sun);sat.setDate(sun.getDate()-1);
+  return[sat,sun];
+}
+
+function dateToStr(d){return d.toISOString().split('T')[0];}
+function dayLabel(d){const w=['日','月','火','水','木','金','土'];return d.getMonth()+1+'/'+d.getDate()+'（'+w[d.getDay()]+'）';}
+
+function bbNav(dir){bbWeekOffset+=dir;renderBB();}
+
+function addBBDate(){
+  const ds=prompt('追加する日付を入力してください（例: 2026-08-13）');
+  if(!ds||!/\d{4}-\d{2}-\d{2}/.test(ds))return;
+  const bbData=S.get(BB_KEY)||{};
+  if(!bbData._extra)bbData._extra=[];
+  if(!bbData._extra.includes(ds))bbData._extra.push(ds);
+  S.set(BB_KEY,bbData);renderBB();
+}
+
+function removeBBDate(ds){
+  const bbData=S.get(BB_KEY)||{};
+  if(bbData._extra)bbData._extra=bbData._extra.filter(d=>d!==ds);
+  S.set(BB_KEY,bbData);renderBB();
+}
+
+function renderBB(){
+  const[sat,sun]=getWeekDates(bbWeekOffset);
+  const satStr=dateToStr(sat),sunStr=dateToStr(sun);
+  document.getElementById('bbWeekLabel').textContent=dayLabel(sat)+'・'+dayLabel(sun);
+  
+  // Collect all target dates in this week range + nearby
+  const bbData=S.get(BB_KEY)||{};
+  const extraDates=(bbData._extra||[]).filter(ds=>{
+    const d=new Date(ds);
+    const ref=new Date(sat);ref.setDate(ref.getDate()-7);
+    const ref2=new Date(sun);ref2.setDate(ref2.getDate()+7);
+    return d>=ref&&d<=ref2;
+  });
+  
+  // Show Sat + Sun + any extra dates in this week
+  const weekStart=new Date(sat);weekStart.setDate(sat.getDate()-1);
+  const weekEnd=new Date(sun);weekEnd.setDate(sun.getDate()+1);
+  const daysToShow=[satStr,sunStr];
+  extraDates.forEach(ds=>{if(!daysToShow.includes(ds)){const d=new Date(ds);if(d>=weekStart&&d<=weekEnd)daysToShow.push(ds);}});
+  daysToShow.sort();
+
+  const content=document.getElementById('bbContent');
+  content.innerHTML=daysToShow.map(ds=>{
+    const day=new Date(ds);
+    const w=['日','月','火','水','木','金','土'];
+    const isExtra=(bbData._extra||[]).includes(ds);
+    const isWeekend=day.getDay()===0||day.getDay()===6;
+    const title=day.getMonth()+1+'/'+day.getDate()+'（'+w[day.getDay()]+'）'+(isExtra&&!isWeekend?' ⭐追加日':'');
+    
+    // CI rooms for this day
+    const ciRooms=Object.keys(ROOMS).map(tag=>{
+      const r=getRoomSt(tag,ds);
+      if(!['checkin','warn','unassigned'].includes(r.type))return null;
+      const cm=r.cm;
+      return{tag,cleaner:cm?cm.cl:'未割当',cit:cm?cm.cit:'—'};
+    }).filter(Boolean);
+    
+    const cleanTags=Object.keys(ROOMS).filter(tag=>{
+      const r=getRoomSt(tag,ds);
+      return['checkin','warn','unassigned','cleanonly'].includes(r.type);
+    });
+    
+    const staffOnDuty=new Set();
+    const parterSet=new Set();
+    Object.keys(ROOMS).forEach(tag=>{
+      const cl=getClr(tag,ds);
+      if(!cl)return;
+      if(STAFF_MAP[cl])staffOnDuty.add(STAFF_MAP[cl]);
+      else if(cl&&cl!=='未割当')parterSet.add(cl);
+    });
+    
+    const note=bbData[ds]||'';
+    return`<div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.07)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--p)">
+        <div style="font-size:1em;font-weight:700">■ ${title}</div>
+        ${isExtra?`<button onclick="removeBBDate('${ds}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.72em">削除</button>`:''}
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <div style="background:#f8f9ff;border-radius:8px;padding:8px 14px;text-align:center">
+          <div style="font-size:.67em;color:var(--t3);font-weight:600;margin-bottom:2px">清掃件数</div>
+          <div style="font-size:1.4em;font-weight:700">${cleanTags.length}件</div>
+        </div>
+        <div style="background:#f8f9ff;border-radius:8px;padding:8px 14px;text-align:center">
+          <div style="font-size:.67em;color:var(--t3);font-weight:600;margin-bottom:2px">パート</div>
+          <div style="font-size:1.4em;font-weight:700">${parterSet.size}名</div>
+        </div>
+        ${staffOnDuty.size>0?`<div style="background:#fff3cd;border-radius:8px;padding:8px 14px">
+          <div style="font-size:.67em;color:#856404;font-weight:700;margin-bottom:2px">出勤社員</div>
+          <div style="font-size:.9em;font-weight:700;color:#533f03">${[...staffOnDuty].join('・')}</div>
+        </div>`:''}
+      </div>
+      ${ciRooms.length>0?`<div style="background:#f0f2ff;border-radius:8px;padding:10px;margin-bottom:10px">
+        <div style="font-size:.78em;font-weight:700;color:var(--p);margin-bottom:6px">★ 当日INの部屋（${ciRooms.length}件）</div>
+        ${ciRooms.map(rm=>`<div style="display:flex;align-items:center;gap:8px;font-size:.75em;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05)">
+          <span style="font-family:ui-monospace,monospace;font-weight:600;min-width:75px">${rm.tag}</span>
+          <span style="flex:1;color:var(--t2)">→ ${rm.cleaner}</span>
+          <span style="color:var(--p);font-family:ui-monospace,monospace">IN ${rm.cit}</span>
+        </div>`).join('')}
+      </div>`:''}
+      <div style="font-size:.8em;font-weight:600;margin-bottom:5px;color:var(--t2)">📝 申し送り事項</div>
+      <textarea style="width:100%;border:1.5px solid var(--b);border-radius:8px;padding:8px 10px;font-size:.82em;resize:vertical;min-height:80px;outline:none;font-family:system-ui,sans-serif" placeholder="自由に記入してください..." onblur="saveBBNote('${ds}',this.value)">${note}</textarea>
+    </div>`;
+  }).join('');
+}
+
+function saveBBNote(ds,note){
+  const bbData=S.get(BB_KEY)||{};
+  bbData[ds]=note;S.set(BB_KEY,bbData);
+}
+
+// ════════════════════════════════════════════
+//  ⑱ ACCOUNTING
+// ════════════════════════════════════════════
+let accManualRows=[];
+
+function populateAccMonths(){
+  const sel=document.getElementById('accMonth');if(!sel)return;
+  const months=Object.keys(MS).sort().reverse();
+  sel.innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(months.length&&!sel.value){sel.value=months[0];}
+  renderAcc();
+}
+
+function renderAcc(){
+  const sel=document.getElementById('accMonth');if(!sel)return;
+  const month=sel.value;if(!month)return;
+  const pays=S.get(PAY_KEY)||{};
+  const savedAcc=S.get(ACC_KEY)||{};
+  const manualRows=savedAcc[month+'_manual']||[];
+  
+  // Collect OTA-based rows from paid bookings
+  const airbnbRows=[],bookingRows=[];
+  Object.keys(BK).forEach(tag=>{
+    BK[tag].forEach(bk=>{
+      if(!bk.ci.startsWith(month))return;
+      const pd=pays[bk.id]||{};
+      if(pd.status!=='1')return; // only paid
+      const netTaxInc=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
+      const commTaxInc=Math.round(bk.commission*1.1);
+      const row={date:pd.payDate||'',facility:bk.tag,guest:bk.g,amount:netTaxInc,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s};
+      if((bk.s||'').includes('Airbnb'))airbnbRows.push(row);
+      else bookingRows.push(row);
+    });
+  });
+  airbnbRows.sort((a,b)=>a.date.localeCompare(b.date));
+  bookingRows.sort((a,b)=>a.date.localeCompare(b.date));
+
+  const tblStyle='width:100%;border-collapse:collapse;font-size:.79em;margin-bottom:8px';
+  const thStyle='padding:6px 8px;text-align:left;font-weight:600;border-bottom:2px solid';
+  const tdStyle='padding:6px 8px;border-bottom:1px solid var(--b2)';
+  const hdr=`<tr><th style="${thStyle} var(--b)">入金日</th><th style="${thStyle} var(--b)">摘要</th><th style="${thStyle} var(--b)">施設名</th><th style="${thStyle} var(--b);text-align:right">入金額</th><th style="${thStyle} var(--b);text-align:right">宿泊料金</th><th style="${thStyle} var(--b);text-align:right">手数料</th></tr>`;
+
+  const renderRows=(rows,bg)=>rows.map(r=>`<tr style="background:${bg}">
+    <td style="${tdStyle}">${r.date}</td>
+    <td style="${tdStyle}">${r.ota.includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM'}</td>
+    <td style="${tdStyle}">${r.facility}</td>
+    <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace">${fmtF(r.amount)}</td>
+    <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace">${fmtF(r.stay)}</td>
+    <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(r.comm)}</td>
+  </tr>`).join('');
+
+  const airbnbTotal=airbnbRows.reduce((s,r)=>s+r.comm,0);
+  const bookingTotal=bookingRows.reduce((s,r)=>s+r.comm,0);
+
+  // Manual rows
+  const manualHtml=manualRows.map((r,i)=>`<tr style="background:#f0fff4">
+    <td style="${tdStyle}"><input style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:110px" value="${r.date||''}" onchange="updateAccRow(${i},'date',this.value,'${month}')"></td>
+    <td style="${tdStyle}"><input style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:120px" value="${r.desc||''}" onchange="updateAccRow(${i},'desc',this.value,'${month}')"></td>
+    <td style="${tdStyle}"><input style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px" value="${r.facility||''}" onchange="updateAccRow(${i},'facility',this.value,'${month}')"></td>
+    <td style="${tdStyle};text-align:right"><input type="number" style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px;text-align:right;font-family:ui-monospace,monospace" value="${r.amount||0}" onchange="updateAccRow(${i},'amount',parseInt(this.value)||0,'${month}')"></td>
+    <td style="${tdStyle};text-align:right"><input type="number" style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px;text-align:right;font-family:ui-monospace,monospace" value="${r.stay||0}" onchange="updateAccRow(${i},'stay',parseInt(this.value)||0,'${month}')"></td>
+    <td style="${tdStyle};text-align:right;color:var(--red)"><input type="number" style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px;text-align:right;font-family:ui-monospace,monospace" value="${r.comm||0}" onchange="updateAccRow(${i},'comm',parseInt(this.value)||0,'${month}')"></td>
+  </tr>`).join('');
+
+  const manualTotal=manualRows.reduce((s,r)=>s+(r.comm||0),0);
+
+  document.getElementById('accContent').innerHTML=`
+    <div style="font-size:.9em;font-weight:700;color:#FF9800;margin-bottom:6px">Airbnb</div>
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderRows(airbnbRows,'#fff8f0')}
+      <tr style="background:#f0f0f0;font-weight:700"><td colspan="5" style="${tdStyle}">Airbnb手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(airbnbTotal)}</td></tr>
+    </tbody></table>
+    <div style="font-size:.9em;font-weight:700;color:#667eea;margin:12px 0 6px">Booking.com</div>
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderRows(bookingRows,'#f0f4ff')}
+      <tr style="background:#f0f0f0;font-weight:700"><td colspan="5" style="${tdStyle}">Booking.com手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(bookingTotal)}</td></tr>
+    </tbody></table>
+    <div style="font-size:.9em;font-weight:700;color:#4CAF50;margin:12px 0 6px">その他（手動入力）</div>
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${manualHtml}
+      <tr style="background:#f0f0f0;font-weight:700"><td colspan="5" style="${tdStyle}">その他合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(manualTotal)}</td></tr>
+    </tbody></table>`;
+}
+
+function addAccRow(){
+  const sel=document.getElementById('accMonth');if(!sel)return;
+  const month=sel.value;
+  const savedAcc=S.get(ACC_KEY)||{};
+  if(!savedAcc[month+'_manual'])savedAcc[month+'_manual']=[];
+  savedAcc[month+'_manual'].push({date:'',desc:'スクエア',facility:'',amount:0,stay:0,comm:0});
+  S.set(ACC_KEY,savedAcc);renderAcc();
+}
+
+function updateAccRow(i,field,val,month){
+  const savedAcc=S.get(ACC_KEY)||{};
+  if(!savedAcc[month+'_manual'])return;
+  savedAcc[month+'_manual'][i][field]=val;
+  S.set(ACC_KEY,savedAcc);
+}
+
+function dlAccExcel(){
+  const sel=document.getElementById('accMonth');if(!sel)return;
+  const month=sel.value;
+  const pays=S.get(PAY_KEY)||{};
+  const savedAcc=S.get(ACC_KEY)||{};
+  let csv='入金日,摘要,施設名,入金額,宿泊料金,手数料\n';
+  Object.keys(BK).forEach(tag=>{
+    BK[tag].forEach(bk=>{
+      if(!bk.ci.startsWith(month))return;
+      const pd=pays[bk.id]||{};if(pd.status!=='1')return;
+      const netTax=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
+      const commTax=Math.round(bk.commission*1.1);
+      const desc=bk.s.includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM';
+      csv+=(pd.payDate||'')+','+desc+','+bk.tag+','+netTax+','+(netTax+commTax)+','+commTax+'\n';
+    });
+  });
+  (savedAcc[month+'_manual']||[]).forEach(function(r){
+    csv+=(r.date||'')+','+(r.desc||'')+','+(r.facility||'')+','+(r.amount||0)+','+(r.stay||0)+','+(r.comm||0)+'\n';
+  });
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='会計_'+month+'.csv';a.click();
+}
+// ════ USER MANAGEMENT ════
+function renderUserMgmt(){
+  const tbody=document.getElementById('userMgmtBody');
+  if(!tbody)return;
+  tbody.innerHTML=USERS.map((u,i)=>{
+    const roleLbl=u.role==='admin'?'管理者':u.role==='office'?'事務経理':'スタッフ';
+    const roleColor=u.role==='admin'?'var(--red)':u.role==='office'?'var(--p)':'var(--t3)';
+    const active=u.active!==false;
+    return`<tr style="border-bottom:1px solid var(--b2)${active?'':';opacity:.5'}">
+      <td style="padding:9px 10px;font-weight:600">${u.name}</td>
+      <td style="padding:9px 10px;color:var(--t2);font-size:.85em">${u.id}</td>
+      <td style="padding:9px 10px"><span style="background:${roleColor};color:#fff;padding:2px 8px;border-radius:99px;font-size:.75em;font-weight:700">${roleLbl}</span></td>
+      <td style="padding:9px 10px"><span style="background:${active?'var(--green)':'var(--t3)'};color:#fff;padding:2px 8px;border-radius:99px;font-size:.75em;font-weight:700">${active?'有効':'無効'}</span></td>
+      <td style="padding:9px 10px">
+        <button onclick="editUser(${i})" style="background:var(--p);color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em;margin-right:4px">編集</button>
+        <button onclick="changePw(${i})" style="background:var(--orange);color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em;margin-right:4px">PW変更</button>
+        <button onclick="toggleUserActive(${i})" style="background:${active?'#888':'var(--green)'};color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em">${active?'無効化':'有効化'}</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function addNewUser(){
+  const name=prompt('表示名を入力してください');
+  if(!name)return;
+  const id=prompt('ユーザーIDを入力してください');
+  if(!id)return;
+  const pw=prompt('初期パスワードを入力してください');
+  if(!pw)return;
+  const role=prompt('権限を入力してください（admin / office / staff）')||'staff';
+  USERS.push({id,name,pw,role,active:true});
+  S.set('mp_users6',USERS);
+  renderUserMgmt();populateLoginUsers();
+  alert('✅ ユーザーを追加しました');
+}
+
+function editUser(i){
+  const u=USERS[i];
+  const name=prompt('表示名',u.name);if(name===null)return;
+  const id=prompt('ユーザーID',u.id);if(id===null)return;
+  const role=prompt('権限（admin / office / staff）',u.role);if(role===null)return;
+  USERS[i]={...u,name,id,role};
+  S.set('mp_users6',USERS);renderUserMgmt();populateLoginUsers();
+  alert('✅ 更新しました');
+}
+
+function changePw(i){
+  const pw1=prompt('新しいパスワードを入力');if(!pw1)return;
+  const pw2=prompt('確認のため再入力');
+  if(pw1!==pw2){alert('パスワードが一致しません');return;}
+  USERS[i].pw=pw1;
+  S.set('mp_users6',USERS);alert('✅ パスワードを変更しました');
+}
+
+function toggleUserActive(i){
+  const active=USERS[i].active!==false;
+  if(active&&!confirm(`${USERS[i].name}を無効化しますか？`))return;
+  USERS[i].active=!active;
+  S.set('mp_users6',USERS);renderUserMgmt();populateLoginUsers();
+}
+
 loadCfg();
+populateLoginUsers();
 document.getElementById('pwInp').focus();
 </script>
 </body>
