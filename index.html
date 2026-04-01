@@ -47,11 +47,16 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .pane{display:none;padding:14px;max-width:1280px;margin:0 auto;width:100%}
 .pane.on{display:block}
 
-/* ── ① RESPONSIVE MONTH TABS ── */
-.mtabs{background:#fff;border-radius:10px;overflow-x:auto;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+/* ── YEAR / MONTH TABS ── */
+.ytabs{background:#f0f2ff;border-radius:10px 10px 0 0;overflow-x:auto;box-shadow:0 -1px 0 rgba(0,0,0,.04)}
+.ytabs-inner{display:flex;min-width:max-content}
+.ytab{padding:8px 22px;border:none;background:transparent;cursor:pointer;font-size:.82em;font-weight:700;color:var(--t2);border-bottom:3px solid transparent;white-space:nowrap;letter-spacing:.03em}
+.ytab.on{color:var(--p);border-bottom-color:var(--p);background:rgba(255,255,255,.6)}
+.mtabs{background:#fff;border-radius:0 0 10px 10px;overflow-x:auto;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
 .mtabs-inner{display:flex;min-width:max-content}
-.mtab{padding:10px 16px;border:none;background:#f5f5f5;cursor:pointer;font-size:.85em;font-weight:500;color:var(--t2);border-bottom:3px solid transparent;white-space:nowrap}
+.mtab{padding:10px 0;width:calc(100%/12);min-width:52px;border:none;background:#f5f5f5;cursor:pointer;font-size:.85em;font-weight:500;color:var(--t2);border-bottom:3px solid transparent;white-space:nowrap;text-align:center}
 .mtab.on{background:#fff;color:var(--p);border-bottom-color:var(--p)}
+.mtab:disabled{opacity:.35;cursor:not-allowed;background:#f5f5f5}
 
 /* ④ FILTER BAR */
 .filter-bar{display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
@@ -217,10 +222,12 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .sl-black{background:#212121}
 .sl-gray{background:#9e9e9e}
 .status-label{font-size:.7em;font-weight:700;padding:4px 10px;display:flex;align-items:center;gap:5px}
+.sl-blue{background:#0288d1}
 .sl-label-green{background:#2e7d32;color:#fff}
 .sl-label-red{background:#c62828;color:#fff}
 .sl-label-black{background:#212121;color:#fff}
 .sl-label-gray{background:#757575;color:#fff}
+.sl-label-blue{background:#0288d1;color:#fff}
 .sel-chk{width:16px;height:16px;cursor:pointer;accent-color:var(--p);flex-shrink:0}
 .sel-row{display:flex;align-items:center;gap:6px;padding:5px 11px;background:#f0f2ff;border-top:1px solid var(--b2)}
 .rc-top{padding:9px 11px}
@@ -339,6 +346,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <button class="hbtn" onclick="openModal('csvModal')">📂 CSV更新</button>
       <button class="hbtn" onclick="openSnap()">📸 スナップ</button>
       <button class="hbtn" onclick="openSettings()">⚙️ 設定</button>
+      <button class="hbtn" onclick="logout()" style="background:rgba(245,87,108,.25);border-color:rgba(245,87,108,.6)">🚪 ログアウト</button>
     </div>
   </div>
   <div class="tabs">
@@ -353,7 +361,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 
   <!-- 運営 -->
   <div class="pane on" id="opsPane">
-    <div class="mtabs"><div class="mtabs-inner" id="mlist"></div></div>
+    <div id="mtabsWrap" style="margin-bottom:14px"></div>
     <!-- ⑮ サブタブ -->
     <div style="display:flex;background:#fff;border-radius:10px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.07)">
       <button id="subRevBtn" onclick="swSubTab('rev',this)" style="flex:1;padding:10px;border:none;background:#fff;cursor:pointer;font-size:.85em;font-weight:600;color:var(--p);border-bottom:3px solid var(--p)">📈 収益</button>
@@ -379,10 +387,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div class="cl-hdr" style="max-width:1280px;margin:0 auto;width:100%">
       <div style="font-size:1em;font-weight:700">🧹 清掃確認ダッシュボード</div>
       <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-        <button onclick="bulkCompleteSelected()" style="background:var(--green);color:#fff;border:none;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:.73em;font-weight:600">✅ 選択を完了</button>
-        <button onclick="selectAllCards(true)" style="background:transparent;border:1px solid var(--b);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.7em">全選択</button>
-        <button onclick="selectAllCards(false)" style="background:transparent;border:1px solid var(--b);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.7em">全解除</button>
-        <button class="rst-btn" onclick="resetChks()">消込リセット</button>
         <div class="dnav">
           <button onclick="chgDate(-1)">←</button>
           <input type="date" id="cleanDate" onchange="renderClean()">
@@ -408,8 +412,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
           <button class="mfb" data-sf="ci_wait" onclick="toggleState('ci_wait')" style="border-color:#c62828;color:#c62828">🔴 当日IN・🧹未</button>
           <button class="mfb" data-sf="ci_done" onclick="toggleState('ci_done')" style="border-color:#2e7d32;color:#2e7d32">✅ 当日IN・🧹済</button>
           <button class="mfb" data-sf="st" onclick="toggleState('st')" style="border-color:#212121;color:#212121">⬛ 滞在中</button>
-          <button class="mfb" data-sf="co_wait" onclick="toggleState('co_wait')" style="border-color:#c62828;color:#c62828">🔴 🧹のみ</button>
-          <button class="mfb" data-sf="vc_done" onclick="toggleState('vc_done')" style="border-color:#2e7d32;color:#2e7d32">✅ 空室・🧹済</button>
+          <button class="mfb" data-sf="co_wait" onclick="toggleState('co_wait')" style="border-color:#c62828;color:#c62828">🔴 🧹のみ・未</button>
+          <button class="mfb" data-sf="co_done" onclick="toggleState('co_done')" style="border-color:#2e7d32;color:#2e7d32">✅ 🧹のみ・済</button>
+          <button class="mfb" data-sf="vc_done" onclick="toggleState('vc_done')" style="border-color:#0288d1;color:#0288d1">✅ 空室・🧹済</button>
           <button class="mfb" data-sf="vc_wait" onclick="toggleState('vc_wait')" style="border-color:#c62828;color:#c62828">🔴 空室・🧹未</button>
         </div>
         <div class="frow" id="clRow">
@@ -587,7 +592,11 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <div style="font-size:.73em;color:var(--t3);margin-top:2px">1ファイル</div>
       <div id="clList" style="margin-top:6px;text-align:left"></div>
     </div>
+    <div style="font-size:.75em;color:var(--t3);background:#f8f8f8;border-radius:7px;padding:8px 10px;margin-top:4px">
+      💡 アップロードした予約は既存データとマージされます。直近数ヶ月分のCSVだけでOKです。
+    </div>
     <div class="modal-btns">
+      <button style="background:none;border:1px solid var(--red);color:var(--red);padding:8px 12px;border-radius:7px;font-size:.78em;cursor:pointer" onclick="closeModal('csvModal');resetAllBookings()">🗑️ 全データリセット</button>
       <button class="btn-cancel" onclick="closeModal('csvModal')">キャンセル</button>
       <button class="btn-ok" id="loadBtn" onclick="loadCSVs()" disabled>読み込む</button>
     </div>
@@ -612,15 +621,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 <div class="overlay" id="settingsModal" onclick="if(event.target===this)closeModal('settingsModal')">
   <div class="modal">
     <h2>⚙️ 設定</h2>
-    <!-- ⑬ User management -->
-    <div style="font-size:.85em;font-weight:700;margin-bottom:8px">👥 ユーザー管理</div>
-    <div id="userListEl" style="margin-bottom:10px"></div>
-    <button onclick="addUserRow()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em;margin-bottom:12px">＋ ユーザーを追加</button>
-    <hr style="border:none;border-top:1px solid var(--b2);margin:10px 0">
-    <div class="set-row"><span class="set-lbl">🔑 管理者パスワード変更</span>
-      <input class="set-inp" id="setPw1" type="password" placeholder="新しいパスワード">
-      <input class="set-inp" id="setPw2" type="password" placeholder="確認" style="margin-top:4px">
-    </div>
     <div class="set-row"><span class="set-lbl">🏠 デフォルト家賃（月・全物件合計）</span>
       <input class="set-inp" id="setRent" type="number" step="1000">
     </div>
@@ -731,6 +731,63 @@ function selectLoginUser(id,name){
   document.getElementById('pwInp').focus();
 }
 
+// ── AUTO LOGIN (30日間セッション維持) ──
+const SESSION_KEY='mp_session6';
+const SESSION_DAYS=30;
+
+function saveSession(userId){
+  const expires=Date.now()+SESSION_DAYS*24*60*60*1000;
+  localStorage.setItem(SESSION_KEY,JSON.stringify({uid:userId,expires:expires}));
+}
+function clearSession(){
+  localStorage.removeItem(SESSION_KEY);
+}
+function refreshSession(){
+  const raw=localStorage.getItem(SESSION_KEY);
+  if(!raw)return;
+  try{
+    const s=JSON.parse(raw);
+    s.expires=Date.now()+SESSION_DAYS*24*60*60*1000;
+    localStorage.setItem(SESSION_KEY,JSON.stringify(s));
+  }catch(e){}
+}
+function tryAutoLogin(){
+  const raw=localStorage.getItem(SESSION_KEY);
+  if(!raw)return false;
+  try{
+    const s=JSON.parse(raw);
+    if(Date.now()>s.expires){clearSession();return false;}
+    const user=USERS.find(u=>u.active!==false&&u.id===s.uid);
+    if(!user){clearSession();return false;}
+    currentUser=user;
+    enterApp();
+    refreshSession();
+    return true;
+  }catch(e){clearSession();return false;}
+}
+function logout(){
+  clearSession();
+  currentUser=null;
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('pwScreen').style.display='flex';
+  const pwEl=document.getElementById('pwInp');
+  if(pwEl)pwEl.value='';
+  const sel=document.getElementById('loginUser');
+  if(sel)sel.value='';
+}
+
+function enterApp(){
+  document.getElementById('pwScreen').style.display='none';
+  document.getElementById('mainApp').style.display='flex';
+  document.getElementById('mainApp').style.flexDirection='column';
+  const isStaff=currentUser.role==='staff';
+  ['tabPay','tabInv','tabAcc','tabBb'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isStaff?'none':'';});
+  const isAdmin=currentUser&&(currentUser.role==='admin'||currentUser.role==='office');
+  const tabUsers=document.getElementById('tabUsers');
+  if(tabUsers)tabUsers.style.display=isAdmin?'':'none';
+  initApp();
+}
+
 function checkPw(){
   const sel=document.getElementById('loginUser');
   const uid=sel?sel.value:'';
@@ -745,17 +802,8 @@ function checkPw(){
     if(pwEl)pwEl.value='';return;
   }
   currentUser=user;
-  document.getElementById('pwScreen').style.display='none';
-  document.getElementById('mainApp').style.display='flex';
-  document.getElementById('mainApp').style.flexDirection='column';
-  // ⑬ Apply role restrictions
-  const isStaff=currentUser.role==='staff';
-  ['tabPay','tabInv','tabAcc','tabBb'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isStaff?'none':'';});
-  // Users tab: admin + office
-  const isAdmin=currentUser&&(currentUser.role==='admin'||currentUser.role==='office');
-  const tabUsers=document.getElementById('tabUsers');
-  if(tabUsers)tabUsers.style.display=isAdmin?'':'none';
-  initApp();
+  saveSession(uid);
+  enterApp();
 }
 
 // ════════════════════════════════════════════
@@ -1015,24 +1063,55 @@ function getFilteredData(ms){
 // ════════════════════════════════════════════
 function renderOpsTabs(){
   const months=Object.keys(MS).sort();
-  const el=document.getElementById('mlist');
+  const wrap=document.getElementById('mtabsWrap');
   if(!months.length){
-    el.innerHTML='<div style="padding:10px;font-size:.8em;color:#999">CSVを読み込んでください</div>';
+    wrap.innerHTML='<div style="padding:10px;font-size:.8em;color:#999">CSVを読み込んでください</div>';
     document.getElementById('opsContent').innerHTML='<div class="nd">📂 右上の「CSV更新」からCSVを読み込んでください</div>';
     return;
   }
-  // ① 今月を自動選択、なければ直近月
   const todayM=new Date().toISOString().substring(0,7);
   if(!curM||!MS[curM]){
     curM=months.includes(todayM)?todayM:months[months.length-1];
   }
-  el.innerHTML=months.map(m=>`<button class="mtab ${m===curM?'on':''}" onclick="swM('${m}',this)">${m}</button>`).join('');
+  const selY=curM.substring(0,4);
+  const selMo=parseInt(curM.substring(5,7));
+  const years=[...new Set(months.map(m=>m.substring(0,4)))].sort();
+  const yearMonths=new Set(months.filter(m=>m.startsWith(selY)).map(m=>parseInt(m.substring(5,7))));
+  const yearHTML=years.map(y=>`<button class="ytab ${y===selY?'on':''}" onclick="swYear('${y}')">${y}年</button>`).join('');
+  const moHTML=Array.from({length:12},(_,i)=>{
+    const mo=i+1,moStr=String(mo).padStart(2,'0'),mk=selY+'-'+moStr,has=yearMonths.has(mo);
+    return `<button class="mtab ${mo===selMo?'on':''}" ${has?`onclick="swM('${mk}',this)"`:'disabled'}>${mo}月</button>`;
+  }).join('');
+  wrap.innerHTML=`<div class="ytabs"><div class="ytabs-inner">${yearHTML}</div></div><div class="mtabs"><div class="mtabs-inner" style="width:100%">${moHTML}</div></div>`;
   renderOps();
+  // 選択中の月タブを小窓の中央に自動スクロール
+  requestAnimationFrame(()=>{
+    const mtabs=wrap.querySelector('.mtabs');
+    const onBtn=wrap.querySelector('.mtab.on');
+    if(mtabs&&onBtn){
+      const offset=onBtn.offsetLeft-(mtabs.clientWidth/2)+(onBtn.offsetWidth/2);
+      mtabs.scrollTo({left:offset,behavior:'smooth'});
+    }
+    // 選択中の年タブも見えるようにスクロール
+    const ytabs=wrap.querySelector('.ytabs');
+    const onYbtn=wrap.querySelector('.ytab.on');
+    if(ytabs&&onYbtn){
+      const yoffset=onYbtn.offsetLeft-(ytabs.clientWidth/2)+(onYbtn.offsetWidth/2);
+      ytabs.scrollTo({left:yoffset,behavior:'smooth'});
+    }
+  });
+}
+function swYear(y){
+  const months=Object.keys(MS).filter(m=>m.startsWith(y)).sort();
+  if(!months.length)return;
+  const selMo=curM?curM.substring(5):'01';
+  curM=months.includes(y+'-'+selMo)?y+'-'+selMo:months[months.length-1];
+  renderOpsTabs();
 }
 function swM(m,btn){
   curM=m;
   document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
+  if(btn)btn.classList.add('on');
   renderOps();
 }
 
@@ -1053,8 +1132,10 @@ function renderOps(){
   else if(opsFilt==='subcon'){occDays=s.days;occTotal=ms.sR*ms.dm||1;}
   const occRate=+(occDays/occTotal*100).toFixed(1);
 
-  // ① 前回値（スナップショット）
-  const prevSales=prev?.tot?.sales,prevNet=prev?.tot?.net,prevOcc=prev?.occ?.t,prevCnt=prev?.tot?.cnt;
+  // ① 前回値（スナップショット） ― フィルターに合わせた値を使う
+  const _pd=opsFilt==='direct'?prev?.d:opsFilt==='subcon'?prev?.s:prev?.tot;
+  const prevSales=_pd?.sales,prevNet=_pd?.net,prevCnt=_pd?.cnt;
+  const prevOcc=opsFilt==='direct'?prev?.occ?.d:opsFilt==='subcon'?prev?.occ?.s:prev?.occ?.t;
   const prevLbl=(v,isMoney=true)=>v!==undefined&&v!==null
     ?`<div style="margin-top:5px;font-size:.67em;color:var(--t3)">前回: ${isMoney?fmtF(v):v+(typeof v==='number'&&v<100?'%':'件')}</div>`:'';
 
@@ -1346,7 +1427,7 @@ function bulkCompleteSelected(){
   const ds=document.getElementById('cleanDate').value;
   const tags=getSelectedTags();
   if(!tags.length){alert('カードを選択してください');return;}
-  if(!confirm(tags.length+'件を完了にしますか？'))return;
+  if(!confirm(tags.length+'件を完了にしますか？')){selectAllCards(false);return;}
   const c=S.get(CHK_KEY)||{};
   tags.forEach(tag=>{
     c[ds+'_'+tag]='1';
@@ -1414,8 +1495,8 @@ function showConfirm(title,msg,cb){
 function togChk(ds,tag,val,chkEl){
   // ④ 2-step confirm
   if(chkEl)chkEl.checked=!val; // revert until confirmed
-  const action=val?'完了にする':'完了を解除する';
-  showConfirm('確認',`${tag}を${action}しますか？`,ok=>{
+  const msg=val?`${tag}を完了にしますか？`:`${tag}の完了を解除しますか？`;
+  showConfirm('確認',msg,ok=>{
     if(!ok){if(chkEl)chkEl.checked=!val;return;}
     try{
       const c=S.get(CHK_KEY)||{};
@@ -1457,14 +1538,14 @@ function buildCard(tag,r,ds){
       else return{cls:'sl-red',lcls:'sl-label-red',icon:'🔴',text:'当日IN・🧹未'};
     }
     if(type==='cleanonly'){
-      if(chk) return{cls:'sl-green',lcls:'sl-label-green',icon:'✅',text:'🧹のみ'};
+      if(chk) return{cls:'sl-green',lcls:'sl-label-green',icon:'✅',text:'🧹のみ・済'};
       else{
         const nbIn=r.nb?`（IN ${fd2(r.nb.ci)}）`:'';
-        return{cls:'sl-red',lcls:'sl-label-red',icon:'🔴',text:'🧹のみ'+nbIn};
+        return{cls:'sl-red',lcls:'sl-label-red',icon:'🔴',text:'🧹のみ・未'+nbIn};
       }
     }
     if(type==='vacant'){
-      if(chk) return{cls:'sl-green',lcls:'sl-label-green',icon:'✅',text:'空室・🧹済'};
+      if(chk) return{cls:'sl-blue',lcls:'sl-label-blue',icon:'✅',text:'空室・🧹済'};
       return{cls:'sl-red',lcls:'sl-label-red',icon:'🔴',text:'空室・🧹未（清掃予定なし）'};
     }
     return{cls:'sl-gray',lcls:'sl-label-gray',icon:'○',text:'空室'};
@@ -1473,7 +1554,7 @@ function buildCard(tag,r,ds){
   const statusBar=`<div class="status-line ${sl.cls}"></div><div class="status-label ${sl.lcls}">${sl.icon} ${sl.text}</div>`;
   const done=chk?' done':'';const db=chk?'<span class="sb bdone">完了</span>':'';
   const photoUrl=getPhotoUrl(ds,tag);
-  const photoBox=chk?`<div style="margin-top:5px;display:flex;align-items:center;gap:5px">
+  const photoBox=`<div style="margin-top:5px;display:flex;align-items:center;gap:5px">
     <span style="font-size:.67em;color:var(--t3);flex-shrink:0">📎</span>
     <input style="border:1px solid var(--b);border-radius:4px;padding:2px 6px;font-size:.67em;width:100%;outline:none;color:var(--t2)"
       placeholder="GoogleドライブURLをペースト"
@@ -1482,9 +1563,9 @@ function buildCard(tag,r,ds){
       onchange="savePhotoUrl('${ds}','${tag}',this.value)"
       onblur="savePhotoUrl('${ds}','${tag}',this.value)">
     ${photoUrl?`<a href="${photoUrl}" target="_blank" style="font-size:.67em;color:var(--p);white-space:nowrap;flex-shrink:0">開く</a>`:''}
-  </div>`:'';
-  const chkBox=`<label class="rchk"><input type="checkbox" ${chk?'checked':''} onchange="togChk('${ds}','${tag}',this.checked)"><span>${chk?'完了済み':'完了にする'}</span></label>${photoBox}`;
-  const selChk=!chk?`<div class="sel-row"><input type="checkbox" class="card-sel-chk sel-chk" data-tag="${tag}" onclick="event.stopPropagation()"><span style="font-size:.7em;color:var(--t2)">選択</span></div>`:'';
+  </div>`;
+  const chkBox=`<label class="rchk"><input type="checkbox" ${chk?'checked':''} onchange="togChk('${ds}','${tag}',this.checked,this)"><span>${chk?'完了済み':'完了にする'}</span></label>${photoBox}`;
+
   const clsM={checkin:'ci',warn:'wn',unassigned:'un',danger:'dg',staying:'st',cleanonly:'co',vacant:'vc'};
   const lblM={checkin:'当日IN',warn:'同日入替',unassigned:'未割当',danger:'要確認',staying:'滞在中',cleanonly:'清掃予定',vacant:'空室'};
   const bM={checkin:'bci',warn:'bwn',unassigned:'bun',danger:'bdg',staying:'bst',cleanonly:'bco',vacant:'bvc'};
@@ -1511,15 +1592,14 @@ function buildCard(tag,r,ds){
     bot=r.lc?`<span style="font-size:.67em;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 6px;display:inline-block">📅 最終清掃: ${fd2(r.lc.d)}（${lcStDays}日前）</span>`:'<span style="font-size:.65em;color:#999">清掃履歴なし</span>';
   }
   // Use status line color as border-left
-  const borderColor=sl.cls==='sl-green'?'#2e7d32':sl.cls==='sl-red'?'#c62828':sl.cls==='sl-black'?'#212121':'#9e9e9e';
-  const bgColor=sl.cls==='sl-green'?'#f0fff4':sl.cls==='sl-red'?'#fff5f5':sl.cls==='sl-black'?'#f5f5f5':'#fafafa';
+  const borderColor=sl.cls==='sl-green'?'#2e7d32':sl.cls==='sl-red'?'#c62828':sl.cls==='sl-black'?'#212121':sl.cls==='sl-blue'?'#0288d1':'#9e9e9e';
+  const bgColor=sl.cls==='sl-green'?'#f0fff4':sl.cls==='sl-red'?'#fff5f5':sl.cls==='sl-black'?'#f5f5f5':sl.cls==='sl-blue'?'#e1f5fe':'#fafafa';
   // スタンプ：滞在中→「滞在中」、清掃済→「清掃完了」
   let stampHtml='';
   if(r.type==='staying') stampHtml='<div class="stamp" style="color:rgba(33,33,33,0.18);border-color:rgba(33,33,33,0.18)">滞在中</div>';
   else if(chk) stampHtml='<div class="stamp">清掃完了</div>';
   return`<div class="rc" data-tag="${tag}" style="border-left:5px solid ${borderColor}">
     ${statusBar}
-    ${!chk?selChk:''}
     <div class="rc-top stamp-wrap" style="background:${bgColor}">
       ${stampHtml}
       <div class="rc-top-hdr"><span class="rtag">${tag}</span><div class="sbs"><span class="sb ${bc}">${bl}</span></div></div>
@@ -1561,9 +1641,10 @@ function renderClean(){
     <div class="sc dg"><div class="sclbl">当日IN・🧹未</div><div class="scval" style="color:var(--red)">${cnt.ci_wait}</div><div class="scb">清掃待ち</div></div>
     <div class="sc ci"><div class="sclbl">当日IN・🧹済</div><div class="scval" style="color:var(--green)">${cnt.ci_done}</div><div class="scb">清掃完了</div></div>
     <div class="sc st"><div class="sclbl">滞在中</div><div class="scval">${cnt.st}</div><div class="scb">宿泊中</div></div>
-    <div class="sc dg"><div class="sclbl">🧹のみ</div><div class="scval" style="color:var(--red)">${cnt.co_wait}</div><div class="scb">清掃待ち</div></div>
+    <div class="sc dg"><div class="sclbl">🧹のみ・未</div><div class="scval" style="color:var(--red)">${cnt.co_wait}</div><div class="scb">清掃待ち</div></div>
+    <div class="sc ci"><div class="sclbl">🧹のみ・済</div><div class="scval" style="color:var(--green)">${cnt.co_done}</div><div class="scb">清掃完了</div></div>
     <div class="sc dg"><div class="sclbl">空室・🧹未</div><div class="scval" style="color:var(--red)">${cnt.vc_wait}</div><div class="scb">清掃待ち</div></div>
-    <div class="sc ci"><div class="sclbl">空室・🧹済</div><div class="scval" style="color:var(--green)">${cnt.vc_done}</div><div class="scb">完了</div></div>
+    <div class="sc" style="border-left-color:#0288d1"><div class="sclbl">空室・🧹済</div><div class="scval" style="color:#0288d1">${cnt.vc_done}</div><div class="scb">完了</div></div>
     <div class="sc wn"><div class="sclbl">要注意</div><div class="scval">${cnt.wn}</div><div class="scb">同日入替等</div></div>`;
   const ord={danger:0,unassigned:1,warn:2,checkin:3,cleanonly:4,staying:5,vacant:6};
   const grouped={};
@@ -1578,7 +1659,7 @@ function renderClean(){
     } else if(r.type==='staying'){
       stateKey='st';
     } else if(r.type==='cleanonly'){
-      stateKey='co_wait'; // ③ 🧹のみは完了前後どちらもco_waitフィルターで表示
+      stateKey=chkF?'co_done':'co_wait';
     } else {
       stateKey=chkF?'vc_done':'vc_wait';
     }
@@ -1916,7 +1997,42 @@ function chkReady(){
 }
 function loadCSVs(){
   try{
-    parseBookings();parseCleaning();computeMS();
+    // ── 既存データを退避（マージ用） ──
+    const prevBK=JSON.parse(JSON.stringify(BK));
+    const prevROOMS=JSON.parse(JSON.stringify(ROOMS));
+    const prevCH=JSON.parse(JSON.stringify(CH));
+    const prevCM=JSON.parse(JSON.stringify(CM));
+
+    parseBookings();   // BK/ROOMSをリセットして新CSV分だけ書き込む
+    parseCleaning();   // CH/CMをリセットして新CSV分だけ書き込む
+
+    // ── 予約データをマージ（新CSV優先、旧データは保持） ──
+    ROOMS={...prevROOMS,...ROOMS};
+    const freshBK=BK;
+    BK=prevBK;
+    Object.keys(freshBK).forEach(tag=>{
+      if(!BK[tag])BK[tag]=[];
+      freshBK[tag].forEach(nb=>{
+        const idx=nb.id?BK[tag].findIndex(b=>b.id===nb.id):BK[tag].findIndex(b=>b.ci===nb.ci&&b.co===nb.co&&b.g===nb.g);
+        if(idx>=0)BK[tag][idx]=nb;else BK[tag].push(nb);
+      });
+      BK[tag].sort((a,b)=>a.ci.localeCompare(b.ci));
+    });
+
+    // ── 清掃データをマージ ──
+    const freshCH=CH;
+    CH=prevCH;
+    Object.keys(freshCH).forEach(tag=>{
+      if(!CH[tag])CH[tag]=[];
+      freshCH[tag].forEach(nc=>{
+        const idx=CH[tag].findIndex(c=>c.d===nc.d);
+        if(idx>=0)CH[tag][idx]=nc;else CH[tag].push(nc);
+      });
+      CH[tag].sort((a,b)=>a.d.localeCompare(b.d));
+    });
+    CM={...prevCM,...CM};
+
+    computeMS();
     const now=new Date().toLocaleString('ja-JP');
     document.getElementById('meta').textContent='CSV取込: '+now;
     const prevSnap={};
@@ -1933,6 +2049,13 @@ function loadCSVs(){
     console.error('loadCSVs error:',e);
     alert('読み込みエラー: '+e.message);
   }
+}
+function resetAllBookings(){
+  if(!confirm('全予約・清掃データをリセットしますか？\nこの操作は取り消せません。'))return;
+  BK={};ROOMS={};CH={};CM={};MS={};
+  if(fbReady)fbWrite('bookings',{BK:{},ROOMS:{},CH:{},CM:{},meta:'リセット済み'});
+  renderOpsTabs();renderClean();renderPayTab();
+  alert('リセットしました。全期間のCSVをアップロードしてください。');
 }
 ['bkZone','clZone'].forEach(id=>{
   const z=document.getElementById(id);
@@ -1974,9 +2097,7 @@ function renderOfficeList(){
 function addOfficeRow(){cfg.offices.push({tag:'',group:''});renderOfficeList();}
 
 function openSettings(){
-  renderUserList();
   renderLastMinuteList();
-  document.getElementById('setPw1').value='';document.getElementById('setPw2').value='';
   document.getElementById('setRent').value=cfg.defaultRent;
   document.getElementById('setIssuer').value=cfg.issuer;
   document.getElementById('setAddr').value=cfg.addr;
@@ -1990,8 +2111,6 @@ function openSettings(){
   openModal('settingsModal');
 }
 function saveSettings(){
-  const p1=document.getElementById('setPw1').value,p2=document.getElementById('setPw2').value;
-  if(p1){if(p1!==p2){alert('パスワードが一致しません');return;}cfg.pw=p1;}
   cfg.defaultRent=parseInt(document.getElementById('setRent').value)||cfg.defaultRent;
   cfg.issuer=document.getElementById('setIssuer').value||cfg.issuer;
   cfg.addr=document.getElementById('setAddr').value||cfg.addr;
@@ -2617,12 +2736,20 @@ function getLastMinuteRooms(ds){
 
 loadCfg();
 // DOMが確実に読み込まれてから実行
-if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',populateLoginUsers);
-} else {
+function onReady(){
   populateLoginUsers();
+  if(!tryAutoLogin()){
+    document.getElementById('pwInp').focus();
+  }
+  // 操作があればセッション有効期限をリフレッシュ
+  document.addEventListener('click',refreshSession);
+  document.addEventListener('keydown',refreshSession);
 }
-document.getElementById('pwInp').focus();
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',onReady);
+} else {
+  onReady();
+}
 </script>
 </body>
 </html>
