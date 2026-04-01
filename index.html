@@ -1134,15 +1134,19 @@ function renderOps(){
 
   // ① 前回値（スナップショット） ― フィルターに合わせた値を使う
   const _pd=opsFilt==='direct'?prev?.d:opsFilt==='subcon'?prev?.s:prev?.tot;
-  const prevSales=_pd?.sales,prevNet=_pd?.net,prevCnt=_pd?.cnt;
+  const prevSales=_pd?.sales,prevCnt=_pd?.cnt;
+  const prevProfit=opsFilt==='all'?(prev?.profit):(_pd?.net!=null&&prev?.exp?.tot!=null?_pd.net-prev.exp.tot:undefined);
   const prevOcc=opsFilt==='direct'?prev?.occ?.d:opsFilt==='subcon'?prev?.occ?.s:prev?.occ?.t;
   const prevLbl=(v,isMoney=true)=>v!==undefined&&v!==null
     ?`<div style="margin-top:5px;font-size:.67em;color:var(--t3)">前回: ${isMoney?fmtF(v):v+(typeof v==='number'&&v<100?'%':'件')}</div>`:'';
 
+  // 粗利 = 売上 - コミッション - 家賃・光熱費 (= tot.net + クリーニング代 - 経費)
+  const grossProfit=tot.net+tot.cl-ms.exp.tot;
+
   const kpiH=`
     <div class="kgrid">
       <div class="kcard"><div class="klbl">売上（税抜）</div><div class="kval">${fmtF(tot.sales)}</div>${pv(tot.sales,prevSales)}${prevLbl(prevSales)}</div>
-      <div class="kcard green"><div class="klbl">実受取</div><div class="kval">${fmtF(tot.net)}</div>${pv(tot.net,prevNet)}${prevLbl(prevNet)}</div>
+      <div class="kcard green"><div class="klbl">粗利</div><div class="kval">${fmtF(grossProfit)}</div><div class="ksub" style="color:var(--t3)">うちクリーニング ${fmtF(tot.cl)}</div>${pv(grossProfit,prevProfit)}${prevLbl(prevProfit)}</div>
       <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${occRate}%</div><div class="ksub">${occDays}日/${occTotal}日</div>${pv(occRate,prevOcc)}${prevLbl(prevOcc,false)}</div>
       <div class="kcard"><div class="klbl">予約件数</div><div class="kval">${tot.cnt}件</div>${pv(tot.cnt,prevCnt)}${prevLbl(prevCnt,false)}</div>
     </div>`;
