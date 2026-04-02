@@ -1027,11 +1027,13 @@ function computeMS(){
       totalRoomRent+=rm.rent;
       totalRoomUtil+=rm.util;
     });
-    // 事務所費用（5事務所合算）
-    const officeExpData=S.get(OFFICE_EXP_KEY)||{};
-    const offMonth=officeExpData[mk]||{};
+    // 事務所費用（ROOM_RENT_KEY / UTIL_KEY を流用）
     let officeRent=0,officeUtil=0;
-    OFFICES.forEach(o=>{const oe=offMonth[o]||{};officeRent+=excl(oe.rentInc||0);officeUtil+=excl(oe.utilInc||0);});
+    OFFICES.forEach(o=>{
+      officeRent+=getRoomRentForMonth(o,mk);
+      const ou=utilMonth[o]||{};
+      officeUtil+=excl((parseInt(ou.elec)||0)+(parseInt(ou.gas)||0)+(parseInt(ou.water)||0));
+    });
     ms.exp.rent=totalRoomRent;
     ms.exp.util=totalRoomUtil;
     ms.exp.officeRent=officeRent;
@@ -1065,7 +1067,7 @@ function renderExpPane(){
   const ms=MS[curM];const{exp,profit,tot}=ms;
   const grossProfit=tot.net+tot.cl-ms.exp.tot;
   el.innerHTML=`
-    <div class="sec"><h2>⚡ 光熱費（部屋別・税込入力）</h2>
+    <div class="sec"><h2>⚡ 光熱費（部屋・事務所・税込入力）</h2>
       <div style="border:2px dashed var(--p);border-radius:9px;padding:12px;text-align:center;cursor:pointer;margin-bottom:10px;background:#fafbff;position:relative">
         <input type="file" id="utilFile2" accept=".csv" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleUtilCSV(this.files)">
         <div style="font-size:.88em;font-weight:600">電気代CSVをアップロード</div>
@@ -1088,10 +1090,12 @@ function renderExpPane(){
   if(!grid)return;
   const utilData=S.get(UTIL_KEY)||{};
   const utilMonth=utilData[curM]||{};
-  grid.innerHTML=Object.keys(ROOMS).sort().map(tag=>{
+  const allUtilTags=[...Object.keys(ROOMS).sort(),...OFFICES];
+  grid.innerHTML=allUtilTags.map(tag=>{
+    const isOffice=OFFICES.includes(tag);
     const d=utilMonth[tag]||{elec:0,gas:0,water:0};
-    return`<div class="util-room">
-      <div class="util-room-tag">${tag}</div>
+    return`<div class="util-room"${isOffice?' style="border-color:#f5576c;background:#fff8f8"':''}>
+      <div class="util-room-tag" style="${isOffice?'color:var(--red)':''}">${tag}</div>
       <div class="util-inp-row"><span class="util-inp-lbl">電気</span><input class="util-inp" type="number" value="${d.elec||''}" placeholder="0" onchange="saveUtil('${tag}','elec',this.value)"></div>
       <div class="util-inp-row"><span class="util-inp-lbl">ガス</span><input class="util-inp" type="number" value="${d.gas||''}" placeholder="0" onchange="saveUtil('${tag}','gas',this.value)"></div>
       <div class="util-inp-row"><span class="util-inp-lbl">水道</span><input class="util-inp" type="number" value="${d.water||''}" placeholder="0" onchange="saveUtil('${tag}','water',this.value)"></div>
@@ -1425,11 +1429,12 @@ function renderUtilGrid(){
   if(!grid||!curM)return;
   const utilData=S.get(UTIL_KEY)||{};
   const utilMonth=utilData[curM]||{};
-  const tags=Object.keys(ROOMS).sort();
-  grid.innerHTML=tags.map(tag=>{
+  const allTags=[...Object.keys(ROOMS).sort(),...OFFICES];
+  grid.innerHTML=allTags.map(tag=>{
+    const isOffice=OFFICES.includes(tag);
     const d=utilMonth[tag]||{elec:0,gas:0,water:0};
-    return`<div class="util-room">
-      <div class="util-room-tag">${tag}</div>
+    return`<div class="util-room"${isOffice?' style="border-color:#f5576c;background:#fff8f8"':''}>
+      <div class="util-room-tag" style="${isOffice?'color:var(--red)':''}">${tag}</div>
       <div class="util-inp-row"><span class="util-inp-lbl">電気</span><input class="util-inp" type="number" value="${d.elec||''}" placeholder="0" onchange="saveUtil('${tag}','elec',this.value)"></div>
       <div class="util-inp-row"><span class="util-inp-lbl">ガス</span><input class="util-inp" type="number" value="${d.gas||''}" placeholder="0" onchange="saveUtil('${tag}','gas',this.value)"></div>
       <div class="util-inp-row"><span class="util-inp-lbl">水道</span><input class="util-inp" type="number" value="${d.water||''}" placeholder="0" onchange="saveUtil('${tag}','water',this.value)"></div>
@@ -2260,18 +2265,32 @@ function renderRoomMgmt(){
     </div>`;
   }).join('');
 
-  // 事務所セクション
-  const officeExpData=S.get(OFFICE_EXP_KEY)||{};
-  const offMonth=officeExpData[curM]||{};
+  // 事務所セクション（部屋と同じ家賃履歴UI）
   const officeRowsHTML=OFFICES.map(name=>{
-    const oe=offMonth[name]||{};
-    return`<div style="border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:8px">
-      <div style="font-weight:600;font-size:.9em;margin-bottom:10px">${name}</div>
-      <div class="exprow"><label>家賃:</label><input class="expinp" type="number" value="${oe.rentInc||''}" placeholder="0" step="1000" onchange="saveOfficeExp('${name}','rentInc',this.value)"><span style="font-size:.75em;color:var(--t3);margin-left:6px">税抜: ${fmtF(excl(oe.rentInc||0))}</span></div>
-      <div class="exprow"><label>光熱費:</label><input class="expinp" type="number" value="${oe.utilInc||''}" placeholder="0" step="1000" onchange="saveOfficeExp('${name}','utilInc',this.value)"><span style="font-size:.75em;color:var(--t3);margin-left:6px">税抜: ${fmtF(excl(oe.utilInc||0))}</span></div>
+    const history=(rents[name]||[]).slice().sort((a,b)=>a.from.localeCompare(b.from));
+    const currentRent=getRoomRentForMonth(name,todayM);
+    const histHTML=history.length?history.map(e=>`
+      <div style="display:flex;align-items:center;gap:6px;margin-top:5px;font-size:.8em;flex-wrap:wrap">
+        <span style="color:var(--t3);min-width:70px">${e.from}〜</span>
+        <span style="font-family:ui-monospace,monospace;min-width:80px">税込 ${fmtF(e.rentInc)}</span>
+        <span style="color:var(--t3)">→ 税抜 ${fmtF(Math.round(e.rentInc/1.1))}</span>
+        <button onclick="delRoomRent('${name}','${e.from}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:1px 6px;cursor:pointer;font-size:.85em">削除</button>
+      </div>`).join(''):'<div style="font-size:.78em;color:var(--t3);margin-top:4px">設定なし</div>';
+    return`<div style="border:1px solid #ffc0c0;border-radius:10px;padding:12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-weight:600;font-size:.9em">${name}</span>
+        <span style="font-size:.8em;font-weight:600;color:${currentRent?'var(--green)':'var(--t3)'}">${currentRent?fmtF(currentRent):'未設定'}</span>
+      </div>
+      <div style="font-size:.75em;color:var(--t2);margin-bottom:4px">家賃履歴</div>
+      ${histHTML}
+      <div style="margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <input type="month" id="rmFrom_${name}" value="${todayM}" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em">
+        <input type="number" id="rmRent_${name}" placeholder="家賃（税込）" step="1000" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em;width:130px">
+        <button onclick="saveRoomRent('${name}',document.getElementById('rmFrom_${name}').value,parseInt(document.getElementById('rmRent_${name}').value)||0)" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82em;font-weight:600">保存</button>
+      </div>
     </div>`;
   }).join('');
-  const offTotal=OFFICES.reduce((s,o)=>{const oe=offMonth[o]||{};return s+excl(oe.rentInc||0)+excl(oe.utilInc||0);},0);
+  const offTotal=OFFICES.reduce((s,o)=>s+getRoomRentForMonth(o,todayM),0);
   const officeSection=`<div style="margin-bottom:12px;border:2px solid var(--b);border-radius:12px;overflow:hidden">
     <div onclick="togRmBldg('bldg_office')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#fff5f5;cursor:pointer;user-select:none">
       <div style="display:flex;align-items:center;gap:8px">
