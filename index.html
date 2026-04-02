@@ -658,6 +658,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
 const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6';
+const OFFICES=['両国事務所','亀有事務所','SC事務所','梅島事務所','青戸事務所'];
 
 let cfg={
   pw:'minpaku2026',defaultRent:3912091,
@@ -942,11 +943,12 @@ function delRoomRent(tag,from){
   S.set(ROOM_RENT_KEY,rents);
   computeMS();renderOps();renderRoomMgmt();
 }
-// 事務所費用保存
-function saveOfficeExp(key,val){
+// 事務所費用保存 (office=事務所名, key='rentInc'|'utilInc')
+function saveOfficeExp(office,key,val){
   const data=S.get(OFFICE_EXP_KEY)||{};
-  if(!data[curM])data[curM]={rentInc:0,utilInc:0};
-  data[curM][key]=parseInt(val)||0;
+  if(!data[curM])data[curM]={};
+  if(!data[curM][office])data[curM][office]={rentInc:0,utilInc:0};
+  data[curM][office][key]=parseInt(val)||0;
   S.set(OFFICE_EXP_KEY,data);
   computeMS();renderOps();
 }
@@ -1025,11 +1027,11 @@ function computeMS(){
       totalRoomRent+=rm.rent;
       totalRoomUtil+=rm.util;
     });
-    // 事務所費用
+    // 事務所費用（5事務所合算）
     const officeExpData=S.get(OFFICE_EXP_KEY)||{};
-    const offExp=officeExpData[mk]||{};
-    const officeRent=excl(offExp.rentInc||0);
-    const officeUtil=excl(offExp.utilInc||0);
+    const offMonth=officeExpData[mk]||{};
+    let officeRent=0,officeUtil=0;
+    OFFICES.forEach(o=>{const oe=offMonth[o]||{};officeRent+=excl(oe.rentInc||0);officeUtil+=excl(oe.utilInc||0);});
     ms.exp.rent=totalRoomRent;
     ms.exp.util=totalRoomUtil;
     ms.exp.officeRent=officeRent;
@@ -1061,14 +1063,8 @@ function renderExpPane(){
   if(!el)return;
   if(!curM||!MS[curM]){el.innerHTML='<div class="nd">データなし</div>';return;}
   const ms=MS[curM];const{exp,profit,tot}=ms;
-  const officeExpData=S.get(OFFICE_EXP_KEY)||{};
-  const offExp=officeExpData[curM]||{};
   const grossProfit=tot.net+tot.cl-ms.exp.tot;
   el.innerHTML=`
-    <div class="sec"><h2>🏢 事務所費用（税込入力）</h2>
-      <div class="exprow"><label>家賃:</label><input class="expinp" type="number" value="${offExp.rentInc||''}" placeholder="0" step="1000" onchange="saveOfficeExp('rentInc',this.value)"><span style="font-size:.75em;color:var(--t3);margin-left:6px">税抜: ${fmtF(excl(offExp.rentInc||0))}</span></div>
-      <div class="exprow"><label>光熱費:</label><input class="expinp" type="number" value="${offExp.utilInc||''}" placeholder="0" step="1000" onchange="saveOfficeExp('utilInc',this.value)"><span style="font-size:.75em;color:var(--t3);margin-left:6px">税抜: ${fmtF(excl(offExp.utilInc||0))}</span></div>
-    </div>
     <div class="sec"><h2>⚡ 光熱費（部屋別・税込入力）</h2>
       <div style="border:2px dashed var(--p);border-radius:9px;padding:12px;text-align:center;cursor:pointer;margin-bottom:10px;background:#fafbff;position:relative">
         <input type="file" id="utilFile2" accept=".csv" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%" onchange="handleUtilCSV(this.files)">
@@ -2194,6 +2190,15 @@ function swTab(id,btn){
   if(id==='roomMgmt')renderRoomMgmt();
 }
 
+function togRmBldg(id){
+  const el=document.getElementById(id);
+  const arrow=document.getElementById(id+'_arr');
+  if(!el)return;
+  const open=el.style.display!=='none';
+  el.style.display=open?'none':'block';
+  if(arrow)arrow.textContent=open?'▶':'▼';
+}
+
 function renderRoomMgmt(){
   const el=document.getElementById('roomMgmtPane');
   if(!el)return;
@@ -2202,38 +2207,91 @@ function renderRoomMgmt(){
   const rents=S.get(ROOM_RENT_KEY)||{};
   const todayM=new Date().toISOString().substring(0,7);
 
-  const rows=allTags.map(tag=>{
-    const history=(rents[tag]||[]).slice().sort((a,b)=>a.from.localeCompare(b.from));
-    const currentRent=getRoomRentForMonth(tag,todayM);
-    const histHTML=history.length?history.map(e=>`
-      <div style="display:flex;align-items:center;gap:6px;margin-top:5px;font-size:.8em">
-        <span style="color:var(--t3);min-width:70px">${e.from}〜</span>
-        <span style="font-family:ui-monospace,monospace;min-width:80px">税込 ${fmtF(e.rentInc)}</span>
-        <span style="color:var(--t3)">→ 税抜 ${fmtF(Math.round(e.rentInc/1.1))}</span>
-        <button onclick="delRoomRent('${tag}','${e.from}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:1px 6px;cursor:pointer;font-size:.85em">削除</button>
-      </div>`).join(''):'<div style="font-size:.78em;color:var(--t3);margin-top:4px">設定なし</div>';
-    return`<div style="border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div style="display:flex;align-items:center;gap:8px">
+  // 建物ごとにグループ化
+  const groups={};
+  allTags.forEach(tag=>{
+    const bldg=ROOMS[tag]||'その他';
+    if(!groups[bldg])groups[bldg]=[];
+    groups[bldg].push(tag);
+  });
+
+  const buildingHTML=Object.keys(groups).sort().map((bldg,bi)=>{
+    const tags=groups[bldg];
+    const bldgId='bldg_'+bi;
+    // 設定済み・未設定カウント
+    const setCount=tags.filter(t=>getRoomRentForMonth(t,todayM)>0).length;
+    const roomsHTML=tags.map(tag=>{
+      const history=(rents[tag]||[]).slice().sort((a,b)=>a.from.localeCompare(b.from));
+      const currentRent=getRoomRentForMonth(tag,todayM);
+      const histHTML=history.length?history.map(e=>`
+        <div style="display:flex;align-items:center;gap:6px;margin-top:5px;font-size:.8em;flex-wrap:wrap">
+          <span style="color:var(--t3);min-width:70px">${e.from}〜</span>
+          <span style="font-family:ui-monospace,monospace;min-width:80px">税込 ${fmtF(e.rentInc)}</span>
+          <span style="color:var(--t3)">→ 税抜 ${fmtF(Math.round(e.rentInc/1.1))}</span>
+          <button onclick="delRoomRent('${tag}','${e.from}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:1px 6px;cursor:pointer;font-size:.85em">削除</button>
+        </div>`).join(''):'<div style="font-size:.78em;color:var(--t3);margin-top:4px">設定なし</div>';
+      return`<div style="border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <span class="room-tag">${tag}</span>
-          <span style="font-size:.75em;color:var(--t3)">${ROOMS[tag]||''}</span>
+          <span style="font-size:.8em;font-weight:600;color:${currentRent?'var(--green)':'var(--t3)'}">${currentRent?fmtF(currentRent):'未設定'}</span>
         </div>
-        <span style="font-size:.8em;font-weight:600;color:var(--green)">現在: ${currentRent?fmtF(currentRent):'未設定'}</span>
+        <div style="font-size:.75em;color:var(--t2);margin-bottom:4px">家賃履歴</div>
+        ${histHTML}
+        <div style="margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <input type="month" id="rmFrom_${tag}" value="${todayM}" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em">
+          <input type="number" id="rmRent_${tag}" placeholder="家賃（税込）" step="1000" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em;width:130px">
+          <button onclick="saveRoomRent('${tag}',document.getElementById('rmFrom_${tag}').value,parseInt(document.getElementById('rmRent_${tag}').value)||0)" style="background:var(--p);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82em;font-weight:600">保存</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    return`<div style="margin-bottom:12px;border:2px solid var(--b);border-radius:12px;overflow:hidden">
+      <div onclick="togRmBldg('${bldgId}')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#f5f6ff;cursor:pointer;user-select:none">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="${bldgId}_arr" style="font-size:.8em;color:var(--p)">▶</span>
+          <span style="font-weight:700;font-size:.95em">${bldg}</span>
+          <span class="pill">${tags.length}部屋</span>
+        </div>
+        <span style="font-size:.75em;color:${setCount===tags.length?'var(--green)':'var(--orange)'}">${setCount}/${tags.length} 設定済</span>
       </div>
-      <div style="font-size:.78em;color:var(--t2);margin-bottom:6px">家賃履歴</div>
-      ${histHTML}
-      <div style="margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <input type="month" id="rmFrom_${tag}" value="${todayM}" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em">
-        <input type="number" id="rmRent_${tag}" placeholder="家賃（税込）" step="1000" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em;width:130px">
-        <button onclick="saveRoomRent('${tag}',document.getElementById('rmFrom_${tag}').value,parseInt(document.getElementById('rmRent_${tag}').value)||0)" style="background:var(--p);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82em;font-weight:600">保存</button>
+      <div id="${bldgId}" style="padding:12px;display:none">
+        ${roomsHTML}
       </div>
     </div>`;
   }).join('');
 
+  // 事務所セクション
+  const officeExpData=S.get(OFFICE_EXP_KEY)||{};
+  const offMonth=officeExpData[curM]||{};
+  const officeRowsHTML=OFFICES.map(name=>{
+    const oe=offMonth[name]||{};
+    return`<div style="border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:8px">
+      <div style="font-weight:600;font-size:.9em;margin-bottom:10px">${name}</div>
+      <div class="exprow"><label>家賃:</label><input class="expinp" type="number" value="${oe.rentInc||''}" placeholder="0" step="1000" onchange="saveOfficeExp('${name}','rentInc',this.value)"><span style="font-size:.75em;color:var(--t3);margin-left:6px">税抜: ${fmtF(excl(oe.rentInc||0))}</span></div>
+      <div class="exprow"><label>光熱費:</label><input class="expinp" type="number" value="${oe.utilInc||''}" placeholder="0" step="1000" onchange="saveOfficeExp('${name}','utilInc',this.value)"><span style="font-size:.75em;color:var(--t3);margin-left:6px">税抜: ${fmtF(excl(oe.utilInc||0))}</span></div>
+    </div>`;
+  }).join('');
+  const offTotal=OFFICES.reduce((s,o)=>{const oe=offMonth[o]||{};return s+excl(oe.rentInc||0)+excl(oe.utilInc||0);},0);
+  const officeSection=`<div style="margin-bottom:12px;border:2px solid var(--b);border-radius:12px;overflow:hidden">
+    <div onclick="togRmBldg('bldg_office')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#fff5f5;cursor:pointer;user-select:none">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="bldg_office_arr" style="font-size:.8em;color:var(--red)">▶</span>
+        <span style="font-weight:700;font-size:.95em">🏢 事務所</span>
+        <span class="pill">${OFFICES.length}拠点</span>
+      </div>
+      <span style="font-size:.75em;color:var(--red)">合計 ${fmtF(offTotal)}/月</span>
+    </div>
+    <div id="bldg_office" style="padding:12px;display:none">
+      <div style="font-size:.75em;color:var(--t3);margin-bottom:10px">家賃・光熱費は税込で入力。表示は税抜。</div>
+      ${officeRowsHTML}
+    </div>
+  </div>`;
+
   el.innerHTML=`<div class="sec">
     <h2>🏠 部屋管理 <span class="pill">${allTags.length}部屋</span></h2>
     <div style="font-size:.78em;color:var(--t3);margin-bottom:12px">家賃は税込で入力。適用開始月を指定すると月ごとに自動切替されます。</div>
-    ${rows}
+    ${officeSection}
+    ${buildingHTML}
   </div>`;
 }
 
