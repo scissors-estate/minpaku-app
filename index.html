@@ -66,7 +66,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 
 /* ── ① RESPONSIVE KPI GRID ── */
 .kgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
-@media(min-width:768px){.kgrid{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:768px){.kgrid{grid-template-columns:repeat(3,1fr)}}
 .kcard{background:#fff;border-radius:10px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-left:4px solid var(--p)}
 .kcard.red{border-left-color:var(--red)}.kcard.green{border-left-color:var(--green)}.kcard.orange{border-left-color:var(--orange)}
 .klbl{font-size:.7em;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
@@ -1223,12 +1223,23 @@ function renderOps(){
   // 粗利 = 売上 - コミッション - 家賃・光熱費 (= tot.net + クリーニング代 - 経費)
   const grossProfit=tot.sales-ms.exp.tot;
 
+  // 稼働部屋数・宿泊人数（直営/代行/全体）
+  const allRooms=Object.values(ms.rooms);
+  const activeRoomsAll=allRooms.filter(r=>r.days>0).length;
+  const activeRoomsDirect=allRooms.filter(r=>!r.isSub&&r.days>0).length;
+  const activeRoomsSub=allRooms.filter(r=>r.isSub&&r.days>0).length;
+  const guestsAll=allRooms.reduce((a,r)=>a+(r.gu||0),0);
+  const guestsDirect=allRooms.filter(r=>!r.isSub).reduce((a,r)=>a+(r.gu||0),0);
+  const guestsSub=allRooms.filter(r=>r.isSub).reduce((a,r)=>a+(r.gu||0),0);
+
   const kpiH=`
     <div class="kgrid">
       <div class="kcard"><div class="klbl">売上（税抜）</div><div class="kval">${fmtF(tot.sales)}</div>${pv(tot.sales,prevSales)}${prevLbl(prevSales)}</div>
       <div class="kcard green"><div class="klbl">粗利</div><div class="kval">${fmtF(grossProfit)}</div><div class="ksub" style="color:var(--t3)">うちクリーニング ${fmtF(tot.cl)}</div>${pv(grossProfit,prevProfit)}${prevLbl(prevProfit)}</div>
       <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${occRate}%</div><div class="kval" style="font-size:1em;margin-top:2px">${occDays}日/${occTotal}日</div>${pv(occRate,prevOcc)}${prevLbl(prevOcc,false)}</div>
+      <div class="kcard"><div class="klbl">稼働部屋数</div><div class="kval">${activeRoomsAll}部屋</div><div style="display:flex;gap:8px;margin-top:4px"><span style="font-size:.72em;color:var(--p)">直営 ${activeRoomsDirect}</span><span style="font-size:.72em;color:var(--t3)">|</span><span style="font-size:.72em;color:var(--pink)">代行 ${activeRoomsSub}</span></div></div>
       <div class="kcard"><div class="klbl">予約件数</div><div class="kval">${tot.cnt}件</div>${pv(tot.cnt,prevCnt)}${prevLbl(prevCnt,false)}</div>
+      <div class="kcard"><div class="klbl">宿泊人数</div><div class="kval">${guestsAll}名</div><div style="display:flex;gap:8px;margin-top:4px"><span style="font-size:.72em;color:var(--p)">直営 ${guestsDirect}名</span><span style="font-size:.72em;color:var(--t3)">|</span><span style="font-size:.72em;color:var(--pink)">代行 ${guestsSub}名</span></div></div>
     </div>`;
 
   // OTA
