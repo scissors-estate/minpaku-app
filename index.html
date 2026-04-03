@@ -2257,6 +2257,9 @@ function togRmBldg(id){
 function renderRoomMgmt(){
   const el=document.getElementById('roomMgmtPane');
   if(!el)return;
+  // 現在開いているセクションを記憶
+  const openSecs=new Set();
+  el.querySelectorAll('[id^="bldg_"]').forEach(s=>{if(s.style.display!=='none')openSecs.add(s.id);});
   const allTags=Object.keys(ROOMS).sort();
   if(!allTags.length){el.innerHTML='<div class="sec"><div class="nd">CSVを読み込むと部屋一覧が表示されます</div></div>';return;}
   const rents=S.get(ROOM_RENT_KEY)||{};
@@ -2369,6 +2372,14 @@ function renderRoomMgmt(){
     ${officeSection}
     ${buildingHTML}
   </div>`;
+  // 開いていたセクションを復元
+  openSecs.forEach(id=>{
+    const s=document.getElementById(id);
+    if(!s)return;
+    s.style.display='block';
+    const arr=document.getElementById(id+'_arr');
+    if(arr)arr.textContent='▼';
+  });
 }
 
 // ════════════════════════════════════════════
