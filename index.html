@@ -2405,6 +2405,14 @@ function initFirebase(){
       const val = snap.val();
       if(val) S.set(PHOTO_KEY, val);
     });
+    fbDB.ref('room_rents').on('value', snap => {
+      const val = snap.val();
+      if(val){
+        _origSset(ROOM_RENT_KEY, val);
+        computeMS();renderOps();
+        if(document.getElementById('roomMgmtPane')&&document.getElementById('roomMgmtPane').classList.contains('on'))renderRoomMgmt();
+      }
+    });
     console.log('✅ Firebase接続成功');
   } catch(e) {
     console.warn('Firebase接続失敗:', e.message);
@@ -2434,11 +2442,12 @@ const _origSset = S.set.bind(S);
 S.set = function(k, v){
   _origSset(k, v);
   if(!fbReady) return;
-  if(k === CHK_KEY)   fbWrite('checks', v);
-  if(k === PAY_KEY)   fbWrite('payments', v);
-  if(k === EXP_KEY)   fbWrite('expenses', v);
-  if(k === UTIL_KEY)  fbWrite('utilities', v);
-  if(k === PHOTO_KEY) fbWrite('photos', v);
+  if(k === CHK_KEY)      fbWrite('checks', v);
+  if(k === PAY_KEY)      fbWrite('payments', v);
+  if(k === EXP_KEY)      fbWrite('expenses', v);
+  if(k === UTIL_KEY)     fbWrite('utilities', v);
+  if(k === PHOTO_KEY)    fbWrite('photos', v);
+  if(k === ROOM_RENT_KEY) fbWrite('room_rents', v);
 };
 
 // ⑬ User management functions
