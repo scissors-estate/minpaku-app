@@ -2691,7 +2691,7 @@ function renderBB(){
     
     const cleanTags=Object.keys(ROOMS).filter(tag=>{
       const r=getRoomSt(tag,ds);
-      return['checkin','cleanonly'].includes(r.type)&&!isChk(ds,tag);
+      return['checkin','warn','unassigned','danger','cleanonly'].includes(r.type)&&!isChk(ds,tag);
     });
     
     const staffOnDuty=new Set();
