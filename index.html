@@ -657,7 +657,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6';
 const OFFICES=['両国事務所','亀有事務所','SC事務所','梅島事務所','青戸事務所'];
 
 let cfg={
@@ -2133,6 +2133,20 @@ function openSnap(){
 function saveSnap(){S.set(SNAP_KEY,{timestamp:new Date().toISOString(),data:MS});closeModal('snapModal');alert('✅ 保存しました');renderOps();}
 function clearSnap(){if(confirm('削除しますか？')){S.set(SNAP_KEY,null);closeModal('snapModal');renderOps();}}
 
+// 自動スナップ: 毎日0時以降の初回起動時に自動保存
+function checkAutoSnap(){
+  const now=new Date();
+  const todayStr=now.toISOString().split('T')[0]; // YYYY-MM-DD
+  const lastDate=S.get(AUTO_SNAP_KEY)||'';
+  if(lastDate===todayStr) return; // 今日は既に実行済み
+  // MSが初期化済みか確認
+  if(!MS||!Object.keys(MS).length) return;
+  S.set(SNAP_KEY,{timestamp:now.toISOString(),data:MS,auto:true});
+  _origSset(AUTO_SNAP_KEY, todayStr);
+  if(fbReady) fbWrite('auto_snap_date', todayStr);
+  console.log('✅ 自動スナップ保存:', todayStr);
+}
+
 // ════════════════════════════════════════════
 //  SETTINGS
 // ════════════════════════════════════════════
@@ -2383,6 +2397,7 @@ function initFirebase(){
         populateInvMonths();
         try{populateAccMonths();}catch(e){}
         if(stored.meta) document.getElementById('meta').textContent = stored.meta + '（クラウド同期済）';
+        checkAutoSnap();
       }
     });
     fbDB.ref('checks').on('value', snap => {
@@ -2412,6 +2427,18 @@ function initFirebase(){
         computeMS();renderOps();
         if(document.getElementById('roomMgmtPane')&&document.getElementById('roomMgmtPane').classList.contains('on'))renderRoomMgmt();
       }
+    });
+    fbDB.ref('snapshot').on('value', snap => {
+      const val = snap.val();
+      if(val){
+        _origSset(SNAP_KEY, val);
+        renderOps();
+      }
+    });
+    fbDB.ref('auto_snap_date').on('value', snap => {
+      const val = snap.val();
+      if(val) _origSset(AUTO_SNAP_KEY, val);
+      checkAutoSnap();
     });
     console.log('✅ Firebase接続成功');
   } catch(e) {
@@ -2448,6 +2475,7 @@ S.set = function(k, v){
   if(k === UTIL_KEY)     fbWrite('utilities', v);
   if(k === PHOTO_KEY)    fbWrite('photos', v);
   if(k === ROOM_RENT_KEY) fbWrite('room_rents', v);
+  if(k === SNAP_KEY)     fbWrite('snapshot', v);
 };
 
 // ⑬ User management functions
