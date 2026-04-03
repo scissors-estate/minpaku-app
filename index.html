@@ -1627,7 +1627,7 @@ function buildCard(tag,r,ds){
   if(['checkin','warn','unassigned','danger'].includes(r.type)){
     top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span></div><div class="rdates">IN:${fd2(r.b.ci)} → OUT:${fd2(r.b.co)}</div>`; // ⑧⑰
     const cm=r.cm;
-    bot=`<div class="rclr"><div class="rcname"><div class="rcico">人</div>${cm?cm.cl:'タスクなし'}</div>${cm?`<span class="rct">OUT ${cm.cot}/IN ${cm.cit}</span>`:''}</div>${cm&&cm.cm?`<div class="rcmt">${cm.cm}</div>`:''}${chkBox}`;
+    bot=`<div class="rclr"><div class="rcname"><div class="rcico">クリーナー</div>${cm?cm.cl:'タスクなし'}</div>${cm?`<span class="rct">OUT ${cm.cot}/IN ${cm.cit}</span>`:''}</div>${cm&&cm.cm?`<div class="rcmt">${cm.cm}</div>`:''}${chkBox}`;
   } else if(r.type==='staying'){
     const dl=diffD(ds,r.b.co);
     top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span><span>${r.b.nat}</span><span>${r.b.s}</span></div><div class="rdates">OUT:${fd2(r.b.co)}（あと${dl}泊）</div>${r.nb?`<div style="font-size:.65em;color:#085041;margin-top:2px;font-weight:500">次IN:${fd2(r.nb.ci)} ${r.nb.g}</div>`:''}`;
@@ -1636,7 +1636,7 @@ function buildCard(tag,r,ds){
     bot=lastHSt;
   } else if(r.type==='cleanonly'){
     top=r.nb?`<div class="rg">${r.nb.g}</div><div class="rm2"><span>${r.nb.n||'?'}名</span><span>${r.nb.nat||''}</span></div><div class="rdates">次IN:${fd2(r.nb.ci)}</div>`:`<div class="rg" style="color:#999">次予約なし</div>`;
-    bot=`<div class="rcname"><div class="rcico">人</div>${r.cleaner||'未割当'}</div>${r.cmt?`<div class="rcmt">${r.cmt}</div>`:''}${chkBox}`;
+    bot=`<div class="rcname"><div class="rcico">クリーナー</div>${r.cleaner||'未割当'}</div>${r.cmt?`<div class="rcmt">${r.cmt}</div>`:''}${chkBox}`;
   } else {
     top=r.nb?`<div class="rg">${r.nb.g}</div><div class="rm2"><span>${r.nb.n||'?'}名</span><span>${r.nb.nat||''}</span></div><div class="rdates">次IN:${fd2(r.nb.ci)}</div>`:`<div class="rg" style="color:#999">次予約なし</div>`;
     const lcStDays=r.lc?diffD(r.lc.d.replace(/\//g,'-'),ds):null;
