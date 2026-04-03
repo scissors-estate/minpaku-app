@@ -1220,10 +1220,12 @@ function renderOps(){
   const prevLbl=(v,isMoney=true)=>v!==undefined&&v!==null
     ?`<div style="margin-top:5px;font-size:.67em;color:var(--t3)">前回: ${isMoney?fmtF(v):v+(typeof v==='number'&&v<100?'%':'件')}</div>`:'';
 
-  // 粗利 = 売上 - コミッション - 家賃・光熱費 (= tot.net + クリーニング代 - 経費)
+  // 粗利
   const grossProfit=tot.sales-ms.exp.tot;
+  const dGross=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.officeRent||0)-(ms.exp.officeUtil||0);
+  const sGross=Object.values(ms.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0);
 
-  // 稼働部屋数・宿泊人数（直営/代行/全体）
+  // 稼働部屋数・宿泊人数
   const allRooms=Object.values(ms.rooms);
   const activeRoomsAll=allRooms.filter(r=>r.days>0).length;
   const activeRoomsDirect=allRooms.filter(r=>!r.isSub&&r.days>0).length;
@@ -1232,14 +1234,16 @@ function renderOps(){
   const guestsDirect=allRooms.filter(r=>!r.isSub).reduce((a,r)=>a+(r.gu||0),0);
   const guestsSub=allRooms.filter(r=>r.isSub).reduce((a,r)=>a+(r.gu||0),0);
 
+  const sub=(d,s,unit='')=>`<div style="display:flex;gap:8px;margin-top:4px"><span style="font-size:.72em;color:var(--p)">直営 ${d}${unit}</span><span style="font-size:.72em;color:var(--t3)">|</span><span style="font-size:.72em;color:var(--pink)">代行 ${s}${unit}</span></div>`;
+
   const kpiH=`
     <div class="kgrid">
-      <div class="kcard"><div class="klbl">売上（税抜）</div><div class="kval">${fmtF(tot.sales)}</div>${pv(tot.sales,prevSales)}${prevLbl(prevSales)}</div>
-      <div class="kcard green"><div class="klbl">粗利</div><div class="kval">${fmtF(grossProfit)}</div><div class="ksub" style="color:var(--t3)">うちクリーニング ${fmtF(tot.cl)}</div>${pv(grossProfit,prevProfit)}${prevLbl(prevProfit)}</div>
-      <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${occRate}%</div><div class="kval" style="font-size:1em;margin-top:2px">${occDays}日/${occTotal}日</div>${pv(occRate,prevOcc)}${prevLbl(prevOcc,false)}</div>
-      <div class="kcard"><div class="klbl">稼働部屋数</div><div class="kval">${activeRoomsAll}部屋</div><div style="display:flex;gap:8px;margin-top:4px"><span style="font-size:.72em;color:var(--p)">直営 ${activeRoomsDirect}</span><span style="font-size:.72em;color:var(--t3)">|</span><span style="font-size:.72em;color:var(--pink)">代行 ${activeRoomsSub}</span></div></div>
-      <div class="kcard"><div class="klbl">予約件数</div><div class="kval">${tot.cnt}件</div>${pv(tot.cnt,prevCnt)}${prevLbl(prevCnt,false)}</div>
-      <div class="kcard"><div class="klbl">宿泊人数</div><div class="kval">${guestsAll}名</div><div style="display:flex;gap:8px;margin-top:4px"><span style="font-size:.72em;color:var(--p)">直営 ${guestsDirect}名</span><span style="font-size:.72em;color:var(--t3)">|</span><span style="font-size:.72em;color:var(--pink)">代行 ${guestsSub}名</span></div></div>
+      <div class="kcard"><div class="klbl">売上（税抜）</div><div class="kval">${fmtF(tot.sales)}</div>${sub(fmtF(d.sales),fmtF(s.sales))}${pv(tot.sales,prevSales)}${prevLbl(prevSales)}</div>
+      <div class="kcard green"><div class="klbl">粗利</div><div class="kval">${fmtF(grossProfit)}</div>${sub(fmtF(dGross),fmtF(sGross))}${pv(grossProfit,prevProfit)}${prevLbl(prevProfit)}</div>
+      <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${occRate}%</div>${sub(ms.occ.d+'%',ms.occ.s+'%')}${pv(occRate,prevOcc)}${prevLbl(prevOcc,false)}<div class="kval" style="font-size:1em;margin-top:4px">${occDays}日/${occTotal}日</div></div>
+      <div class="kcard"><div class="klbl">稼働部屋数</div><div class="kval">${activeRoomsAll}部屋</div>${sub(activeRoomsDirect+'部屋',activeRoomsSub+'部屋')}</div>
+      <div class="kcard"><div class="klbl">予約件数</div><div class="kval">${tot.cnt}件</div>${sub(d.cnt+'件',s.cnt+'件')}${pv(tot.cnt,prevCnt)}${prevLbl(prevCnt,false)}</div>
+      <div class="kcard"><div class="klbl">宿泊人数</div><div class="kval">${guestsAll}名</div>${sub(guestsDirect+'名',guestsSub+'名')}</div>
     </div>`;
 
   // OTA
@@ -1253,9 +1257,6 @@ function renderOps(){
     </div>`).join('')}</div></div></div>`:'';
 
   // ④ Side-by-side or single
-  // 直営・代行それぞれの粗利（室ごと粗利の合計）
-  const dGross=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.officeRent||0)-(ms.exp.officeUtil||0);
-  const sGross=Object.values(ms.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0);
   let cmpH='';
   if(opsFilt==='all'){
     cmpH=`<div class="sec"><h2 onclick="togSec('sec_cmp')" style="cursor:pointer;user-select:none"><span id="sec_cmp_ico">▶</span> 直営 vs 代行</h2>
@@ -1333,7 +1334,7 @@ function renderOps(){
     <div style="font-size:.7em;color:var(--t3);margin-bottom:7px">タップで内訳を表示</div>
     <div class="room-list">${filteredRooms.map((rm,i)=>{
       const occR=+(rm.days/ms.dm*100).toFixed(1);
-      const unitP=Math.round(rm.net/ms.dm);
+      const unitP=rm.days>0?Math.round(rm.sales/rm.days):0;
       return`<div class="room-card ${rm.isSub?'sub':''}">
         <div class="room-hdr" onclick="togRoom('rd_${i}','ti_${i}')">
           <div style="display:flex;align-items:center">
@@ -1357,7 +1358,7 @@ function renderOps(){
           <div class="rs-grid">
             <div class="rs"><div class="rs-lbl">稼働日数</div><div class="rs-val">${rm.days}日<span style="font-size:.68em;color:var(--t3)">/${ms.dm}日</span></div><div class="rs-sub">稼働率 ${occR}%</div></div>
             <div class="rs"><div class="rs-lbl">予約件数</div><div class="rs-val">${rm.cnt}件</div><div class="rs-sub">${rm.gu}名</div></div>
-            <div class="rs"><div class="rs-lbl">平均単価</div><div class="rs-val">${fmtF(unitP)}</div><div class="rs-sub">実受取÷${ms.dm}日</div></div>
+            <div class="rs"><div class="rs-lbl">平均単価</div><div class="rs-val">${fmtF(unitP)}</div><div class="rs-sub">売上÷稼働${rm.days}日</div></div>
             <div class="rs"><div class="rs-lbl">清掃費</div><div class="rs-val" style="color:var(--orange)">${fmtF(rm.cl)}</div></div>
           </div>
           <div class="wf-row main" style="font-size:.8em"><span class="wf-lbl">売上</span><span class="wf-val neutral">${fmtF(rm.sales)}</span></div>
