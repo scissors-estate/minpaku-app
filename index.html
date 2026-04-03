@@ -2681,10 +2681,11 @@ function renderBB(){
     const isWeekend=day.getDay()===0||day.getDay()===6;
     const title=day.getMonth()+1+'/'+day.getDate()+'（'+w[day.getDay()]+'）'+(isExtra&&!isWeekend?' ⭐追加日':'');
     
-    // CI rooms for this day
+    // CI rooms for this day (未完了のみ)
     const ciRooms=Object.keys(ROOMS).map(tag=>{
       const r=getRoomSt(tag,ds);
       if(!['checkin','warn','unassigned'].includes(r.type))return null;
+      if(isChk(ds,tag))return null;
       const cm=r.cm;
       return{tag,cleaner:cm?cm.cl:'未割当',cit:cm?cm.cit:'—'};
     }).filter(Boolean);
@@ -2743,10 +2744,12 @@ function renderBB(){
       ${renderLastMinuteSection(ds)}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
         <div style="font-size:.8em;font-weight:600;color:var(--t2)">📝 申し送り事項</div>
-        <button onclick="toggleBBLock('${ds}')" style="background:none;border:1px solid ${noteLocked?'var(--p)':'var(--b)'};border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.75em;color:${noteLocked?'var(--p)':'var(--t3)'};">${noteLocked?'🔒 ロック中':'🔓 ロック'}</button>
+        <button onclick="toggleBBLock('${ds}')" style="background:${noteLocked?'var(--p)':'none'};border:1px solid ${noteLocked?'var(--p)':'var(--b)'};border-radius:5px;padding:2px 10px;cursor:pointer;font-size:.75em;color:${noteLocked?'#fff':'var(--t3)'};">${noteLocked?'✏️ 編集':'📌 カード化'}</button>
       </div>
-      <textarea ${noteLocked?'readonly':''} style="width:100%;border:1.5px solid ${noteLocked?'var(--p)':'var(--b)'};border-radius:8px;padding:8px 10px;font-size:.82em;resize:vertical;min-height:80px;outline:none;font-family:system-ui,sans-serif;background:${noteLocked?'#f5f5fc':'#fff'};color:${noteLocked?'var(--t2)':'inherit'};" placeholder="自由に記入してください..." onblur="saveBBNote('${ds}',this.value)">${note}</textarea>
-      ${noteLocked?`<div style="font-size:.72em;color:var(--p);margin-top:3px">🔒 編集ロック中。ロックボタンで解除できます。</div>`:''}
+      ${noteLocked
+        ? `<div style="background:#f8f9ff;border:1.5px solid var(--p);border-radius:8px;padding:12px 14px;font-size:.85em;line-height:1.7;white-space:pre-wrap;color:var(--t1);min-height:60px">${note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div><div style="font-size:.7em;color:var(--p);margin-top:4px;text-align:right">📌 カード化済み　✏️ 編集ボタンで変更できます</div>`
+        : `<textarea style="width:100%;border:1.5px solid var(--b);border-radius:8px;padding:8px 10px;font-size:.82em;resize:vertical;min-height:80px;outline:none;font-family:system-ui,sans-serif;" placeholder="自由に記入してください..." onblur="saveBBNote('${ds}',this.value)">${note}</textarea>`
+      }
     </div>`;
   }).join('');
 }
