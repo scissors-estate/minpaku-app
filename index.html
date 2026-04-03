@@ -2514,6 +2514,13 @@ function initFirebase(){
         if(document.getElementById('roomMgmtPane')&&document.getElementById('roomMgmtPane').classList.contains('on'))renderRoomMgmt();
       }
     });
+    fbDB.ref('bb_notes').on('value', snap => {
+      const val = snap.val();
+      if(val){
+        _origSset(BB_KEY, val);
+        if(document.getElementById('bbContent'))renderBB();
+      }
+    });
     console.log('✅ Firebase接続成功');
   } catch(e) {
     console.warn('Firebase接続失敗:', e.message);
@@ -2551,6 +2558,7 @@ S.set = function(k, v){
   if(k === ROOM_RENT_KEY) fbWrite('room_rents', v);
   if(k === SNAP_KEY)     fbWrite('snapshot', v);
   if(k === ROOM_OPEN_KEY) fbWrite('room_open', v);
+  if(k === BB_KEY)       fbWrite('bb_notes', v);
 };
 
 // ⑬ User management functions
@@ -2683,7 +2691,7 @@ function renderBB(){
     
     const cleanTags=Object.keys(ROOMS).filter(tag=>{
       const r=getRoomSt(tag,ds);
-      return['checkin','warn','unassigned','cleanonly'].includes(r.type);
+      return['checkin','cleanonly'].includes(r.type)&&!isChk(ds,tag);
     });
     
     const staffOnDuty=new Set();
@@ -2696,6 +2704,9 @@ function renderBB(){
     });
     
     const note=bbData[ds]||'';
+    const noteLocked=bbData['_lock_'+ds]===true;
+    const staffExtra=bbData['_staff_'+ds]||'';
+    const autoStaff=[...staffOnDuty].join('・');
     return`<div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.07)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--p)">
         <div style="font-size:1em;font-weight:700">■ ${title}</div>
@@ -2710,10 +2721,11 @@ function renderBB(){
           <div style="font-size:.67em;color:var(--t3);font-weight:600;margin-bottom:2px">パート</div>
           <div style="font-size:1.4em;font-weight:700">${parterSet.size}名</div>
         </div>
-        ${staffOnDuty.size>0?`<div style="background:#fff3cd;border-radius:8px;padding:8px 14px">
-          <div style="font-size:.67em;color:#856404;font-weight:700;margin-bottom:2px">出勤社員</div>
-          <div style="font-size:.9em;font-weight:700;color:#533f03">${[...staffOnDuty].join('・')}</div>
-        </div>`:''}
+        <div style="background:#fff3cd;border-radius:8px;padding:8px 14px;flex:1;min-width:140px">
+          <div style="font-size:.67em;color:#856404;font-weight:700;margin-bottom:4px">出勤社員</div>
+          ${autoStaff?`<div style="font-size:.82em;font-weight:700;color:#533f03;margin-bottom:4px">${autoStaff}</div>`:''}
+          <input type="text" value="${staffExtra.replace(/"/g,'&quot;')}" placeholder="追記（例: 田中・鈴木）" onblur="saveBBStaff('${ds}',this.value)" style="width:100%;border:1px solid #e8c97a;border-radius:5px;padding:3px 7px;font-size:.8em;background:#fffef5;outline:none;font-family:system-ui,sans-serif">
+        </div>
       </div>
       ${ciRooms.length>0?`<div style="background:#f0f2ff;border-radius:8px;margin-bottom:10px;overflow:hidden">
         <div onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.ci-arr').textContent=open?'▶':'▼';" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
@@ -2727,10 +2739,14 @@ function renderBB(){
             <span style="color:var(--p);font-family:ui-monospace,monospace">IN ${rm.cit}</span>
           </div>`).join('')}
         </div>
-      </div>`:''}  
+      </div>`:''}
       ${renderLastMinuteSection(ds)}
-      <div style="font-size:.8em;font-weight:600;margin-bottom:5px;color:var(--t2)">📝 申し送り事項</div>
-      <textarea style="width:100%;border:1.5px solid var(--b);border-radius:8px;padding:8px 10px;font-size:.82em;resize:vertical;min-height:80px;outline:none;font-family:system-ui,sans-serif" placeholder="自由に記入してください..." onblur="saveBBNote('${ds}',this.value)">${note}</textarea>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <div style="font-size:.8em;font-weight:600;color:var(--t2)">📝 申し送り事項</div>
+        <button onclick="toggleBBLock('${ds}')" style="background:none;border:1px solid ${noteLocked?'var(--p)':'var(--b)'};border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.75em;color:${noteLocked?'var(--p)':'var(--t3)'};">${noteLocked?'🔒 ロック中':'🔓 ロック'}</button>
+      </div>
+      <textarea ${noteLocked?'readonly':''} style="width:100%;border:1.5px solid ${noteLocked?'var(--p)':'var(--b)'};border-radius:8px;padding:8px 10px;font-size:.82em;resize:vertical;min-height:80px;outline:none;font-family:system-ui,sans-serif;background:${noteLocked?'#f5f5fc':'#fff'};color:${noteLocked?'var(--t2)':'inherit'};" placeholder="自由に記入してください..." onblur="saveBBNote('${ds}',this.value)">${note}</textarea>
+      ${noteLocked?`<div style="font-size:.72em;color:var(--p);margin-top:3px">🔒 編集ロック中。ロックボタンで解除できます。</div>`:''}
     </div>`;
   }).join('');
 }
@@ -2738,6 +2754,15 @@ function renderBB(){
 function saveBBNote(ds,note){
   const bbData=S.get(BB_KEY)||{};
   bbData[ds]=note;S.set(BB_KEY,bbData);
+}
+function saveBBStaff(ds,val){
+  const bbData=S.get(BB_KEY)||{};
+  bbData['_staff_'+ds]=val;S.set(BB_KEY,bbData);
+}
+function toggleBBLock(ds){
+  const bbData=S.get(BB_KEY)||{};
+  bbData['_lock_'+ds]=!bbData['_lock_'+ds];
+  S.set(BB_KEY,bbData);renderBB();
 }
 
 // ════════════════════════════════════════════
