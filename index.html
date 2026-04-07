@@ -1215,7 +1215,7 @@ function renderOps(){
   // ① 前回値（スナップショット） ― フィルターに合わせた値を使う
   const _pd=opsFilt==='direct'?prev?.d:opsFilt==='subcon'?prev?.s:prev?.tot;
   const prevSales=_pd?.sales,prevCnt=_pd?.cnt;
-  const prevProfit=opsFilt==='all'?(prev?.profit):(_pd?.net!=null&&prev?.exp?.tot!=null?_pd.net-prev.exp.tot:undefined);
+  const prevProfit=prev?.tot?.sales!=null&&prev?.exp?.tot!=null?prev.tot.sales-prev.exp.tot:undefined;
   const prevOcc=opsFilt==='direct'?prev?.occ?.d:opsFilt==='subcon'?prev?.occ?.s:prev?.occ?.t;
   const prevLbl=(v,isMoney=true)=>v!==undefined&&v!==null
     ?`<div style="margin-top:5px;font-size:.67em;color:var(--t3)">前回: ${isMoney?fmtF(v):v+(typeof v==='number'&&v<100?'%':'件')}</div>`:'';
@@ -2188,7 +2188,8 @@ function clearSnap(){if(confirm('削除しますか？')){S.set(SNAP_KEY,null);c
 // 自動スナップ: 毎日0時以降の初回起動時に自動保存
 function checkAutoSnap(){
   const now=new Date();
-  const todayStr=now.toISOString().split('T')[0]; // YYYY-MM-DD
+  // UTC基準だと日本時間深夜〜午前9時に日付がズレるためローカル日付を使用
+  const todayStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
   const lastDate=S.get(AUTO_SNAP_KEY)||'';
   if(lastDate===todayStr) return; // 今日は既に実行済み
   // MSが初期化済みか確認
