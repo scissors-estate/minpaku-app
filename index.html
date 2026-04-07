@@ -1603,11 +1603,15 @@ function togChk(ds,tag,val,chkEl){
       if(val){
         const bks=BK[tag]||[];
         const nextCI=bks.map(b=>b.ci).filter(ci=>ci>ds).sort()[0];
+        // CHエントリ（清掃タスク）がある日付をSetで保持
+        const chDates=new Set((CH[tag]||[]).map(e=>e.d.replace(/\//g,'-')));
         let cur=new Date(ds);cur.setDate(cur.getDate()+1);
         const limit=nextCI?new Date(nextCI):null;
         let safety=0;
         while(safety<60){
           const dStr=cur.toISOString().split('T')[0];
+          // 次の清掃タスク予定日に達したら伝播をストップ（その日はまだ未完了）
+          if(chDates.has(dStr))break;
           c[dStr+'_'+tag]='1';safety++;
           if(limit&&cur>=limit)break;if(!limit)break;
           cur.setDate(cur.getDate()+1);
