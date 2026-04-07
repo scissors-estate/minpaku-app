@@ -1215,7 +1215,7 @@ function renderOps(){
   // ① 前回値（スナップショット） ― フィルターに合わせた値を使う
   const _pd=opsFilt==='direct'?prev?.d:opsFilt==='subcon'?prev?.s:prev?.tot;
   const prevSales=_pd?.sales,prevCnt=_pd?.cnt;
-  const prevProfit=prev?.tot?.sales!=null&&prev?.exp?.tot!=null?prev.tot.sales-prev.exp.tot:undefined;
+  const prevProfit=_pd?.sales!=null&&prev?.exp?.tot!=null?_pd.sales-prev.exp.tot:undefined;
   const prevOcc=opsFilt==='direct'?prev?.occ?.d:opsFilt==='subcon'?prev?.occ?.s:prev?.occ?.t;
   const prevLbl=(v,isMoney=true)=>v!==undefined&&v!==null
     ?`<div style="margin-top:5px;font-size:.67em;color:var(--t3)">前回: ${isMoney?fmtF(v):v+(typeof v==='number'&&v<100?'%':'件')}</div>`:'';
