@@ -1217,7 +1217,9 @@ function renderOps(){
   // ① 前回値（スナップショット） ― フィルターに合わせた値を使う
   const _pd=opsFilt==='direct'?prev?.d:opsFilt==='subcon'?prev?.s:prev?.tot;
   const prevSales=_pd?.sales,prevCnt=_pd?.cnt;
-  const prevProfit=_pd?.sales!=null&&prev?.exp?.tot!=null?_pd.sales-prev.exp.tot:undefined;
+  const prevDGross=prev?.rooms?Object.values(prev.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(prev.exp?.officeRent||0)-(prev.exp?.officeUtil||0):undefined;
+  const prevSGross=prev?.rooms?Object.values(prev.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0):undefined;
+  const prevProfit=opsFilt==='direct'?prevDGross:opsFilt==='subcon'?prevSGross:(prev?.tot?.sales!=null&&prev?.exp?.tot!=null?prev.tot.sales-prev.exp.tot:undefined);
   const prevOcc=opsFilt==='direct'?prev?.occ?.d:opsFilt==='subcon'?prev?.occ?.s:prev?.occ?.t;
   const prevLbl=(v,isMoney=true)=>v!==undefined&&v!==null
     ?`<div style="margin-top:5px;font-size:.67em;color:var(--t3)">前回: ${isMoney?fmtF(v):v+(typeof v==='number'&&v<100?'%':'件')}</div>`:'';
@@ -1226,6 +1228,8 @@ function renderOps(){
   const grossProfit=tot.sales-ms.exp.tot;
   const dGross=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.officeRent||0)-(ms.exp.officeUtil||0);
   const sGross=Object.values(ms.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0);
+  // フィルターに合わせた表示粗利
+  const dispGrossProfit=opsFilt==='direct'?dGross:opsFilt==='subcon'?sGross:grossProfit;
 
   // 稼働部屋数・宿泊人数
   const allRooms=Object.values(ms.rooms);
@@ -1241,7 +1245,7 @@ function renderOps(){
   const kpiH=`
     <div class="kgrid">
       <div class="kcard"><div class="klbl">売上（税抜）</div><div class="kval">${fmtF(tot.sales)}</div>${sub(fmtF(d.sales),fmtF(s.sales))}${pv(tot.sales,prevSales)}${prevLbl(prevSales)}</div>
-      <div class="kcard green"><div class="klbl">粗利</div><div class="kval">${fmtF(grossProfit)}</div>${sub(fmtF(dGross),fmtF(sGross))}${pv(grossProfit,prevProfit)}${prevLbl(prevProfit)}</div>
+      <div class="kcard green"><div class="klbl">粗利</div><div class="kval">${fmtF(dispGrossProfit)}</div>${sub(fmtF(dGross),fmtF(sGross))}${pv(dispGrossProfit,prevProfit)}${prevLbl(prevProfit)}</div>
       <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${occRate}%</div>${sub(ms.occ.d+'%',ms.occ.s+'%')}${pv(occRate,prevOcc)}${prevLbl(prevOcc,false)}<div class="kval" style="font-size:1em;margin-top:4px">${occDays}日/${occTotal}日</div></div>
       <div class="kcard"><div class="klbl">稼働部屋数</div><div class="kval">${activeRoomsAll}部屋</div>${sub(activeRoomsDirect+'部屋',activeRoomsSub+'部屋')}</div>
       <div class="kcard"><div class="klbl">予約件数</div><div class="kval">${tot.cnt}件</div>${sub(d.cnt+'件',s.cnt+'件')}${pv(tot.cnt,prevCnt)}${prevLbl(prevCnt,false)}</div>
@@ -3060,28 +3064,4 @@ function getLastMinuteRooms(ds){
       }
     });
     if(vacantDays.length>0){
-      targets.push({tag,vacantDays});
-    }
-  });
-  return targets;
-}
-
-loadCfg();
-// DOMが確実に読み込まれてから実行
-function onReady(){
-  populateLoginUsers();
-  if(!tryAutoLogin()){
-    document.getElementById('pwInp').focus();
-  }
-  // 操作があればセッション有効期限をリフレッシュ
-  document.addEventListener('click',refreshSession);
-  document.addEventListener('keydown',refreshSession);
-}
-if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',onReady);
-} else {
-  onReady();
-}
-</script>
-</body>
-</html>
+      ta
