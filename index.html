@@ -418,7 +418,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
           <button class="mfb" data-sf="co_done" onclick="toggleState('co_done')" style="border-color:#2e7d32;color:#2e7d32">✅ 🧹のみ・済</button>
           <button class="mfb" data-sf="vc_done" onclick="toggleState('vc_done')" style="border-color:#0288d1;color:#0288d1">✅ 空室・🧹済</button>
           <button class="mfb" data-sf="vc_wait" onclick="toggleState('vc_wait')" style="border-color:#c62828;color:#c62828">🔴 空室・🧹未</button>
-          <button class="mfb" data-sf="cp" onclick="toggleState('cp')" style="border-color:#e65100;color:#e65100">⬜ CO済・清掃待ち</button>
+          <button class="mfb" data-sf="cp" onclick="toggleState('cp')" style="border-color:#e65100;color:#e65100">⬜ OUT済・清掃待ち</button>
         </div>
         <div class="frow" id="clRow">
           <span class="flbl">クリーナー：</span>
@@ -1579,7 +1579,7 @@ function getRoomSt(tag,ds){
   const nb=bks.find(b=>new Date(b.ci)>d);
   const ce=(CH[tag]||[]).find(e=>e.d===today);
   if(ce)return{type:'cleanonly',lc,nb,cleaner:ce.c,cmt:ce.cm||''};
-  // CO済・清掃待ち: 直近にCOがあり、将来に清掃タスクがある空室
+  // OUT済・清掃待ち: 直近にCOがあり、将来に清掃タスクがある空室
   const lastCO=bks.filter(b=>new Date(b.co)<=d).sort((a,b)=>new Date(b.co)-new Date(a.co))[0];
   const futureClean=(CH[tag]||[]).find(e=>new Date(e.d.replace(/\//g,'-'))>d);
   if(lastCO&&futureClean)return{type:'co_pending',lc,nb,lastCO,futureClean};
@@ -1655,7 +1655,7 @@ function buildCard(tag,r,ds){
     }
     if(type==='co_pending'){
       const cleanDate=fd2(r.futureClean.d.replace(/\//g,'-'));
-      return{cls:'sl-orange',lcls:'sl-label-orange',icon:'⬜',text:`CO済・清掃待ち（清掃:${cleanDate}）`};
+      return{cls:'sl-orange',lcls:'sl-label-orange',icon:'⬜',text:`OUT済・清掃待ち（清掃:${cleanDate}）`};
     }
     if(type==='vacant'){
       if(chk) return{cls:'sl-blue',lcls:'sl-label-blue',icon:'✅',text:'空室・🧹済'};
@@ -1680,7 +1680,7 @@ function buildCard(tag,r,ds){
   const chkBox=`<label class="rchk"><input type="checkbox" ${chk?'checked':''} onchange="togChk('${ds}','${tag}',this.checked,this)"><span>${chk?'完了済み':'完了にする'}</span></label>${photoBox}`;
 
   const clsM={checkin:'ci',warn:'wn',unassigned:'un',danger:'dg',staying:'st',cleanonly:'co',vacant:'vc',co_pending:'cp'};
-  const lblM={checkin:'当日IN',warn:'同日入替',unassigned:'未割当',danger:'要確認',staying:'滞在中',cleanonly:'清掃予定',vacant:'空室',co_pending:'CO済・清掃待ち'};
+  const lblM={checkin:'当日IN',warn:'同日入替',unassigned:'未割当',danger:'要確認',staying:'滞在中',cleanonly:'清掃予定',vacant:'空室',co_pending:'OUT済・清掃待ち'};
   const bM={checkin:'bci',warn:'bwn',unassigned:'bun',danger:'bdg',staying:'bst',cleanonly:'bco',vacant:'bvc',co_pending:'bcp'};
   const k=clsM[r.type]||'vc',bc=bM[r.type]||'bvc',bl=lblM[r.type]||'空室';
   const bgM={ci:'var(--ci-bg)',wn:'var(--wn-bg)',dg:'var(--dg-bg)',un:'var(--un-bg)',st:'var(--st-bg)',vc:'var(--vc-bg)',co:'var(--co-bg)'};
@@ -1764,7 +1764,7 @@ function renderClean(){
     <div class="sc ci"><div class="sclbl">🧹のみ・済</div><div class="scval" style="color:var(--green)">${cnt.co_done}</div><div class="scb">清掃完了</div></div>
     <div class="sc dg"><div class="sclbl">空室・🧹未</div><div class="scval" style="color:var(--red)">${cnt.vc_wait}</div><div class="scb">清掃待ち</div></div>
     <div class="sc" style="border-left-color:#0288d1"><div class="sclbl">空室・🧹済</div><div class="scval" style="color:#0288d1">${cnt.vc_done}</div><div class="scb">完了</div></div>
-    <div class="sc" style="border-left-color:#e65100"><div class="sclbl">CO済・清掃待ち</div><div class="scval" style="color:#e65100">${cnt.cp}</div><div class="scb">ブロック中</div></div>
+    <div class="sc" style="border-left-color:#e65100"><div class="sclbl">OUT済・清掃待ち</div><div class="scval" style="color:#e65100">${cnt.cp}</div><div class="scb">ブロック中</div></div>
     <div class="sc wn"><div class="sclbl">要注意</div><div class="scval">${cnt.wn}</div><div class="scb">同日入替等</div></div>`;
   const ord={danger:0,unassigned:1,warn:2,checkin:3,cleanonly:4,staying:5,co_pending:6,vacant:7};
   const grouped={};
