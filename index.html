@@ -1046,6 +1046,15 @@ function computeMS(){
       totalRoomRent+=rm.rent;
       totalRoomUtil+=rm.util;
     });
+    // 予約のない部屋の家賃も経費に計上（将来月の粗利を正確に計算）
+    tags.forEach(t=>{
+      if(officeTags.has(t))return;
+      if(ms.rooms[t])return; // 予約あり部屋は上で計算済み
+      const openFrom=openData[t];
+      if(openFrom&&openFrom>mk)return; // 未開業
+      const rent=getRoomRentForMonth(t,mk);
+      if(rent>0)totalRoomRent+=rent;
+    });
     // 事務所費用（ROOM_RENT_KEY / UTIL_KEY を流用）
     let officeRent=0,officeUtil=0;
     OFFICES.forEach(o=>{
@@ -1248,7 +1257,7 @@ function renderOps(){
       <div class="kcard"><div class="klbl">売上（税抜）</div><div class="kval">${fmtF(tot.sales)}</div>${sub(fmtF(d.sales),fmtF(s.sales))}${pv(tot.sales,prevSales)}${prevLbl(prevSales)}</div>
       <div class="kcard green"><div class="klbl">粗利</div><div class="kval">${fmtF(dispGrossProfit)}</div>${sub(fmtF(dGross),fmtF(sGross))}${pv(dispGrossProfit,prevProfit)}${prevLbl(prevProfit)}</div>
       <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${occRate}%</div>${sub(ms.occ.d+'%',ms.occ.s+'%')}${pv(occRate,prevOcc)}${prevLbl(prevOcc,false)}<div class="kval" style="font-size:1em;margin-top:4px">${occDays}日/${occTotal}日</div></div>
-      <div class="kcard"><div class="klbl">稼働部屋数</div><div class="kval">${activeRoomsAll}部屋</div>${sub(activeRoomsDirect+'部屋',activeRoomsSub+'部屋')}</div>
+      <div class="kcard"><div class="klbl">稼働部屋数</div><div class="kval">${ms.tR}部屋</div>${sub(ms.dR+'部屋',ms.sR+'部屋')}</div>
       <div class="kcard"><div class="klbl">予約件数</div><div class="kval">${tot.cnt}件</div>${sub(d.cnt+'件',s.cnt+'件')}${pv(tot.cnt,prevCnt)}${prevLbl(prevCnt,false)}</div>
       <div class="kcard"><div class="klbl">宿泊人数</div><div class="kval">${guestsAll}名</div>${sub(guestsDirect+'名',guestsSub+'名')}</div>
     </div>`;
