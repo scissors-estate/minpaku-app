@@ -2149,12 +2149,14 @@ function loadCSVs(){
     // ── 清掃データをマージ ──
     const freshCH=CH;
     CH=prevCH;
+    // 今日以降のエントリはCSV再取込で上書き（清掃日変更に対応するため古いエントリを削除）
+    const _nd=new Date();
+    const _todaySlash=_nd.getFullYear()+'/'+String(_nd.getMonth()+1).padStart(2,'0')+'/'+String(_nd.getDate()).padStart(2,'0');
     Object.keys(freshCH).forEach(tag=>{
       if(!CH[tag])CH[tag]=[];
-      freshCH[tag].forEach(nc=>{
-        const idx=CH[tag].findIndex(c=>c.d===nc.d);
-        if(idx>=0)CH[tag][idx]=nc;else CH[tag].push(nc);
-      });
+      // 今日以降の古いエントリを削除（freshCSVの内容で置き換える）
+      CH[tag]=CH[tag].filter(c=>c.d<_todaySlash);
+      freshCH[tag].forEach(nc=>CH[tag].push(nc));
       CH[tag].sort((a,b)=>a.d.localeCompare(b.d));
     });
     CM={...prevCM,...CM};
