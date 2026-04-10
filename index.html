@@ -1721,7 +1721,9 @@ function buildCard(tag,r,ds){
   if(['checkin','warn','unassigned','danger'].includes(r.type)){
     top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span></div><div class="rdates">IN:${fd2(r.b.ci)} → OUT:${fd2(r.b.co)}</div>`; // ⑧⑰
     const cm=r.cm;
-    bot=`<div class="rclr"><div class="rcname"><div class="rcico">クリーナー</div>${cm?cm.cl:'タスクなし'}</div>${cm?`<span class="rct">OUT ${cm.cot}/IN ${cm.cit}</span>`:''}</div>${cm&&cm.cm?`<div class="rcmt">${cm.cm}</div>`:''}${chkBox}`;
+    const prevCleanCd=cm&&cm.cd?cm.cd.replace(/\//g,'-'):'';
+    const prevCleanBadge=(!chk&&prevCleanCd&&prevCleanCd<ds)?`<div style="font-size:.72em;background:#fff3e0;color:#e65100;border-radius:4px;padding:2px 8px;margin-bottom:5px;display:inline-block">🧹 清掃: ${fd2(prevCleanCd)}（前日）確認待ち</div>`:'';
+    bot=`<div class="rclr"><div class="rcname"><div class="rcico">クリーナー</div>${cm?cm.cl:'タスクなし'}</div>${cm?`<span class="rct">OUT ${cm.cot}/IN ${cm.cit}</span>`:''}</div>${cm&&cm.cm?`<div class="rcmt">${cm.cm}</div>`:''}${prevCleanBadge}${chkBox}`;
   } else if(r.type==='staying'){
     const dl=diffD(ds,r.b.co);
     top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span><span>${r.b.nat}</span><span>${r.b.s}</span></div><div class="rdates">OUT:${fd2(r.b.co)}（あと${dl}泊）</div>${r.nb?`<div style="font-size:.65em;color:#085041;margin-top:2px;font-weight:500">次IN:${fd2(r.nb.ci)} ${r.nb.g}</div>`:''}`;
@@ -2756,7 +2758,15 @@ function renderBB(){
     
     const cleanTags=Object.keys(ROOMS).filter(tag=>{
       const r=getRoomSt(tag,ds);
-      return['checkin','warn','unassigned','danger','cleanonly'].includes(r.type)&&!isChk(ds,tag);
+      if(isChk(ds,tag))return false;
+      if(r.type==='cleanonly')return true;
+      if(r.type==='danger')return true;
+      if(['checkin','warn','unassigned'].includes(r.type)){
+        // 清掃日が今日の場合のみカウント（前日以前の清掃はカウントしない）
+        const cmCd=(r.cm?.cd||'').replace(/\//g,'-');
+        return cmCd===ds;
+      }
+      return false;
     });
     
     const staffOnDuty=new Set();
