@@ -172,6 +172,64 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 /* CHART */
 .chart-wrap{overflow-x:auto;margin-top:8px}
 
+/* ── CALENDAR TAB ── */
+.cal-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.1);background:#fff}
+.cal-grid{display:grid;background:#fff}
+.cal-room-hdr{
+  background:#f4f4f8;font-size:.72em;font-weight:700;color:var(--t2);
+  display:flex;align-items:center;justify-content:center;
+  border-right:2px solid #d0d0d8;border-bottom:2px solid #d0d0d8;
+  position:sticky;left:0;z-index:10;padding:4px 6px;text-align:center;
+}
+.cal-date-hdr{
+  background:#f4f4f8;font-size:.75em;font-weight:700;color:var(--t);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  border-right:1px solid #e0e0e8;border-bottom:2px solid #d0d0d8;
+  padding:3px 2px;text-align:center;line-height:1.3;
+}
+.cal-date-hdr.cal-sat-hdr{color:#1565C0;background:#E3F2FD}
+.cal-date-hdr.cal-sun-hdr{color:#C62828;background:#FFEBEE}
+.cal-date-hdr.cal-today-hdr{background:#FFF9C4;color:#F57F17;font-weight:900}
+.cal-cnt-lbl{
+  background:#f9f9fc;font-size:.62em;color:#999;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+  border-right:2px solid #d0d0d8;border-bottom:1px solid #e8e8f0;
+  position:sticky;left:0;z-index:10;
+}
+.cal-cnt-cell{
+  background:#f9f9fc;font-size:.68em;font-weight:700;color:#E57373;
+  display:flex;align-items:center;justify-content:center;
+  border-right:1px solid #eeeef4;border-bottom:1px solid #e8e8f0;
+}
+.cal-room-cell{
+  background:#f9f9fc;font-size:.72em;font-weight:700;color:var(--t);
+  display:flex;align-items:center;justify-content:flex-start;
+  border-right:2px solid #d0d0d8;border-bottom:1px solid #eeeef4;
+  position:sticky;left:0;z-index:8;padding:0 6px;white-space:nowrap;overflow:hidden;
+}
+.cal-bg{
+  background:#fff;border-right:1px solid #f0f0f8;border-bottom:1px solid #eeeef4;
+}
+.cal-bg.cal-bg-wknd{background:#fafafa}
+.cal-bg.cal-bg-today{background:#FFFFF0}
+/* booking bar & clean mark are positioned via grid-column/row */
+.cal-bk{
+  display:flex;align-items:center;
+  overflow:hidden;cursor:default;
+  margin:4px 1px 4px 0;
+  align-self:center;
+}
+.cal-bk-txt{
+  padding:0 6px;white-space:nowrap;overflow:hidden;
+  font-size:.66em;line-height:1.3;color:#fff;font-weight:600;
+  text-shadow:0 1px 2px rgba(0,0,0,.25);
+}
+.cal-clean{
+  display:flex;align-items:center;justify-content:center;
+  margin:4px 2px;align-self:center;cursor:default;
+}
+.cal-nav-btn{padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-size:.88em;font-weight:600}
+
 /* CLEANING */
 .cl-hdr{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:9px;margin-bottom:13px}
 .dnav{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--b);border-radius:9px;padding:6px 10px}
@@ -352,6 +410,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
   </div>
   <div class="tabs">
     <button class="tab on" onclick="swTab('ops',this)">📊 運営</button>
+    <button class="tab" id="tabCal" onclick="swTab('cal',this)">📅 カレンダー</button>
     <button class="tab" onclick="swTab('clean',this)">🧹 清掃</button>
     <button class="tab" id="tabBb" onclick="swTab('bb',this)">📋 掲示板</button>
     <button class="tab" id="tabPay" onclick="swTab('pay',this)">💰 入金管理</button>
@@ -383,6 +442,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <div id="expContent"><div class="nd">CSVを読み込むと支出を入力できます</div></div>
     </div>
   </div>
+
+  <!-- カレンダー -->
+  <div class="pane" id="calPane" style="padding:14px;max-width:none"></div>
 
   <!-- 清掃 -->
   <div class="pane" id="cleanPane">
@@ -819,6 +881,7 @@ let ROOMS={},BK={},CH={},CM={},MS={};
 let curM=null,payM=null,opsFilt='all',cF={props:new Set(['all']),states:new Set(['all']),cleaners:new Set(['all'])};
 let invItems=[];
 let _bkTexts=[],_clText='',_bkReady=false,_cancelledIds=new Set();
+let calViewDate=null;
 const excl=v=>Math.round(parseFloat(v||0)/1.1);
 
 // ② Full amount format
@@ -2321,6 +2384,7 @@ function swTab(id,btn){
   if(id==='bb')renderBB();
   if(id==='users')renderUserMgmt();
   if(id==='roomMgmt')renderRoomMgmt();
+  if(id==='cal')renderCal();
 }
 
 function togRmBldg(id){
@@ -2330,6 +2394,157 @@ function togRmBldg(id){
   const open=el.style.display!=='none';
   el.style.display=open?'none':'block';
   if(arrow)arrow.textContent=open?'▶':'▼';
+}
+
+// ════════════════════════════════════════════
+//  CALENDAR TAB
+// ════════════════════════════════════════════
+function calNav(dir){
+  const today=new Date();
+  if(!calViewDate)calViewDate=new Date(today.getFullYear(),today.getMonth(),1);
+  if(dir===0){calViewDate=new Date(today.getFullYear(),today.getMonth(),1);}
+  else{calViewDate=new Date(calViewDate.getFullYear(),calViewDate.getMonth()+dir,1);}
+  renderCal();
+}
+
+function renderCal(){
+  const el=document.getElementById('calPane');
+  if(!el)return;
+  const today=new Date();
+  const todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  if(!calViewDate)calViewDate=new Date(today.getFullYear(),today.getMonth(),1);
+  const yr=calViewDate.getFullYear(),mo=calViewDate.getMonth();
+  const dim=new Date(yr,mo+1,0).getDate();
+  const dayNames=['日','月','火','水','木','金','土'];
+  const fmt=(y,m,d)=>`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+
+  // sort tags: by building then room number
+  const tags=Object.keys(ROOMS).sort((a,b)=>{
+    const pa=ROOMS[a]||'',pb=ROOMS[b]||'';
+    if(pa!==pb)return pa.localeCompare(pb);
+    return a.localeCompare(b);
+  });
+
+  if(!tags.length){
+    el.innerHTML='<div style="padding:40px;text-align:center;color:#999">CSVを読み込むと表示されます</div>';
+    return;
+  }
+
+  // cleaning counts per day
+  const cleanCounts={};
+  for(let d=1;d<=dim;d++){
+    const ds=fmt(yr,mo,d);
+    let cnt=0;
+    tags.forEach(tag=>{(CH[tag]||[]).forEach(c=>{if(c.d.replace(/\//g,'-')===ds)cnt++;});});
+    cleanCounts[d]=cnt;
+  }
+
+  const ROOM_W=78;
+  const CELL_W=34;
+  const HDR_H=46;
+  const CNT_H=22;
+  const ROW_H=38;
+  const nRows=tags.length;
+
+  // Build grid items
+  const items=[];
+
+  // ── Row 1: Date headers ──
+  items.push(`<div class="cal-room-hdr" style="grid-row:1;grid-column:1;height:${HDR_H}px;width:${ROOM_W}px">部屋</div>`);
+  for(let d=1;d<=dim;d++){
+    const dt=new Date(yr,mo,d);
+    const dow=dt.getDay();
+    const isToday=fmt(yr,mo,d)===todayStr;
+    let cls='cal-date-hdr';
+    if(isToday)cls+=' cal-today-hdr';
+    else if(dow===0)cls+=' cal-sun-hdr';
+    else if(dow===6)cls+=' cal-sat-hdr';
+    items.push(`<div class="${cls}" style="grid-row:1;grid-column:${d+1};height:${HDR_H}px;width:${CELL_W}px"><div style="font-size:.8em;font-weight:700">${d}</div><div style="font-size:.62em">${dayNames[dow]}</div></div>`);
+  }
+
+  // ── Row 2: Cleaning count ──
+  items.push(`<div class="cal-cnt-lbl" style="grid-row:2;grid-column:1;height:${CNT_H}px;width:${ROOM_W}px">🧹</div>`);
+  for(let d=1;d<=dim;d++){
+    const cnt=cleanCounts[d];
+    items.push(`<div class="cal-cnt-cell" style="grid-row:2;grid-column:${d+1};height:${CNT_H}px;width:${CELL_W}px">${cnt>0?cnt:''}</div>`);
+  }
+
+  // ── Rows 3+: Room rows ──
+  tags.forEach((tag,ri)=>{
+    const row=ri+3;
+    const bks=BK[tag]||[];
+    const chs=CH[tag]||[];
+    const isSub=(ROOMS[tag]||'').includes('代行');
+    const bkColor=isSub?'#FB8C00':'#1E88E5';
+    const bkBorderRadius='5px';
+
+    // Room name cell (sticky)
+    const rn=tag;
+    items.push(`<div class="cal-room-cell" style="grid-row:${row};grid-column:1;height:${ROW_H}px;width:${ROOM_W}px">${rn}</div>`);
+
+    // Background cells
+    for(let d=1;d<=dim;d++){
+      const dow=new Date(yr,mo,d).getDay();
+      const isToday=fmt(yr,mo,d)===todayStr;
+      let bg=isToday?'#FFFFF0':dow===0||dow===6?'#fafafa':'#fff';
+      let br=isToday?'right:1px solid #FFE082;':'right:1px solid #f0f0f8;';
+      items.push(`<div class="cal-bg" style="grid-row:${row};grid-column:${d+1};height:${ROW_H}px;width:${CELL_W}px;background:${bg};border-${br}border-bottom:1px solid #eeeef4;z-index:0"></div>`);
+    }
+
+    // Booking bars
+    const monthStart=new Date(yr,mo,1);
+    const monthEnd=new Date(yr,mo+1,1);
+    bks.forEach(bk=>{
+      const ciD=new Date(bk.ci),coD=new Date(bk.co);
+      // clip check: bar spans [CI, CO) — CO day not included in bar
+      if(coD<=monthStart||ciD>=monthEnd)return;
+      const barStartDay=ciD<monthStart?1:ciD.getDate();
+      const barEndDay=coD>monthEnd?dim+1:coD.getDate(); // exclusive
+      if(barStartDay>=barEndDay)return;
+      const isClipL=ciD<monthStart,isClipR=coD>monthEnd;
+      const nights=Math.round((coD-ciD)/86400000);
+      const gName=(bk.g||'').split(/[\s　]+/)[0]||'';
+      const blL=isClipL?'0':'5px',blR=isClipR?'0':'5px';
+      const info=`${gName} ${bk.n}名${!isClipL?' '+nights+'泊':''}`;
+      items.push(`<div class="cal-bk" style="grid-row:${row};grid-column:${barStartDay+1}/${barEndDay+1};background:${bkColor};border-radius:${blL} ${blR} ${blR} ${blL};z-index:2;${isClipL?'border-left:2px dashed rgba(255,255,255,.5)':''}${isClipR?'border-right:2px dashed rgba(255,255,255,.5)':''}" title="${bk.g}｜${bk.n}名｜${nights}泊&#10;${bk.ci} → ${bk.co}"><div class="cal-bk-txt">${isClipL?'◀ ':''}${info}</div></div>`);
+    });
+
+    // Cleaning marks
+    chs.forEach(ch=>{
+      const ds=ch.d.replace(/\//g,'-');
+      const cd=new Date(ds);
+      if(cd.getFullYear()!==yr||cd.getMonth()!==mo)return;
+      const col=cd.getDate()+1;
+      const cleanerName=(ch.c&&ch.c!=='未割当')?ch.c:'';
+      items.push(`<div class="cal-clean" style="grid-row:${row};grid-column:${col};background:#E53935;border-radius:5px;z-index:3;" title="清掃${cleanerName?' ('+cleanerName+')':''}"><div style="font-size:.68em;color:#fff;font-weight:700;text-align:center;line-height:1.2">🧹${cleanerName?'<br><span style=font-size:.8em>'+cleanerName.substring(0,4)+'</span>':''}</div></div>`);
+    });
+  });
+
+  const gridW=ROOM_W+dim*CELL_W;
+  const gridH=HDR_H+CNT_H+nRows*ROW_H;
+
+  el.innerHTML=`
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+  <button class="cal-nav-btn" onclick="calNav(-1)" style="background:var(--p);color:#fff">◀ 前月</button>
+  <span style="font-size:1.1em;font-weight:700;color:var(--t)">${yr}年${mo+1}月</span>
+  <button class="cal-nav-btn" onclick="calNav(1)" style="background:var(--p);color:#fff">次月 ▶</button>
+  <button class="cal-nav-btn" onclick="calNav(0)" style="background:#e0e0e0;color:#555">今月</button>
+</div>
+<div class="cal-wrap" id="calWrap">
+  <div class="cal-grid" style="grid-template-columns:${ROOM_W}px repeat(${dim},${CELL_W}px);grid-template-rows:${HDR_H}px ${CNT_H}px repeat(${nRows},${ROW_H}px);min-width:${gridW}px">
+    ${items.join('\n')}
+  </div>
+</div>
+<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:.78em;align-items:center;color:var(--t2)">
+  <span style="display:flex;align-items:center;gap:5px"><span style="width:22px;height:12px;background:#1E88E5;border-radius:3px;display:inline-block"></span>宿泊（直営）</span>
+  <span style="display:flex;align-items:center;gap:5px"><span style="width:22px;height:12px;background:#FB8C00;border-radius:3px;display:inline-block"></span>宿泊（代行）</span>
+  <span style="display:flex;align-items:center;gap:5px"><span style="width:22px;height:12px;background:#E53935;border-radius:3px;display:inline-block"></span>清掃</span>
+</div>`;
+  // 今月表示の場合は今日の列にスクロール
+  if(yr===today.getFullYear()&&mo===today.getMonth()){
+    const wrap=document.getElementById('calWrap');
+    if(wrap){const scrollDays=Math.max(0,today.getDate()-3);wrap.scrollLeft=scrollDays*CELL_W;}
+  }
 }
 
 function renderRoomMgmt(){
