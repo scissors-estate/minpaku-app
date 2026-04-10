@@ -3175,7 +3175,7 @@ function renderAcc(){
       if(pd.status!=='1')return; // only paid
       const netTaxInc=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
       const commTaxInc=Math.round(bk.commission*1.1);
-      const row={date:pd.payDate||'',facility:bk.tag,guest:bk.g,amount:netTaxInc,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s};
+      const row={date:pd.payDate||'',facility:bk.prop||tag,guest:bk.g,amount:netTaxInc,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s};
       if((bk.s||'').includes('Airbnb'))airbnbRows.push(row);
       else bookingRows.push(row);
     });
