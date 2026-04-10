@@ -2245,21 +2245,12 @@ function loadCSVs(){
     }
 
     // ── 清掃データをマージ ──
+    // CHはスケジュールのみ（完了状態はCMで別管理）なので、CSVにあるタグは丸ごと置き換え
+    // →清掃日を変更してCSV再インポートした際に古い日付が残らない
     const freshCH=CH;
     CH=prevCH;
-    // 今日以降のエントリはCSV再取込で上書き（清掃日変更に対応するため古いエントリを削除）
-    const _nd=new Date();
-    const _todaySlash=_nd.getFullYear()+'/'+String(_nd.getMonth()+1).padStart(2,'0')+'/'+String(_nd.getDate()).padStart(2,'0');
     Object.keys(freshCH).forEach(tag=>{
-      if(!CH[tag])CH[tag]=[];
-      // 今日以降の古いエントリを削除（freshCSVの内容で置き換える）
-      CH[tag]=CH[tag].filter(c=>c.d<_todaySlash);
-      const existingPastDates=new Set(CH[tag].map(c=>c.d));
-      freshCH[tag].forEach(nc=>{
-        // 未来エントリは常に追加、過去エントリはprevCHに存在しない場合のみ追加（重複防止）
-        if(nc.d>=_todaySlash||!existingPastDates.has(nc.d))CH[tag].push(nc);
-      });
-      CH[tag].sort((a,b)=>a.d.localeCompare(b.d));
+      CH[tag]=(freshCH[tag]||[]).slice().sort((a,b)=>a.d.localeCompare(b.d));
     });
     CM={...prevCM,...CM};
 
