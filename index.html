@@ -1974,7 +1974,7 @@ function renderPayTab(){
     return`<tr style="${rowStyle}">
       <td><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer" ${isLocked?'disabled':''}></td>
       <td>${bk.ci}</td><td>${bk.tag}</td>
-      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${bk.g}${bk.cancel?'<span style="margin-left:4px;font-size:.7em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px">キャンセル料</span>':''}</td>
+      <td style="max-width:120px"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${bk.g}</div>${bk.cancel?'<div style="margin-top:2px"><span style="font-size:.7em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px;white-space:nowrap">キャンセル料</span></div>':''}</td>
       <td>${bk.s}</td>
       <td style="text-align:right;font-family:ui-monospace,monospace">${fmtF(Math.round(parseFloat(bk.rawNet||bk.net*1.1)))}</td>
       <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)"></td>
