@@ -571,6 +571,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
       <select id="accMonth" style="border:1.5px solid var(--b);border-radius:6px;padding:6px 9px;font-size:.85em;outline:none;width:160px" onchange="renderAcc()"></select>
       <button onclick="dlAccExcel()" style="background:var(--green);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">📥 CSVダウンロード</button>
+      <button onclick="printAcc()" style="background:#607D8B;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">🖨️ 印刷／PDF保存</button>
     </div>
     <div class="sec"><h2>📒 民泊手数料まとめ（税込）</h2>
       <div id="accContent"><div class="nd">CSVを読み込んでください</div></div>
@@ -882,6 +883,7 @@ let curM=null,payM=null,opsFilt='all',cF={props:new Set(['all']),states:new Set(
 let invItems=[];
 let _bkTexts=[],_clText='',_bkReady=false,_cancelledIds=new Set();
 let calViewDate=null,calCollapsed={},_calBldgs=[],calPropFilter='all';
+let _accEditRow=-1;
 let _calPopups=[];
 function showCalPopup(i){
   const p=_calPopups[i];if(!p)return;
@@ -3153,9 +3155,29 @@ let accManualRows=[];
 
 function populateAccMonths(){
   const sel=document.getElementById('accMonth');if(!sel)return;
-  const months=Object.keys(MS).sort().reverse();
-  sel.innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('');
-  if(months.length&&!sel.value){sel.value=months[0];}
+  const pays=S.get(PAY_KEY)||{};
+  const savedAcc=S.get(ACC_KEY)||{};
+  // 入金日ベースで月一覧を生成
+  const monthSet=new Set();
+  Object.keys(BK).forEach(tag=>{
+    BK[tag].forEach(bk=>{
+      const pd=pays[bk.id]||{};
+      if(pd.status==='1'&&pd.payDate)monthSet.add(pd.payDate.slice(0,7));
+    });
+  });
+  // 手動入力の月も含める
+  Object.keys(savedAcc).forEach(k=>{
+    const m=k.replace('_manual','');
+    if(/^\d{4}-\d{2}$/.test(m))monthSet.add(m);
+  });
+  const months=[...monthSet].sort().reverse();
+  // 入金済みがなければCI月をフォールバック
+  const fallback=Object.keys(MS).sort().reverse();
+  const list=months.length?months:fallback;
+  const prev=sel.value;
+  sel.innerHTML=list.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(prev&&list.includes(prev))sel.value=prev;
+  else if(list.length)sel.value=list[0];
   renderAcc();
 }
 
@@ -3170,9 +3192,9 @@ function renderAcc(){
   const airbnbRows=[],bookingRows=[];
   Object.keys(BK).forEach(tag=>{
     BK[tag].forEach(bk=>{
-      if(!bk.ci.startsWith(month))return;
       const pd=pays[bk.id]||{};
-      if(pd.status!=='1')return; // only paid
+      if(pd.status!=='1')return; // 入金済みのみ
+      if(!(pd.payDate||'').startsWith(month))return; // 入金日ベースで絞込
       const netTaxInc=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
       const commTaxInc=Math.round(bk.commission*1.1);
       const row={date:pd.payDate||'',facility:tag,guest:bk.g,amount:netTaxInc,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s};
@@ -3201,14 +3223,32 @@ function renderAcc(){
   const bookingTotal=bookingRows.reduce((s,r)=>s+r.comm,0);
 
   // Manual rows
-  const manualHtml=manualRows.map((r,i)=>`<tr style="background:#f0fff4">
-    <td style="${tdStyle}"><input style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:110px" value="${r.date||''}" onchange="updateAccRow(${i},'date',this.value,'${month}')"></td>
-    <td style="${tdStyle}"><input style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:120px" value="${r.desc||''}" onchange="updateAccRow(${i},'desc',this.value,'${month}')"></td>
-    <td style="${tdStyle}"><input style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px" value="${r.facility||''}" onchange="updateAccRow(${i},'facility',this.value,'${month}')"></td>
-    <td style="${tdStyle};text-align:right"><input type="number" style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px;text-align:right;font-family:ui-monospace,monospace" value="${r.amount||0}" onchange="updateAccRow(${i},'amount',parseInt(this.value)||0,'${month}')"></td>
-    <td style="${tdStyle};text-align:right"><input type="number" style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px;text-align:right;font-family:ui-monospace,monospace" value="${r.stay||0}" onchange="updateAccRow(${i},'stay',parseInt(this.value)||0,'${month}')"></td>
-    <td style="${tdStyle};text-align:right;color:var(--red)"><input type="number" style="border:1px solid var(--b);border-radius:3px;padding:2px 4px;font-size:.78em;width:80px;text-align:right;font-family:ui-monospace,monospace" value="${r.comm||0}" onchange="updateAccRow(${i},'comm',parseInt(this.value)||0,'${month}')"></td>
-  </tr>`).join('');
+  const inpS='border:1px solid var(--b);border-radius:3px;padding:2px 5px;font-size:.78em;outline:none;';
+  const numDisp=(val,red)=>val?`<span style="font-family:ui-monospace,monospace;font-size:.82em;${red?'color:var(--red)':''}">${fmtF(val)}</span>`:`<span style="color:#bbb;font-size:.78em">未入力</span>`;
+  const manualHtml=manualRows.map((r,i)=>{
+    const isEdit=_accEditRow===i;
+    const editBtn=`<button onclick="_accEditRow=${i};renderAcc()" style="border:none;background:none;cursor:pointer;color:#aaa;font-size:.8em;padding:0 3px;vertical-align:middle" title="編集">✏️</button>`;
+    if(isEdit){
+      return`<tr style="background:#f0fff4">
+        <td style="${tdStyle}"><input type="date" style="${inpS}width:130px" value="${r.date||''}" onchange="updateAccRow(${i},'date',this.value,'${month}')"></td>
+        <td style="${tdStyle}"><input style="${inpS}width:120px" value="${r.desc||''}" onchange="updateAccRow(${i},'desc',this.value,'${month}')"></td>
+        <td style="${tdStyle}"><input style="${inpS}width:160px" value="${r.facility||''}" onchange="updateAccRow(${i},'facility',this.value,'${month}')"></td>
+        <td style="${tdStyle};text-align:right"><input type="number" style="${inpS}width:90px;text-align:right;font-family:ui-monospace,monospace" value="${r.amount||''}" placeholder="0" onchange="updateAccRow(${i},'amount',parseInt(this.value)||0,'${month}')"></td>
+        <td style="${tdStyle};text-align:right"><input type="number" style="${inpS}width:90px;text-align:right;font-family:ui-monospace,monospace" value="${r.stay||''}" placeholder="0" onchange="updateAccRow(${i},'stay',parseInt(this.value)||0,'${month}')"></td>
+        <td style="${tdStyle};text-align:right"><input type="number" style="${inpS}width:90px;text-align:right;font-family:ui-monospace,monospace" value="${r.comm||''}" placeholder="0" onchange="updateAccRow(${i},'comm',parseInt(this.value)||0,'${month}')"></td>
+        <td style="${tdStyle}"><button onclick="_accEditRow=-1;renderAcc()" style="border:none;background:var(--p);color:#fff;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;white-space:nowrap">完了</button></td>
+      </tr>`;
+    }
+    return`<tr style="background:#f0fff4">
+      <td style="${tdStyle}">${r.date||'—'} ${editBtn}</td>
+      <td style="${tdStyle}">${r.desc||'—'}</td>
+      <td style="${tdStyle}">${r.facility||'—'}</td>
+      <td style="${tdStyle};text-align:right">${numDisp(r.amount,false)}</td>
+      <td style="${tdStyle};text-align:right">${numDisp(r.stay,false)}</td>
+      <td style="${tdStyle};text-align:right">${numDisp(r.comm,true)}</td>
+      <td style="${tdStyle}"></td>
+    </tr>`;
+  }).join('');
 
   const manualTotal=manualRows.reduce((s,r)=>s+(r.comm||0),0);
 
@@ -3233,6 +3273,7 @@ function addAccRow(){
   const savedAcc=S.get(ACC_KEY)||{};
   if(!savedAcc[month+'_manual'])savedAcc[month+'_manual']=[];
   savedAcc[month+'_manual'].push({date:'',desc:'スクエア',facility:'',amount:0,stay:0,comm:0});
+  _accEditRow=savedAcc[month+'_manual'].length-1;
   S.set(ACC_KEY,savedAcc);renderAcc();
 }
 
@@ -3244,6 +3285,46 @@ function updateAccRow(i,field,val,month){
   renderAcc();
 }
 
+function printAcc(){
+  const sel=document.getElementById('accMonth');if(!sel)return;
+  const month=sel.value;
+  const content=document.getElementById('accContent');if(!content)return;
+  const w=window.open('','_blank','width=900,height=700');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>民泊手数料まとめ ${month}</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;font-size:11px;color:#222;margin:20px}
+    h1{font-size:14px;margin-bottom:12px;color:#333}
+    h2{font-size:12px;margin:14px 0 6px;color:#333}
+    table{width:100%;border-collapse:collapse;margin-bottom:4px}
+    th{background:#f4f4f4;padding:5px 8px;text-align:left;border:1px solid #ccc;font-size:10px}
+    td{padding:4px 8px;border:1px solid #e0e0e0;font-size:10px}
+    .r{text-align:right;font-family:ui-monospace,monospace}
+    .total td{background:#f0f0f0;font-weight:700}
+    .red{color:#c62828}
+    .airbnb{color:#FF5A5F;font-weight:700}
+    .booking{color:#003580;font-weight:700}
+    .manual{color:#4CAF50;font-weight:700}
+    .badge{font-size:9px;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:3px;padding:1px 4px;margin-left:4px}
+    @media print{body{margin:10px}button{display:none}}
+  </style></head><body>
+  <h1>📒 民泊手数料まとめ（税込）　${month}</h1>
+  ${content.innerHTML}
+  <div style="margin-top:16px;text-align:right;font-size:9px;color:#aaa">印刷日：${new Date().toLocaleDateString('ja-JP')}</div>
+  <script>
+    // 印刷用に入力欄を値テキストに変換
+    document.querySelectorAll('input').forEach(el=>{
+      const span=document.createElement('span');
+      span.textContent=el.value||el.placeholder||'';
+      span.style.cssText=el.style.cssText;
+      el.parentNode.replaceChild(span,el);
+    });
+    document.querySelectorAll('button').forEach(el=>el.remove());
+    window.onload=function(){window.print()};
+  <\/script>
+  </body></html>`);
+  w.document.close();
+}
 function dlAccExcel(){
   const sel=document.getElementById('accMonth');if(!sel)return;
   const month=sel.value;
@@ -3252,12 +3333,12 @@ function dlAccExcel(){
   let csv='入金日,摘要,施設名,入金額,宿泊料金,手数料\n';
   Object.keys(BK).forEach(tag=>{
     BK[tag].forEach(bk=>{
-      if(!bk.ci.startsWith(month))return;
       const pd=pays[bk.id]||{};if(pd.status!=='1')return;
+      if(!(pd.payDate||'').startsWith(month))return;
       const netTax=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
       const commTax=Math.round(bk.commission*1.1);
       const desc=bk.s.includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM';
-      csv+=(pd.payDate||'')+','+desc+','+bk.tag+','+netTax+','+(netTax+commTax)+','+commTax+'\n';
+      csv+=(pd.payDate||'')+','+desc+','+tag+','+netTax+','+(netTax+commTax)+','+commTax+'\n';
     });
   });
   (savedAcc[month+'_manual']||[]).forEach(function(r){
