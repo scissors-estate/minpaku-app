@@ -2045,7 +2045,11 @@ function updatePayDate(id,date){
   const pays=S.get(PAY_KEY)||{};
   if(!pays[id])pays[id]={};
   pays[id].payDate=date;
+  // 日付入力で自動入金済、日付削除で未確認に戻す
+  if(date)pays[id].status='1';
+  else delete pays[id].status;
   S.set(PAY_KEY,pays);
+  renderPayTab();
 }
 
 // ⑤ Parse both OTA CSV formats
