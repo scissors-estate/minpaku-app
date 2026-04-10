@@ -1047,14 +1047,20 @@ function computeMS(){
       totalRoomUtil+=rm.util;
     });
     // 予約のない部屋の家賃も経費に計上（将来月の粗利を正確に計算）
+    let emptyDRent=0,emptySRent=0;
     tags.forEach(t=>{
       if(officeTags.has(t))return;
       if(ms.rooms[t])return; // 予約あり部屋は上で計算済み
       const openFrom=openData[t];
       if(openFrom&&openFrom>mk)return; // 未開業
       const rent=getRoomRentForMonth(t,mk);
-      if(rent>0)totalRoomRent+=rent;
+      if(rent>0){
+        totalRoomRent+=rent;
+        (ROOMS[t]||'').includes('代行')?emptySRent+=rent:emptyDRent+=rent;
+      }
     });
+    ms.exp.emptyDRent=emptyDRent;
+    ms.exp.emptySRent=emptySRent;
     // 事務所費用（ROOM_RENT_KEY / UTIL_KEY を流用）
     let officeRent=0,officeUtil=0;
     OFFICES.forEach(o=>{
@@ -1236,8 +1242,8 @@ function renderOps(){
 
   // 粗利
   const grossProfit=tot.sales-ms.exp.tot;
-  const dGross=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.officeRent||0)-(ms.exp.officeUtil||0);
-  const sGross=Object.values(ms.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0);
+  const dGross=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.officeRent||0)-(ms.exp.officeUtil||0)-(ms.exp.emptyDRent||0);
+  const sGross=Object.values(ms.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.emptySRent||0);
   // フィルターに合わせた表示粗利
   const dispGrossProfit=opsFilt==='direct'?dGross:opsFilt==='subcon'?sGross:grossProfit;
 
