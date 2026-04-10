@@ -2452,7 +2452,7 @@ function renderCal(){
   let crow=3;
   const nCols=1+nDays*3;
   // Date headers
-  items.push(`<div style="grid-row:1;grid-column:1;height:${HDR_H}px;background:#f4f4f8;border-right:2px solid #ccc;border-bottom:2px solid #ccc;position:sticky;top:0;left:0;z-index:12;display:flex;align-items:center;justify-content:center;font-size:.82em;font-weight:700;color:#888">部屋</div>`);
+  items.push(`<div style="grid-row:1;grid-column:1;height:${HDR_H}px;background:#f4f4f8;border-right:2px solid #ccc;border-bottom:2px solid #ccc;position:sticky;top:0;left:0;z-index:12;overflow:hidden;padding:0;"><div style="position:relative;width:100%;height:100%"><div style="position:absolute;width:120px;height:1px;background:#bbb;top:0;left:0;transform-origin:top left;transform:rotate(28deg)"></div><span style="position:absolute;top:4px;right:5px;font-size:.62em;font-weight:600;color:#999">日付</span><span style="position:absolute;bottom:5px;left:5px;font-size:.62em;font-weight:600;color:#999">部屋</span></div></div>`);
   dates.forEach((d,i)=>{
     const dow=d.getDay(),isToday=fmt(d)===todayStr;
     const bg=isToday?'#EEF0FB':dow===0?'#FFEBEE':dow===6?'#E3F2FD':'#f4f4f8';
@@ -2474,7 +2474,8 @@ function renderCal(){
     const isCol=!!calCollapsed[bldg];
     const bLabel=bldg.replace(/代行/g,'').replace(/^\d+_/,'').trim()||bldg;
     // Building header
-    items.push(`<div style="grid-row:${crow};grid-column:1/${nCols+1};height:${BLDG_H}px;background:#EEF0FB;position:sticky;left:0;z-index:9;display:flex;align-items:center;gap:7px;padding:0 10px;font-size:.88em;font-weight:700;color:#3949AB;cursor:pointer;border-top:2px solid #C5CAE9;border-bottom:1px solid #C5CAE9" onclick="toggleCalBuilding(${bi})"><span>${isCol?'▶':'▼'}</span><span>${bLabel}</span><span style="font-size:.8em;color:#9FA8DA;font-weight:400">${tags.length}部屋</span></div>`);
+    // 建物ヘッダー：positionなし → sticky日付行が必ず上に来る
+    items.push(`<div style="grid-row:${crow};grid-column:1/${nCols+1};height:${BLDG_H}px;background:#EEF0FB;display:flex;align-items:center;gap:7px;padding:0 10px;font-size:.88em;font-weight:700;color:#3949AB;cursor:pointer;border-top:2px solid #C5CAE9;border-bottom:1px solid #C5CAE9" onclick="toggleCalBuilding(${bi})"><span>${isCol?'▶':'▼'}</span><span>${bLabel}</span><span style="font-size:.8em;color:#9FA8DA;font-weight:400">${tags.length}部屋</span></div>`);
     rowH.push(`${BLDG_H}px`);crow++;
     if(!isCol){
       tags.forEach(tag=>{
