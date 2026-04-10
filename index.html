@@ -2452,19 +2452,19 @@ function renderCal(){
   let crow=3;
   const nCols=1+nDays*3;
   // Date headers
-  items.push(`<div style="grid-row:1;grid-column:1;height:${HDR_H}px;background:#f4f4f8;border-right:2px solid #ccc;border-bottom:2px solid #ccc;position:sticky;left:0;z-index:10;display:flex;align-items:center;justify-content:center;font-size:.82em;font-weight:700;color:#888">部屋</div>`);
+  items.push(`<div style="grid-row:1;grid-column:1;height:${HDR_H}px;background:#f4f4f8;border-right:2px solid #ccc;border-bottom:2px solid #ccc;position:sticky;top:0;left:0;z-index:12;display:flex;align-items:center;justify-content:center;font-size:.82em;font-weight:700;color:#888">部屋</div>`);
   dates.forEach((d,i)=>{
     const dow=d.getDay(),isToday=fmt(d)===todayStr;
     const bg=isToday?'#EEF0FB':dow===0?'#FFEBEE':dow===6?'#E3F2FD':'#f4f4f8';
     const fc=isToday?'var(--p)':dow===0?'#C62828':dow===6?'#1565C0':'#444';
     const todayBorder=isToday?'border-left:2px solid var(--p);border-right:2px solid var(--p);border-top:2px solid var(--p);':'border-right:1px solid #ddd;';
-    items.push(`<div style="grid-row:1;grid-column:${lC(i)}/${rC(i)+1};height:${HDR_H}px;background:${bg};color:${fc};${todayBorder}border-bottom:2px solid ${isToday?'var(--p)':'#ccc'};display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.85em;font-weight:${isToday?'900':'700'};line-height:1.3"><div>${d.getMonth()+1}/${d.getDate()}</div><div style="font-size:.75em">${dayNames[dow]}</div></div>`);
+    items.push(`<div style="grid-row:1;grid-column:${lC(i)}/${rC(i)+1};height:${HDR_H}px;background:${bg};color:${fc};${todayBorder}border-bottom:2px solid ${isToday?'var(--p)':'#ccc'};position:sticky;top:0;z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.85em;font-weight:${isToday?'900':'700'};line-height:1.3"><div>${d.getMonth()+1}/${d.getDate()}</div><div style="font-size:.75em">${dayNames[dow]}</div></div>`);
   });
   // Cleaning count row
-  items.push(`<div style="grid-row:2;grid-column:1;height:${CNT_H}px;background:#f9f9fc;border-right:2px solid #ccc;border-bottom:1px solid #e8e8f0;position:sticky;left:0;z-index:10;display:flex;align-items:center;justify-content:center;font-size:.72em;color:#bbb">掃除件数</div>`);
+  items.push(`<div style="grid-row:2;grid-column:1;height:${CNT_H}px;background:#f9f9fc;border-right:2px solid #ccc;border-bottom:1px solid #e8e8f0;position:sticky;top:${HDR_H}px;left:0;z-index:11;display:flex;align-items:center;justify-content:center;font-size:.72em;color:#bbb">掃除件数</div>`);
   dates.forEach((d,i)=>{
     const cnt=cleanCounts[i];
-    items.push(`<div style="grid-row:2;grid-column:${lC(i)}/${rC(i)+1};height:${CNT_H}px;background:#f9f9fc;border-right:1px solid #eee;border-bottom:1px solid #e8e8f0;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;color:#D08080">${cnt>0?cnt:''}</div>`);
+    items.push(`<div style="grid-row:2;grid-column:${lC(i)}/${rC(i)+1};height:${CNT_H}px;background:#f9f9fc;border-right:1px solid #eee;border-bottom:1px solid #e8e8f0;position:sticky;top:${HDR_H}px;z-index:8;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;color:#D08080">${cnt>0?cnt:''}</div>`);
   });
   // Building + room rows
   buildings.forEach((bldg,bi)=>{
@@ -2474,7 +2474,7 @@ function renderCal(){
     const isCol=!!calCollapsed[bldg];
     const bLabel=bldg.replace(/代行/g,'').replace(/^\d+_/,'').trim()||bldg;
     // Building header
-    items.push(`<div style="grid-row:${crow};grid-column:1/${nCols+1};height:${BLDG_H}px;background:#EEF0FB;display:flex;align-items:center;gap:7px;padding:0 10px;font-size:.88em;font-weight:700;color:#3949AB;cursor:pointer;border-top:2px solid #C5CAE9;border-bottom:1px solid #C5CAE9" onclick="toggleCalBuilding(${bi})"><span>${isCol?'▶':'▼'}</span><span>${bLabel}</span><span style="font-size:.8em;color:#9FA8DA;font-weight:400">${tags.length}部屋</span></div>`);
+    items.push(`<div style="grid-row:${crow};grid-column:1/${nCols+1};height:${BLDG_H}px;background:#EEF0FB;position:sticky;left:0;z-index:9;display:flex;align-items:center;gap:7px;padding:0 10px;font-size:.88em;font-weight:700;color:#3949AB;cursor:pointer;border-top:2px solid #C5CAE9;border-bottom:1px solid #C5CAE9" onclick="toggleCalBuilding(${bi})"><span>${isCol?'▶':'▼'}</span><span>${bLabel}</span><span style="font-size:.8em;color:#9FA8DA;font-weight:400">${tags.length}部屋</span></div>`);
     rowH.push(`${BLDG_H}px`);crow++;
     if(!isCol){
       tags.forEach(tag=>{
@@ -2546,7 +2546,7 @@ function renderCal(){
     <button onclick="document.getElementById('calCleanFilter').value='';renderCal()" style="font-size:.82em;border:none;background:#eee;border-radius:6px;padding:4px 8px;cursor:pointer;color:#888">✕</button>
   </div>
 </div>
-<div id="calWrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.1);background:#fff">
+<div id="calWrap" style="overflow:auto;-webkit-overflow-scrolling:touch;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.1);background:#fff;max-height:calc(100vh - 200px)">
   <div style="display:grid;grid-template-columns:${ROOM_W}px repeat(${nDays},${SW}px ${SW}px ${SW}px);grid-template-rows:${rowH.join(' ')};min-width:${totalW}px;background:#fff">
     ${items.join('')}
   </div>
