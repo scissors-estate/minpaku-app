@@ -1599,10 +1599,16 @@ function getRoomSt(tag,ds){
   const nb=bks.find(b=>new Date(b.ci)>d);
   const ce=(CH[tag]||[]).find(e=>e.d===today);
   if(ce)return{type:'cleanonly',lc,nb,cleaner:ce.c,cmt:ce.cm||''};
-  // OUT済・清掃待ち: 直近にCOがあり、将来に清掃タスクがある空室
+  // OUT済・清掃待ち: 直近にCOがあり、次のCI以前に清掃タスクがある空室
   const lastCO=bks.filter(b=>new Date(b.co)<=d).sort((a,b)=>new Date(b.co)-new Date(a.co))[0];
   const futureClean=(CH[tag]||[]).find(e=>new Date(e.d.replace(/\//g,'-'))>d);
-  if(lastCO&&futureClean)return{type:'co_pending',lc,nb,lastCO,futureClean};
+  if(lastCO&&futureClean){
+    const cleanDate=new Date(futureClean.d.replace(/\//g,'-'));
+    const nextCIDate=nb?new Date(nb.ci):null;
+    // 清掃日が次のCI以前 → このCOに対応した清掃（co_pending）
+    // 清掃日が次のCIより後 → 別の予約用の清掃（vacantとして扱う）
+    if(!nextCIDate||cleanDate<=nextCIDate)return{type:'co_pending',lc,nb,lastCO,futureClean};
+  }
   return{type:'vacant',lc,nb};
 }
 function getClr(tag,ds){const cm=CM[ds+'_'+tag];if(cm)return cm.cl;const ce=(CH[tag]||[]).find(e=>e.d===ds.replace(/-/g,'/'));return ce?ce.c:null;}
