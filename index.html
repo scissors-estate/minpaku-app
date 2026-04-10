@@ -818,7 +818,7 @@ function checkPw(){
 let ROOMS={},BK={},CH={},CM={},MS={};
 let curM=null,payM=null,opsFilt='all',cF={props:new Set(['all']),states:new Set(['all']),cleaners:new Set(['all'])};
 let invItems=[];
-let _bkTexts=[],_clText='',_bkReady=false;
+let _bkTexts=[],_clText='',_bkReady=false,_cancelledIds=new Set();
 const excl=v=>Math.round(parseFloat(v||0)/1.1);
 
 // ② Full amount format
@@ -868,10 +868,16 @@ function normDate(s){if(!s)return'';return s.trim().replace(/\//g,'-').replace(/
 //  PARSE BOOKINGS
 // ════════════════════════════════════════════
 function parseBookings(){
-  ROOMS={};BK={};
+  ROOMS={};BK={};_cancelledIds=new Set();
   _bkTexts.forEach(txt=>{
     parseCSV(txt).forEach(r=>{
-      if((r['状態']||'').trim()!=='確認済み')return;
+      const st=(r['状態']||'').trim();
+      if(st!=='確認済み'){
+        // キャンセルされた予約のIDを記録（マージ時にBKから削除するため）
+        const cid=(r['チャンネル予約ID']||r['AirHost予約ID']||'').trim();
+        if(cid)_cancelledIds.add(cid);
+        return;
+      }
       const tag=(r['ルームタイプメニュー']||r['部屋番号']||'').trim();
       const prop=(r['物件名']||'').trim();
       if(!tag||!prop)return;
@@ -2166,6 +2172,12 @@ function loadCSVs(){
       });
       BK[tag].sort((a,b)=>a.ci.localeCompare(b.ci));
     });
+    // キャンセルされた予約をBKから削除
+    if(_cancelledIds.size>0){
+      Object.keys(BK).forEach(tag=>{
+        BK[tag]=BK[tag].filter(b=>!_cancelledIds.has(b.id));
+      });
+    }
 
     // ── 清掃データをマージ ──
     const freshCH=CH;
