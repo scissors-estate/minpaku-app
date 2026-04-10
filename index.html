@@ -961,11 +961,18 @@ function parseBookings(){
   _bkTexts.forEach(txt=>{
     parseCSV(txt).forEach(r=>{
       const st=(r['状態']||'').trim();
-      if(st!=='確認済み'){
-        // キャンセルされた予約のIDを記録（マージ時にBKから削除するため）
-        const cid=(r['チャンネル予約ID']||r['AirHost予約ID']||'').trim();
-        if(cid)_cancelledIds.add(cid);
-        return;
+      const isConfirmed=st==='確認済み';
+      const isCancel=!isConfirmed;
+      const salesAmt=excl(r['販売']);
+      const netAmt=excl(r['受取金']);
+      if(isCancel){
+        if(salesAmt<=0&&netAmt<=0){
+          // 金額なしキャンセル：IDを記録してBKから削除
+          const cid=(r['チャンネル予約ID']||r['AirHost予約ID']||'').trim();
+          if(cid)_cancelledIds.add(cid);
+          return;
+        }
+        // キャンセル料あり：入金管理用に取込（_cancelledIdsには入れない）
       }
       const tag=(r['ルームタイプメニュー']||r['部屋番号']||'').trim();
       const prop=(r['物件名']||'').trim();
@@ -979,9 +986,10 @@ function parseBookings(){
         g:(r['ゲスト名']||r['宿泊者名']||'').trim(),
         ci,co,n:parseInt(r['ゲスト数']||r['大人']||1),
         s:(r['予約サイト']||'').trim(),nat:(r['国籍']||'').trim(),
-        sales:excl(r['販売']),commission:excl(r['OTA サービス料']),
-        cleaning:excl(r['クリーニング代']),net:excl(r['受取金']),
-        days:parseInt(r['合計日数']||0),prop
+        sales:salesAmt,commission:excl(r['OTA サービス料']),
+        cleaning:excl(r['クリーニング代']),net:netAmt,
+        days:parseInt(r['合計日数']||0),prop,
+        cancel:isCancel  // キャンセル料フラグ
       });
     });
   });
@@ -1966,7 +1974,7 @@ function renderPayTab(){
     return`<tr style="${rowStyle}">
       <td><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer" ${isLocked?'disabled':''}></td>
       <td>${bk.ci}</td><td>${bk.tag}</td>
-      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${bk.g}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis">${bk.g}${bk.cancel?'<span style="margin-left:4px;font-size:.7em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px">キャンセル料</span>':''}</td>
       <td>${bk.s}</td>
       <td style="text-align:right;font-family:ui-monospace,monospace">${fmtF(Math.round(parseFloat(bk.rawNet||bk.net*1.1)))}</td>
       <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)"></td>
@@ -2508,7 +2516,7 @@ function renderCal(){
     rowH.push(`${BLDG_H}px`);crow++;
     if(!isCol){
       tags.forEach(tag=>{
-        const bks=BK[tag]||[],chs=CH[tag]||[];
+        const bks=(BK[tag]||[]).filter(b=>!b.cancel),chs=CH[tag]||[];
         // Room name (sticky)
         items.push(`<div style="grid-row:${crow};grid-column:1;height:${ROW_H}px;background:#f9f9fc;border-right:2px solid #ccc;border-bottom:1px solid #eee;position:sticky;left:0;z-index:8;display:flex;align-items:center;padding:0 5px;font-size:.82em;font-weight:700;color:#333;white-space:nowrap;overflow:hidden">${tag}</div>`);
         // BG cells
