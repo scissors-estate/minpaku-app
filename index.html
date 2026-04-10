@@ -2254,7 +2254,11 @@ function loadCSVs(){
       if(!CH[tag])CH[tag]=[];
       // 今日以降の古いエントリを削除（freshCSVの内容で置き換える）
       CH[tag]=CH[tag].filter(c=>c.d<_todaySlash);
-      freshCH[tag].forEach(nc=>CH[tag].push(nc));
+      const existingPastDates=new Set(CH[tag].map(c=>c.d));
+      freshCH[tag].forEach(nc=>{
+        // 未来エントリは常に追加、過去エントリはprevCHに存在しない場合のみ追加（重複防止）
+        if(nc.d>=_todaySlash||!existingPastDates.has(nc.d))CH[tag].push(nc);
+      });
       CH[tag].sort((a,b)=>a.d.localeCompare(b.d));
     });
     CM={...prevCM,...CM};
@@ -2432,7 +2436,7 @@ function renderCal(){
   const dayNames=['日','月','火','水','木','金','土'];
   const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   // 3 sub-cols per day: L=CO, M=clean, R=CI
-  const SW=10,ROOM_W=76,HDR_H=44,CNT_H=20,BLDG_H=28,ROW_H=36;
+  const SW=12,ROOM_W=90,HDR_H=48,CNT_H=22,BLDG_H=30,ROW_H=48;
   const lC=i=>2+i*3, mC=i=>3+i*3, rC=i=>4+i*3;
   const viewEnd=new Date(viewStart);viewEnd.setDate(viewStart.getDate()+nDays);
   const dayIdx=ds=>{const d=new Date(ds);d.setHours(0,0,0,0);const df=Math.round((d-viewStart)/86400000);return(df>=0&&df<nDays)?df:null;};
@@ -2457,19 +2461,19 @@ function renderCal(){
   let crow=3;
   const nCols=1+nDays*3;
   // Date headers
-  items.push(`<div style="grid-row:1;grid-column:1;height:${HDR_H}px;background:#f4f4f8;border-right:2px solid #ccc;border-bottom:2px solid #ccc;position:sticky;left:0;z-index:10;display:flex;align-items:center;justify-content:center;font-size:.68em;font-weight:700;color:#888">部屋</div>`);
+  items.push(`<div style="grid-row:1;grid-column:1;height:${HDR_H}px;background:#f4f4f8;border-right:2px solid #ccc;border-bottom:2px solid #ccc;position:sticky;left:0;z-index:10;display:flex;align-items:center;justify-content:center;font-size:.82em;font-weight:700;color:#888">部屋</div>`);
   dates.forEach((d,i)=>{
     const dow=d.getDay(),isToday=fmt(d)===todayStr;
     const bg=isToday?'#EEF0FB':dow===0?'#FFEBEE':dow===6?'#E3F2FD':'#f4f4f8';
     const fc=isToday?'var(--p)':dow===0?'#C62828':dow===6?'#1565C0':'#444';
     const todayBorder=isToday?'border-left:2px solid var(--p);border-right:2px solid var(--p);border-top:2px solid var(--p);':'border-right:1px solid #ddd;';
-    items.push(`<div style="grid-row:1;grid-column:${lC(i)}/${rC(i)+1};height:${HDR_H}px;background:${bg};color:${fc};${todayBorder}border-bottom:2px solid ${isToday?'var(--p)':'#ccc'};display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.72em;font-weight:${isToday?'900':'700'};line-height:1.3"><div>${d.getMonth()+1}/${d.getDate()}</div><div style="font-size:.68em">${dayNames[dow]}</div></div>`);
+    items.push(`<div style="grid-row:1;grid-column:${lC(i)}/${rC(i)+1};height:${HDR_H}px;background:${bg};color:${fc};${todayBorder}border-bottom:2px solid ${isToday?'var(--p)':'#ccc'};display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:.85em;font-weight:${isToday?'900':'700'};line-height:1.3"><div>${d.getMonth()+1}/${d.getDate()}</div><div style="font-size:.75em">${dayNames[dow]}</div></div>`);
   });
   // Cleaning count row
-  items.push(`<div style="grid-row:2;grid-column:1;height:${CNT_H}px;background:#f9f9fc;border-right:2px solid #ccc;border-bottom:1px solid #e8e8f0;position:sticky;left:0;z-index:10;display:flex;align-items:center;justify-content:center;font-size:.58em;color:#bbb">🧹</div>`);
+  items.push(`<div style="grid-row:2;grid-column:1;height:${CNT_H}px;background:#f9f9fc;border-right:2px solid #ccc;border-bottom:1px solid #e8e8f0;position:sticky;left:0;z-index:10;display:flex;align-items:center;justify-content:center;font-size:.72em;color:#bbb">掃除件数</div>`);
   dates.forEach((d,i)=>{
     const cnt=cleanCounts[i];
-    items.push(`<div style="grid-row:2;grid-column:${lC(i)}/${rC(i)+1};height:${CNT_H}px;background:#f9f9fc;border-right:1px solid #eee;border-bottom:1px solid #e8e8f0;display:flex;align-items:center;justify-content:center;font-size:.65em;font-weight:700;color:#D08080">${cnt>0?cnt:''}</div>`);
+    items.push(`<div style="grid-row:2;grid-column:${lC(i)}/${rC(i)+1};height:${CNT_H}px;background:#f9f9fc;border-right:1px solid #eee;border-bottom:1px solid #e8e8f0;display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:700;color:#D08080">${cnt>0?cnt:''}</div>`);
   });
   // Building + room rows
   buildings.forEach((bldg,bi)=>{
@@ -2479,15 +2483,13 @@ function renderCal(){
     const isCol=!!calCollapsed[bldg];
     const bLabel=bldg.replace(/代行/g,'').replace(/^\d+_/,'').trim()||bldg;
     // Building header
-    items.push(`<div style="grid-row:${crow};grid-column:1/${nCols+1};height:${BLDG_H}px;background:#EEF0FB;display:flex;align-items:center;gap:7px;padding:0 10px;font-size:.76em;font-weight:700;color:#3949AB;cursor:pointer;border-top:2px solid #C5CAE9;border-bottom:1px solid #C5CAE9" onclick="toggleCalBuilding(${bi})"><span>${isCol?'▶':'▼'}</span><span>${bLabel}</span><span style="font-size:.8em;color:#9FA8DA;font-weight:400">${tags.length}部屋</span></div>`);
+    items.push(`<div style="grid-row:${crow};grid-column:1/${nCols+1};height:${BLDG_H}px;background:#EEF0FB;display:flex;align-items:center;gap:7px;padding:0 10px;font-size:.88em;font-weight:700;color:#3949AB;cursor:pointer;border-top:2px solid #C5CAE9;border-bottom:1px solid #C5CAE9" onclick="toggleCalBuilding(${bi})"><span>${isCol?'▶':'▼'}</span><span>${bLabel}</span><span style="font-size:.8em;color:#9FA8DA;font-weight:400">${tags.length}部屋</span></div>`);
     rowH.push(`${BLDG_H}px`);crow++;
     if(!isCol){
       tags.forEach(tag=>{
         const bks=BK[tag]||[],chs=CH[tag]||[];
-        const isSub=(ROOMS[tag]||'').includes('代行');
-        const BKC=isSub?'#F4A460':'#5B9BD5';
         // Room name (sticky)
-        items.push(`<div style="grid-row:${crow};grid-column:1;height:${ROW_H}px;background:#f9f9fc;border-right:2px solid #ccc;border-bottom:1px solid #eee;position:sticky;left:0;z-index:8;display:flex;align-items:center;padding:0 5px;font-size:.68em;font-weight:700;color:#333;white-space:nowrap;overflow:hidden">${tag}</div>`);
+        items.push(`<div style="grid-row:${crow};grid-column:1;height:${ROW_H}px;background:#f9f9fc;border-right:2px solid #ccc;border-bottom:1px solid #eee;position:sticky;left:0;z-index:8;display:flex;align-items:center;padding:0 5px;font-size:.82em;font-weight:700;color:#333;white-space:nowrap;overflow:hidden">${tag}</div>`);
         // BG cells
         dates.forEach((d,i)=>{
           const dow=d.getDay(),isToday=fmt(d)===todayStr;
@@ -2509,13 +2511,19 @@ function renderCal(){
           const nights=Math.round((coD-ciD)/86400000);
           const gName=(bk.g||'').split(/[\s　]+/)[0]||'';
           const rL=isClipL?'0':'4px',rR=isClipR?'0':'4px';
-          items.push(`<div style="grid-row:${crow};grid-column:${sc}/${ec};background:${BKC};border-radius:${rL} ${rR} ${rR} ${rL};z-index:2;height:${ROW_H-8}px;margin:4px 0;align-self:center;overflow:hidden;${isClipL?'border-left:2px dashed rgba(255,255,255,.5);':''}${isClipR?'border-right:2px dashed rgba(255,255,255,.5);':''}" title="${bk.g}｜${bk.n}名｜${nights}泊&#10;${bk.ci}→${bk.co}"><div style="padding:0 4px;white-space:nowrap;overflow:hidden;font-size:.6em;line-height:${ROW_H-8}px;color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.2)">${isClipL?'◀ ':''}${gName} ${bk.n}名${!isClipL?' '+nights+'泊':''}</div></div>`);
+          const site=(bk.s||'').toLowerCase();
+          const BKC=site.includes('airbnb')?'#FF5A5F':site.includes('booking')?'#003580':'#90A4AE';
+          const chForBk=chs.find(ch=>ch.d.replace(/\//g,'-')===bk.co);
+          const bkComment=chForBk?(chForBk.cm||''):'';
+          const titleTxt=`${bk.g}｜${bk.n}名｜${nights}泊&#10;${bk.ci}→${bk.co}${bkComment?'&#10;'+bkComment:''}`;
+          const commentLine=bkComment?`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.68em;color:rgba(255,255,255,.88);line-height:1.3;margin-top:1px">${bkComment}</div>`:'';
+          items.push(`<div style="grid-row:${crow};grid-column:${sc}/${ec};background:${BKC};border-radius:${rL} ${rR} ${rR} ${rL};z-index:2;height:${ROW_H-8}px;margin:4px 0;align-self:center;overflow:hidden;${isClipL?'border-left:2px dashed rgba(255,255,255,.5);':''}${isClipR?'border-right:2px dashed rgba(255,255,255,.5);':''}" title="${titleTxt}"><div style="padding:2px 4px;display:flex;flex-direction:column;justify-content:center;height:100%;overflow:hidden"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.75em;color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.2);line-height:1.4">${isClipL?'◀ ':''}${gName} ${bk.n}名${!isClipL?' '+nights+'泊':''}</div>${commentLine}</div></div>`);
         });
         // Cleaning marks (middle sub-col)
         chs.forEach(ch=>{
           const idx=dayIdx(ch.d.replace(/\//g,'-'));
           if(idx===null)return;
-          items.push(`<div style="grid-row:${crow};grid-column:${mC(idx)};background:#E88080;border-radius:3px;z-index:3;height:${ROW_H-8}px;margin:4px 1px;align-self:center;display:flex;align-items:center;justify-content:center;" title="清掃${ch.c&&ch.c!=='未割当'?' ('+ch.c+')':''}"><span style="font-size:.65em">🧹</span></div>`);
+          items.push(`<div style="grid-row:${crow};grid-column:${mC(idx)};background:#F5A623;border-radius:3px;z-index:3;height:${ROW_H-8}px;margin:4px 1px;align-self:center;box-shadow:0 0 0 1.5px rgba(0,0,0,.1);" title="清掃${ch.c&&ch.c!=='未割当'?' ('+ch.c+')':''}"></div>`);
         });
         rowH.push(`${ROW_H}px`);crow++;
       });
@@ -2533,7 +2541,7 @@ function renderCal(){
 
   el.innerHTML=`
 <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:8px 10px;background:#fff;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.07)">
-  <span style="font-size:.75em;font-weight:600;color:#888;white-space:nowrap">物件：</span>
+  <span style="font-size:.85em;font-weight:600;color:#888;white-space:nowrap">物件：</span>
   ${propBtns}
 </div>
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
@@ -2542,9 +2550,9 @@ function renderCal(){
   <button class="cal-nav-btn" onclick="calNav(1)" style="background:var(--p);color:#fff">次月 ▶</button>
   <button class="cal-nav-btn" onclick="calNav(0)" style="background:#e0e0e0;color:#555">今月</button>
   <div style="display:flex;align-items:center;gap:6px;margin-left:4px">
-    <span style="font-size:.74em;color:#aaa">🧹フィルター：</span>
-    <input type="date" id="calCleanFilter" value="${cf}" onchange="renderCal()" style="font-size:.76em;border:1.5px solid #ddd;border-radius:6px;padding:3px 7px;outline:none;color:#333">
-    <button onclick="document.getElementById('calCleanFilter').value='';renderCal()" style="font-size:.72em;border:none;background:#eee;border-radius:6px;padding:4px 8px;cursor:pointer;color:#888">✕</button>
+    <span style="font-size:.85em;color:#aaa">🧹フィルター：</span>
+    <input type="date" id="calCleanFilter" value="${cf}" onchange="renderCal()" style="font-size:.85em;border:1.5px solid #ddd;border-radius:6px;padding:3px 7px;outline:none;color:#333">
+    <button onclick="document.getElementById('calCleanFilter').value='';renderCal()" style="font-size:.82em;border:none;background:#eee;border-radius:6px;padding:4px 8px;cursor:pointer;color:#888">✕</button>
   </div>
 </div>
 <div id="calWrap" style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.1);background:#fff">
@@ -2552,10 +2560,11 @@ function renderCal(){
     ${items.join('')}
   </div>
 </div>
-<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:.74em;align-items:center;color:#aaa">
-  <span style="display:flex;align-items:center;gap:4px"><span style="width:20px;height:10px;background:#5B9BD5;border-radius:3px;display:inline-block"></span>宿泊（直営）</span>
-  <span style="display:flex;align-items:center;gap:4px"><span style="width:20px;height:10px;background:#F4A460;border-radius:3px;display:inline-block"></span>宿泊（代行）</span>
-  <span style="display:flex;align-items:center;gap:4px"><span style="width:20px;height:10px;background:#E88080;border-radius:3px;display:inline-block"></span>清掃</span>
+<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:.82em;align-items:center;color:#aaa">
+  <span style="display:flex;align-items:center;gap:4px"><span style="width:20px;height:10px;background:#FF5A5F;border-radius:3px;display:inline-block"></span>Airbnb</span>
+  <span style="display:flex;align-items:center;gap:4px"><span style="width:20px;height:10px;background:#003580;border-radius:3px;display:inline-block"></span>Booking.com</span>
+  <span style="display:flex;align-items:center;gap:4px"><span style="width:20px;height:10px;background:#90A4AE;border-radius:3px;display:inline-block"></span>その他</span>
+  <span style="display:flex;align-items:center;gap:4px"><span style="width:20px;height:10px;background:#F5A623;border-radius:3px;display:inline-block"></span>清掃</span>
   <span>｜ 左:CO　中:清掃　右:CI</span>
 </div>`;
   // Mobile: scroll to today ±2 days
@@ -2843,8 +2852,14 @@ function fbUpdate(path, data){
 // CSVロード後にFirebaseへ保存
 function saveBookingsToFb(){
   if(!fbReady) return;
+  // 清掃データの重複排除（同一タグ×同一日付は1件のみ保持）
+  const cleanCH={};
+  Object.keys(CH).forEach(tag=>{
+    const seen=new Set();
+    cleanCH[tag]=(CH[tag]||[]).filter(c=>{if(seen.has(c.d))return false;seen.add(c.d);return true;});
+  });
   const now = new Date().toLocaleString('ja-JP');
-  fbWrite('bookings', { BK, ROOMS, CH, CM, meta: 'CSV取込: ' + now });
+  fbWrite('bookings', { BK, ROOMS, CH: cleanCH, CM, meta: 'CSV取込: ' + now });
 }
 
 // チェック・支払い・光熱費・写真の変更をFirebaseに同期
