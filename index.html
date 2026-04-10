@@ -2596,7 +2596,7 @@ function renderCal(){
     const wrap=document.getElementById('calWrap');
     if(wrap){
       const todayDf=Math.round((today-viewStart)/86400000);
-      if(todayDf>=0&&todayDf<nDays)wrap.scrollLeft=ROOM_W+Math.max(0,todayDf-2)*3*SW;
+      if(todayDf>=0&&todayDf<nDays)wrap.scrollLeft=Math.max(0,todayDf-2)*3*SW;
     }
   }
 }
