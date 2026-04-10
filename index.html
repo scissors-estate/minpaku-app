@@ -897,9 +897,11 @@ function showCalPopup(i){
     </div>
     <div style="font-size:1.05em;font-weight:700;margin-bottom:4px">${p.guest}</div>
     <div style="font-size:.88em;color:#555;margin-bottom:8px">${p.nights}泊 &nbsp;${p.pax}名</div>
-    <div style="font-size:.82em;background:#f5f5f8;border-radius:8px;padding:8px 12px;margin-bottom:${p.comment?'8px':'0'}">
-      <span style="color:#888">CI：</span>${p.ci}&nbsp;&nbsp;<span style="color:#888">CO：</span>${p.co}
+    <div style="font-size:.82em;background:#f5f5f8;border-radius:8px;padding:8px 12px;margin-bottom:8px">
+      <span style="color:#888">IN：</span>${p.ci}&nbsp;&nbsp;<span style="color:#888">OUT：</span>${p.co}
     </div>
+    ${p.amt?`<div style="font-size:.88em;background:#f0f7f0;border-radius:8px;padding:8px 12px;margin-bottom:${p.comment?'8px':'0'};display:flex;justify-content:space-between;align-items:center"><span style="color:#888">宿泊料金（税込）</span><span style="font-weight:700;color:#2e7d32;font-family:ui-monospace,monospace">¥${p.amt.toLocaleString()}</span></div>`:''}
+
     ${p.comment?`<div style="font-size:.8em;color:#555;background:#fff8e8;border-radius:8px;padding:8px 12px;border-left:3px solid #F5A623">${p.comment}</div>`:''}
     <button onclick="document.getElementById('calPopupOverlay').remove()" style="margin-top:14px;width:100%;padding:10px;border:none;border-radius:10px;background:#f0f0f0;font-size:.88em;font-weight:600;cursor:pointer;color:#555">閉じる</button>
   </div>`;
@@ -2502,7 +2504,7 @@ function renderCal(){
     // 建物ヘッダー：背景（全幅・positionなし）＋ラベル（col1・sticky left・低z-index）に分離
     // → 縦スクロール時にstickyな日付行が必ず前面に来る（positionなし < positioned）
     items.push(`<div style="grid-row:${crow};grid-column:1/${nCols+1};height:${BLDG_H}px;background:#EEF0FB;border-top:2px solid #C5CAE9;border-bottom:1px solid #C5CAE9;cursor:pointer" onclick="toggleCalBuilding(${bi})"></div>`);
-    items.push(`<div style="grid-row:${crow};grid-column:1;height:${BLDG_H}px;position:sticky;left:0;z-index:3;background:#EEF0FB;display:flex;align-items:center;gap:7px;padding:0 10px;font-size:.88em;font-weight:700;color:#3949AB;border-top:2px solid #C5CAE9;border-bottom:1px solid #C5CAE9;pointer-events:none">${isCol?'▶':'▼'} ${bLabel} <span style="font-size:.8em;color:#9FA8DA;font-weight:400;margin-left:2px">${tags.length}部屋</span></div>`);
+    items.push(`<div style="grid-row:${crow};grid-column:1;height:${BLDG_H}px;position:sticky;left:0;z-index:3;background:#EEF0FB;display:flex;align-items:center;gap:7px;padding:0 10px;font-size:.88em;font-weight:700;color:#3949AB;border-top:2px solid #C5CAE9;border-bottom:1px solid #C5CAE9;pointer-events:none;white-space:nowrap;overflow:visible;width:max-content">${isCol?'▶':'▼'} ${bLabel} <span style="font-size:.8em;color:#9FA8DA;font-weight:400;margin-left:2px">${tags.length}部屋</span></div>`);
     rowH.push(`${BLDG_H}px`);crow++;
     if(!isCol){
       tags.forEach(tag=>{
@@ -2534,10 +2536,11 @@ function renderCal(){
           const BKC=site.includes('airbnb')?'#FF5A5F':site.includes('booking')?'#003580':'#90A4AE';
           const chForBk=chs.find(ch=>ch.d.replace(/\//g,'-')===bk.co);
           const bkComment=chForBk?(chForBk.cm||''):'';
-          const titleTxt=`${bk.g}｜${bk.n}名｜${nights}泊&#10;${bk.ci}→${bk.co}${bkComment?'&#10;'+bkComment:''}`;
+          const amtTaxInc=bk.sales?Math.round(bk.sales*1.1):0;
+          const titleTxt=`${bk.g}｜${bk.n}名｜${nights}泊&#10;${bk.ci}→${bk.co}${amtTaxInc?'&#10;宿泊料金（税込）¥'+amtTaxInc.toLocaleString():''}${bkComment?'&#10;'+bkComment:''}`;
           const commentLine=bkComment?`<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.68em;color:rgba(255,255,255,.88);line-height:1.3;margin-top:1px">${bkComment}</div>`:'';
           const pi=_calPopups.length;
-          _calPopups.push({guest:bk.g,pax:bk.n,nights,ci:bk.ci,co:bk.co,site:bk.s||'その他',color:BKC,comment:bkComment});
+          _calPopups.push({guest:bk.g,pax:bk.n,nights,ci:bk.ci,co:bk.co,site:bk.s||'その他',color:BKC,comment:bkComment,amt:amtTaxInc});
           items.push(`<div style="grid-row:${crow};grid-column:${sc}/${ec};background:${BKC};border-radius:${rL} ${rR} ${rR} ${rL};z-index:2;height:${ROW_H-8}px;margin:4px 0;align-self:center;overflow:hidden;cursor:pointer;${isClipL?'border-left:2px dashed rgba(255,255,255,.5);':''}${isClipR?'border-right:2px dashed rgba(255,255,255,.5);':''}" title="${titleTxt}" onclick="showCalPopup(${pi})"><div style="padding:2px 4px;display:flex;flex-direction:column;justify-content:center;height:100%;overflow:hidden"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.75em;color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.2);line-height:1.4">${isClipL?'◀ ':''}${gName} ${bk.n}名${!isClipL?' '+nights+'泊':''}</div>${commentLine}</div></div>`);
         });
         // Cleaning marks (middle sub-col)
@@ -2586,7 +2589,7 @@ function renderCal(){
   <span style="display:flex;align-items:center;gap:4px"><span style="width:20px;height:10px;background:#003580;border-radius:3px;display:inline-block"></span>Booking.com</span>
   <span style="display:flex;align-items:center;gap:4px"><span style="width:20px;height:10px;background:#90A4AE;border-radius:3px;display:inline-block"></span>その他</span>
   <span style="display:flex;align-items:center;gap:4px"><span style="width:20px;height:10px;background:#F5A623;border-radius:3px;display:inline-block"></span>清掃</span>
-  <span>｜ 左:CO　中:清掃　右:CI</span>
+  <span>｜ 左:OUT　中:清掃　右:IN</span>
 </div>`;
   // Mobile: scroll to today ±2 days
   if(!isPC){
