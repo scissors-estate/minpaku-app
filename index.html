@@ -916,11 +916,12 @@ const excl=v=>Math.round(parseFloat(v||0)/1.1);
 const fmtF=n=>'¥'+Math.round(n).toLocaleString('ja-JP');
 const oc=v=>v>=50?'gh':v>=30?'gm':'gl';
 const occBg=v=>v>=50?'#4CAF50':v>=30?'#FF9800':'#f5576c';
-function pv(cur,prv){
+function pv(cur,prv,unit='¥'){
   if(prv===undefined||prv===null)return'';
   const df=cur-prv,sg=df>=0?'+':'-';
   const cl=df>=0?'#155724':'#721c24';const bg=df>=0?'#d4edda':'#f8d7da';
-  return`<div class="kprev"><span style="background:${bg};color:${cl};padding:1px 5px;border-radius:3px;font-weight:700">${sg}¥${Math.abs(df).toLocaleString()}</span></div>`;
+  const val=unit==='¥'?`¥${Math.abs(df).toLocaleString()}`:`${Math.abs(df)}${unit}`;
+  return`<div class="kprev"><span style="background:${bg};color:${cl};padding:1px 5px;border-radius:3px;font-weight:700">${sg}${val}</span></div>`;
 }
 
 // ════════════════════════════════════════════
@@ -1193,6 +1194,10 @@ function computeMS(){
       const bB=b.tag.replace(/\d+$/,'');
       return bA.localeCompare(bB,'ja')||a.tag.localeCompare(b.tag,'ja',{numeric:true});
     });
+    // 主要OTAは予約0件でも必ず表示
+    ['Booking.com','Airbnb'].forEach(name=>{
+      if(!ms.ota[name])ms.ota[name]={name,sales:0,comm:0,cnt:0};
+    });
     ms.otaList=Object.values(ms.ota).sort((a,b)=>b.comm-a.comm);
   });
 }
@@ -1375,9 +1380,9 @@ function renderOps(){
     <div class="kgrid">
       <div class="kcard"><div class="klbl">売上（税抜）</div><div class="kval">${fmtF(tot.sales)}</div>${sub(fmtF(d.sales),fmtF(s.sales))}${pv(tot.sales,prevSales)}${prevLbl(prevSales)}</div>
       <div class="kcard green"><div class="klbl">粗利</div><div class="kval">${fmtF(dispGrossProfit)}</div>${sub(fmtF(dGross),fmtF(sGross))}${pv(dispGrossProfit,prevProfit)}${prevLbl(prevProfit)}</div>
-      <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${occRate}%</div>${sub(ms.occ.d+'%',ms.occ.s+'%')}${pv(occRate,prevOcc)}${prevLbl(prevOcc,false)}<div class="kval" style="font-size:1em;margin-top:4px">${occDays}日/${occTotal}日</div></div>
+      <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${occRate}%</div>${sub(ms.occ.d+'%',ms.occ.s+'%')}${pv(occRate,prevOcc,'%')}${prevLbl(prevOcc,false)}<div class="kval" style="font-size:1em;margin-top:4px">${occDays}日/${occTotal}日</div></div>
       <div class="kcard"><div class="klbl">稼働部屋数</div><div class="kval">${ms.tR}部屋</div>${sub(ms.dR+'部屋',ms.sR+'部屋')}</div>
-      <div class="kcard"><div class="klbl">予約件数</div><div class="kval">${tot.cnt}件</div>${sub(d.cnt+'件',s.cnt+'件')}${pv(tot.cnt,prevCnt)}${prevLbl(prevCnt,false)}</div>
+      <div class="kcard"><div class="klbl">予約件数</div><div class="kval">${tot.cnt}件</div>${sub(d.cnt+'件',s.cnt+'件')}${pv(tot.cnt,prevCnt,'件')}${prevLbl(prevCnt,false)}</div>
       <div class="kcard"><div class="klbl">宿泊人数</div><div class="kval">${guestsAll}名</div>${sub(guestsDirect+'名',guestsSub+'名')}</div>
     </div>`;
 
@@ -1416,17 +1421,6 @@ function renderOps(){
             </div>
           </div>
         </div>
-      </div>
-    </div>`;
-  } else {
-    const lbl=opsFilt==='direct'?'直営':'代行';
-    const color=opsFilt==='direct'?'var(--p)':'var(--pink)';
-    cmpH=`<div class="sec"><h2>${lbl}のみ</h2>
-      <div class="kgrid">
-        <div class="kcard" style="border-left-color:${color}"><div class="klbl">コミッション</div><div class="kval" style="color:var(--red)">-${fmtF(tot.comm)}</div></div>
-        <div class="kcard" style="border-left-color:${color}"><div class="klbl">清掃費</div><div class="kval" style="color:var(--orange)">-${fmtF(tot.cl)}</div></div>
-        <div class="kcard"><div class="klbl">稼働率</div><div class="kval">${occRate}%</div></div>
-        <div class="kcard" style="border-left-color:${color}"><div class="klbl">ゲスト数</div><div class="kval">${tot.gu||0}名</div></div>
       </div>
     </div>`;
   }
