@@ -1269,7 +1269,7 @@ function setFilt(f,btn){
 function getFilteredData(ms){
   if(!ms)return null;
   if(opsFilt==='direct')return{...ms,tot:ms.d,occ:{t:ms.occ.d},showExp:true};
-  if(opsFilt==='subcon')return{...ms,tot:ms.s,occ:{t:ms.occ.s},showExp:false};
+  if(opsFilt==='subcon')return{...ms,tot:ms.s,occ:{t:ms.occ.s},showExp:true};
   return{...ms,showExp:true};
 }
 
