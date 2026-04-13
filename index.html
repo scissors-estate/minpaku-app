@@ -2045,11 +2045,9 @@ function renderPayTab(){
       <td>${ip?'<span class="tag-paid">入金済</span>':'<span class="tag-unpaid">未確認</span>'}</td>
       <td>${bk.ci}</td>
       <td>${bk.tag}</td>
-      <td style="text-align:right">
-        <div style="display:inline-flex;align-items:center;gap:5px">
-          ${!isLocked?`<button onclick="openAmtModal('${bk.id}',${csvAmt},'${bk.g.replace(/'/g,"\\'")}')" title="金額を修正" style="border:1px solid var(--b);background:#f5f5f5;border-radius:4px;cursor:pointer;font-size:.72em;padding:2px 6px;color:var(--t2)">✏️</button>`:''}
-          <span style="font-family:ui-monospace,monospace;font-weight:600;color:${isEdited?'var(--orange)':'var(--t1)'}">¥${dispAmt.toLocaleString('ja-JP')}</span>
-        </div>
+      <td style="text-align:right;white-space:nowrap">
+        <span style="font-family:ui-monospace,monospace;font-weight:600;color:${isEdited?'var(--orange)':'var(--t1)'}">¥${dispAmt.toLocaleString('ja-JP')}</span>
+        ${!isLocked?`<button onclick="openAmtModal('${bk.id}',${csvAmt},'${bk.g.replace(/'/g,"\\'")}')" title="金額を修正" style="border:1px solid var(--b);background:#f5f5f5;border-radius:4px;cursor:pointer;font-size:.72em;padding:2px 6px;color:var(--t2);margin-left:4px">✏️</button>`:'<span style="display:inline-block;width:30px;margin-left:4px"></span>'}
       </td>
       <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)"></td>
       <td style="max-width:120px"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${bk.g}</div>${bk.cancel?'<div style="margin-top:2px"><span style="font-size:.7em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px;white-space:nowrap">キャンセル料</span></div>':''}</td>
@@ -2071,7 +2069,7 @@ function bulkUpdatePayDate(){
   if(!ids.length){alert('行を選択してください');return;}
   if(!confirm(ids.length+'件の着金日を'+date+'に変更しますか？'))return;
   const pays=S.get(PAY_KEY)||{};
-  ids.forEach(id=>{if(!pays[id])pays[id]={};pays[id].payDate=date;if(date)pays[id].status='1';else delete pays[id].status;});
+  ids.forEach(id=>{if(!pays[id])pays[id]={};pays[id].payDate=date;if(date){pays[id].status='1';pays[id].locked='1';}else{delete pays[id].status;delete pays[id].locked;}});
   S.set(PAY_KEY,pays);renderPayTab();
 }
 function paySelectSamePayoutId(){
@@ -2147,9 +2145,9 @@ function updatePayDate(id,date){
   const pays=S.get(PAY_KEY)||{};
   if(!pays[id])pays[id]={};
   pays[id].payDate=date;
-  // 日付入力で自動入金済、日付削除で未確認に戻す
-  if(date)pays[id].status='1';
-  else delete pays[id].status;
+  // 日付入力で自動入金済＋自動ロック、日付削除で未確認＋ロック解除
+  if(date){pays[id].status='1';pays[id].locked='1';}
+  else{delete pays[id].status;delete pays[id].locked;}
   S.set(PAY_KEY,pays);
   renderPayTab();
 }
@@ -2235,8 +2233,25 @@ function handlePayCSV(files){
 
 // Drag & drop for pay upload（ペイン全体にドロップ可）
 const payZ=document.getElementById('payPane');
+let _payDragCnt=0;
+payZ.addEventListener('dragenter',e=>{
+  e.preventDefault();_payDragCnt++;
+  let ov=document.getElementById('payDropOverlay');
+  if(!ov){ov=document.createElement('div');ov.id='payDropOverlay';
+    ov.style.cssText='position:fixed;inset:0;z-index:9990;background:rgba(102,126,234,.18);border:3px dashed var(--p);border-radius:12px;display:flex;align-items:center;justify-content:center;pointer-events:none';
+    ov.innerHTML='<div style="background:#fff;border-radius:16px;padding:24px 40px;font-size:1.2em;font-weight:700;color:var(--p);box-shadow:0 8px 32px rgba(0,0,0,.15)">📄 CSVをドロップして取込</div>';
+    document.body.appendChild(ov);}
+});
+payZ.addEventListener('dragleave',e=>{
+  _payDragCnt--;if(_payDragCnt>0)return;
+  const ov=document.getElementById('payDropOverlay');if(ov)ov.remove();
+});
 payZ.addEventListener('dragover',e=>{e.preventDefault();});
-payZ.addEventListener('drop',e=>{e.preventDefault();handlePayCSV(e.dataTransfer.files);});
+payZ.addEventListener('drop',e=>{
+  e.preventDefault();_payDragCnt=0;
+  const ov=document.getElementById('payDropOverlay');if(ov)ov.remove();
+  handlePayCSV(e.dataTransfer.files);
+});
 
 // ════════════════════════════════════════════
 //  ⑥ INVOICE - room-level detail
