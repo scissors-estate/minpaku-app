@@ -526,7 +526,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         <input id="srchPayTo" type="date" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.76em;outline:none" onchange="renderPayTab()">
       </div>
     </div>
-    <div class="pay-mtabs" id="payMtabs"></div>
+    <div id="payTabsWrap"></div>
     <div class="pay-sum" id="paySum"></div>
     <!-- ⑤ Bulk date edit bar -->
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding:8px 10px;background:#f0f2ff;border-radius:8px">
@@ -538,7 +538,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div class="pay-tbl-wrap"><table class="pay-tbl"><thead>
   <tr>
     <th><input type="checkbox" id="paySelAll" onclick="paySelectAll(this.checked)" style="width:14px;height:14px;cursor:pointer"></th>
-    <th>IN日</th><th>部屋</th><th>ゲスト</th><th>OTA</th><th>実受取(税込)</th><th>着金日</th><th>状態</th><th>🔒</th><th></th>
+    <th>状態</th><th>IN日</th><th>部屋</th><th>実受取(税込)</th><th>着金日</th><th>ゲスト</th><th>OTA</th><th>🔒</th>
   </tr>
 </thead><tbody id="payBody"></tbody></table></div>
   </div>
@@ -667,6 +667,21 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <button style="background:none;border:1px solid var(--red);color:var(--red);padding:8px 12px;border-radius:7px;font-size:.78em;cursor:pointer" onclick="closeModal('csvModal');resetAllBookings()">🗑️ 全データリセット</button>
       <button class="btn-cancel" onclick="closeModal('csvModal')">キャンセル</button>
       <button class="btn-ok" id="loadBtn" onclick="loadCSVs()" disabled>読み込む</button>
+    </div>
+  </div>
+</div>
+
+<!-- 実受取 金額編集 Modal -->
+<div class="overlay" id="amtModal" onclick="if(event.target===this)closeModal('amtModal')">
+  <div class="modal" style="max-width:320px">
+    <h2>💴 実受取を修正</h2>
+    <div style="font-size:.8em;color:var(--t2);margin-bottom:10px" id="amtModalGuest"></div>
+    <div style="margin-bottom:6px;font-size:.78em;color:var(--t3)">CSV金額：<span id="amtModalCsv" style="font-weight:700;color:var(--t2)"></span></div>
+    <input id="amtModalInput" type="number" style="width:100%;box-sizing:border-box;border:2px solid var(--p);border-radius:8px;padding:10px 12px;font-size:1.1em;font-family:ui-monospace,monospace;text-align:right;outline:none;margin-bottom:12px">
+    <div class="modal-btns">
+      <button style="background:#eee;color:var(--t2);border:none;padding:8px 14px;border-radius:7px;cursor:pointer;font-size:.83em" onclick="revertPayAmt()">CSV金額に戻す</button>
+      <button class="btn-cancel" onclick="closeModal('amtModal')">キャンセル</button>
+      <button class="btn-ok" onclick="savePayAmt()">保存</button>
     </div>
   </div>
 </div>
@@ -953,7 +968,13 @@ function parseCSV(text){
   }
   return result;
 }
-function normDate(s){if(!s)return'';return s.trim().replace(/\//g,'-').replace(/\s.+/,'').substring(0,10);}
+function normDate(s){
+  if(!s)return'';
+  // 「2026年3月12日」形式に対応
+  const jp=s.trim().match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if(jp)return jp[1]+'-'+String(jp[2]).padStart(2,'0')+'-'+String(jp[3]).padStart(2,'0');
+  return s.trim().replace(/\//g,'-').replace(/\s.+/,'').substring(0,10);
+}
 
 // ════════════════════════════════════════════
 //  PARSE BOOKINGS
@@ -1315,6 +1336,17 @@ function renderOpsTabs(){
       ytabs.scrollTo({left:yoffset,behavior:'smooth'});
     }
   });
+}
+function swPayYear(y){
+  const months=Object.keys(MS).filter(m=>m.startsWith(y)).sort();
+  if(!months.length)return;
+  const selMo=payM?payM.substring(5):'01';
+  payM=months.includes(y+'-'+selMo)?y+'-'+selMo:months[months.length-1];
+  renderPayTab();
+}
+function swPayM(m){
+  payM=m;
+  renderPayTab();
 }
 function swYear(y){
   const months=Object.keys(MS).filter(m=>m.startsWith(y)).sort();
@@ -1950,9 +1982,29 @@ function renderClean(){
 function renderPayTab(){
   const months=Object.keys(MS).sort().reverse();
   const mt=document.getElementById('payMtabs');
-  if(!months.length){mt.innerHTML='';document.getElementById('paySum').innerHTML='';document.getElementById('payBody').innerHTML='<tr><td colspan="8" style="text-align:center;color:#999;padding:18px">CSVを読み込んでください</td></tr>';return;}
-  if(!payM||!MS[payM])payM=months[0];
-  mt.innerHTML=months.map(m=>`<button class="pay-mtab ${m===payM?'on':''}" onclick="payM='${m}';renderPayTab()">${m}</button>`).join('');
+  const wrap=document.getElementById('payTabsWrap');
+  if(!months.length){if(wrap)wrap.innerHTML='';document.getElementById('paySum').innerHTML='';document.getElementById('payBody').innerHTML='<tr><td colspan="9" style="text-align:center;color:#999;padding:18px">CSVを読み込んでください</td></tr>';return;}
+  const todayM=new Date().toISOString().substring(0,7);
+  if(!payM||!MS[payM])payM=months.includes(todayM)?todayM:months[months.length-1];
+  const selY=payM.substring(0,4);
+  const selMo=parseInt(payM.substring(5,7));
+  const years=[...new Set(months.map(m=>m.substring(0,4)))].sort();
+  const yearMonths=new Set(months.filter(m=>m.startsWith(selY)).map(m=>parseInt(m.substring(5,7))));
+  const yearHTML=years.map(y=>`<button class="ytab ${y===selY?'on':''}" onclick="swPayYear('${y}')">${y}年</button>`).join('');
+  const moHTML=Array.from({length:12},(_,i)=>{
+    const mo=i+1,moStr=String(mo).padStart(2,'0'),mk=selY+'-'+moStr,has=yearMonths.has(mo);
+    return`<button class="mtab ${mo===selMo?'on':''}" ${has?`onclick="swPayM('${mk}',this)"`:'disabled'}>${mo}月</button>`;
+  }).join('');
+  if(wrap)wrap.innerHTML=`<div class="ytabs"><div class="ytabs-inner">${yearHTML}</div></div><div class="mtabs"><div class="mtabs-inner" style="width:100%">${moHTML}</div></div>`;
+  requestAnimationFrame(()=>{
+    if(!wrap)return;
+    const mtabs=wrap.querySelector('.mtabs');
+    const onBtn=wrap.querySelector('.mtab.on');
+    if(mtabs&&onBtn){const offset=onBtn.offsetLeft-(mtabs.clientWidth/2)+(onBtn.offsetWidth/2);mtabs.scrollTo({left:offset,behavior:'smooth'});}
+    const ytabs=wrap.querySelector('.ytabs');
+    const onY=wrap.querySelector('.ytab.on');
+    if(ytabs&&onY){const yoff=onY.offsetLeft-(ytabs.clientWidth/2)+(onY.offsetWidth/2);ytabs.scrollTo({left:yoff,behavior:'smooth'});}
+  });
   const pays=S.get(PAY_KEY)||{};
   const allBks=[];
   Object.keys(BK).forEach(tag=>{BK[tag].forEach(bk=>{if(bk.ci.startsWith(payM))allBks.push({...bk,tag,prop:ROOMS[tag]||''});});});
@@ -1991,21 +2043,21 @@ function renderPayTab(){
     const isEdited=customAmt!=='';
     return`<tr style="${rowStyle}">
       <td><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer" ${isLocked?'disabled':''}></td>
-      <td>${bk.ci}</td><td>${bk.tag}</td>
+      <td>${ip?'<span class="tag-paid">入金済</span>':'<span class="tag-unpaid">未確認</span>'}</td>
+      <td>${bk.ci}</td>
+      <td>${bk.tag}</td>
+      <td style="text-align:right">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">
+          <span style="font-family:ui-monospace,monospace;font-size:.88em;font-weight:600;color:${isEdited?'var(--orange)':'var(--t1)'}">¥${dispAmt.toLocaleString('ja-JP')}</span>
+          ${!isLocked?`<button onclick="openAmtModal('${bk.id}',${csvAmt},'${bk.g.replace(/'/g,"\\'")}')" title="金額を修正" style="border:1px solid var(--b);background:#f5f5f5;border-radius:4px;cursor:pointer;font-size:.72em;padding:2px 6px;color:var(--t2)">✏️</button>`:''}
+        </div>
+      </td>
+      <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)"></td>
       <td style="max-width:120px"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${bk.g}</div>${bk.cancel?'<div style="margin-top:2px"><span style="font-size:.7em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px;white-space:nowrap">キャンセル料</span></div>':''}</td>
       <td>${bk.s}</td>
-      <td style="text-align:right"><div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">
-        <input type="number" value="${customAmt}" placeholder="${csvAmt}" ${isLocked?'disabled':''}
-          onchange="updatePayAmt('${bk.id}',this.value)"
-          style="width:90px;text-align:right;font-family:ui-monospace,monospace;font-size:.82em;border:1.5px solid ${isEdited?'var(--orange)':'var(--b)'};border-radius:5px;padding:3px 5px;outline:none;background:${isEdited?'#fff8f0':'#fff'}">
-        ${isEdited?`<button onclick="updatePayAmt('${bk.id}','')" title="CSV金額に戻す" style="border:none;background:none;cursor:pointer;font-size:.8em;color:#aaa;padding:0">↩</button>`:''}
-      </div></td>
-      <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)"></td>
-      <td>${ip?'<span class="tag-paid">入金済</span>':'<span class="tag-unpaid">未確認</span>'}</td>
       <td><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em">${isLocked?'🔒':'🔓'}</button></td>
-      <td><button class="pay-btn ${ip?'paid':''}" ${isLocked?'disabled':''} onclick="togPay('${bk.id}',${!ip})">${ip?'✓ 済':'確認する'}</button></td>
     </tr>`;
-  }).join('')||'<tr><td colspan="8" style="text-align:center;color:#999;padding:16px">この月の予約がありません</td></tr>';
+  }).join('')||'<tr><td colspan="9" style="text-align:center;color:#999;padding:16px">この月の予約がありません</td></tr>';
 }
 
 // ⑤ Bulk payment date functions
@@ -2064,6 +2116,26 @@ function togPay(id,val){
   S.set(PAY_KEY,pays);
   renderPayTab();
 }
+let _amtModalId=null,_amtModalCsv=0;
+function openAmtModal(id,csvAmt,guest){
+  _amtModalId=id;_amtModalCsv=csvAmt;
+  const pays=S.get(PAY_KEY)||{};
+  const custom=(pays[id]||{}).customAmt;
+  document.getElementById('amtModalGuest').textContent=guest;
+  document.getElementById('amtModalCsv').textContent='¥'+csvAmt.toLocaleString('ja-JP');
+  document.getElementById('amtModalInput').value=custom!=null?custom:csvAmt;
+  openModal('amtModal');
+  setTimeout(()=>{const el=document.getElementById('amtModalInput');if(el){el.focus();el.select();}},80);
+}
+function savePayAmt(){
+  const val=document.getElementById('amtModalInput').value;
+  updatePayAmt(_amtModalId,val);
+  closeModal('amtModal');
+}
+function revertPayAmt(){
+  updatePayAmt(_amtModalId,'');
+  closeModal('amtModal');
+}
 function updatePayAmt(id,val){
   const pays=S.get(PAY_KEY)||{};
   if(!pays[id])pays[id]={};
@@ -2093,15 +2165,18 @@ function handlePayCSV(files){
       if(!rows.length)return;
       const pays=S.get(PAY_KEY)||{};
       let matched=0;
-      // Detect format: Airbnb has '確認コード', Booking.com has 'Reference number'
+      // フォーマット判定
+      // Airbnb: '確認コード' 列あり
+      // Booking.com 英語: 'Reference number' 列あり
+      // Booking.com 日本語: '照会番号' 列あり
       const isAirbnb=!!(rows[0]&&rows[0]['確認コード']!==undefined);
+      const isBkJa=!isAirbnb&&!!(rows[0]&&rows[0]['照会番号']!==undefined);
       if(isAirbnb){
         // Airbnb format
         rows.forEach(row=>{
           const code=(row['確認コード']||'').trim();
           if(!code)return;
           const payDate=normDate((row['入金予定日']||'').replace(/\//g,'-'));
-          // Match by confirmation code against BK id or search
           Object.keys(BK).forEach(tag=>{
             BK[tag].forEach(bk=>{
               if(bk.id===code||(bk.id&&code&&bk.id.includes(code))){
@@ -2113,8 +2188,27 @@ function handlePayCSV(files){
             });
           });
         });
+      } else if(isBkJa){
+        // Booking.com 日本語フォーマット（照会番号・お支払い日・純収益）
+        rows.forEach(row=>{
+          const refNum=(row['照会番号']||'').trim();
+          if(!refNum)return;
+          const payDate=normDate(row['お支払い日']||'');
+          const netAmt=parseInt((row['純収益']||'').replace(/[^0-9-]/g,''));
+          Object.keys(BK).forEach(tag=>{
+            BK[tag].forEach(bk=>{
+              if(bk.id===refNum){
+                if(!pays[bk.id])pays[bk.id]={};
+                pays[bk.id].status='1';
+                if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate;
+                if(!isNaN(netAmt)&&netAmt>0&&pays[bk.id].customAmt==null)pays[bk.id].customAmt=netAmt;
+                matched++;
+              }
+            });
+          });
+        });
       } else {
-        // Booking.com format
+        // Booking.com 英語フォーマット（Reference number・Payout date）
         rows.forEach(row=>{
           const refNum=(row['Reference number']||'').trim();
           if(!refNum)return;
@@ -2124,7 +2218,7 @@ function handlePayCSV(files){
               if(bk.id===refNum){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
-                if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate; // ⑪ pre-fill if empty
+                if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate;
                 matched++;
               }
             });
@@ -2133,7 +2227,8 @@ function handlePayCSV(files){
       }
       S.set(PAY_KEY,pays);
       renderPayTab();
-      alert(`✅ ${isAirbnb?'Airbnb':'Booking.com'} CSV: ${matched}件を入金済みとして消込しました`);
+      const fmt=isAirbnb?'Airbnb':isBkJa?'Booking.com（日本語）':'Booking.com（英語）';
+      alert(`✅ ${fmt} CSV: ${matched}件を入金済みとして消込しました`);
     };
     r.readAsText(f,'UTF-8');
   });
