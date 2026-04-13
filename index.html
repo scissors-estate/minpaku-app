@@ -322,20 +322,17 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .pay-si{text-align:center;min-width:80px}
 .pay-sl{font-size:.66em;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:2px}
 .pay-sv{font-size:1.1em;font-weight:700;font-family:ui-monospace,monospace;word-break:break-all}
-.pay-tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 380px);border:1px solid #d8daf0;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.07)}
-.pay-tbl{width:860px;border-collapse:collapse;font-size:.87em;table-layout:fixed}
-/* ヘッダー共通 */
-.pay-tbl th{background:#eeeffa;padding:9px 10px;color:#5a5f8a;font-weight:700;font-size:.76em;letter-spacing:.05em;border-bottom:2px solid #d0d3ee;position:sticky;top:0;z-index:2;white-space:nowrap;overflow:hidden;text-align:left}
-/* セル共通 */
-.pay-tbl td{padding:9px 10px;border-bottom:1px solid #ebebf5;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
-/* 実受取列：右に余白を多めに */
-.pay-tbl th:nth-child(5),.pay-tbl td:nth-child(5){padding-right:18px}
-/* 着金日列：左に余白を多めに */
-.pay-tbl th:nth-child(6),.pay-tbl td:nth-child(6){padding-left:18px}
+.pay-tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 380px);border:1.5px solid #c8cae8;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.pay-tbl{width:100%;min-width:820px;border-collapse:collapse;font-size:.87em;table-layout:fixed}
+.pay-tbl th{background:#eaecf8;padding:8px 10px;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;position:sticky;top:0;z-index:2;white-space:nowrap;overflow:hidden;text-align:center}
+.pay-tbl th:last-child{border-right:none}
+.pay-tbl td{padding:8px 10px;border-bottom:1px solid #e0e2f0;border-right:1px solid #e0e2f0;vertical-align:middle;white-space:nowrap;text-align:center}
+.pay-tbl td:nth-child(8){overflow:hidden;text-overflow:ellipsis}
+.pay-tbl td:last-child{border-right:none}
 .pay-tbl tbody tr:last-child td{border-bottom:none}
-.pay-tbl tbody tr:hover td{background:#f5f6ff}
-.pay-tbl tbody tr:nth-child(even) td{background:#fafafd}
-.pay-tbl tbody tr:nth-child(even):hover td{background:#f0f1ff}
+.pay-tbl tbody tr:hover td{background:#f0f1ff}
+.pay-tbl tbody tr:nth-child(even) td{background:#f7f8fd}
+.pay-tbl tbody tr:nth-child(even):hover td{background:#eceeff}
 .tag-paid{display:inline-block;background:#d4edda;color:#1a6e30;padding:3px 9px;border-radius:99px;font-size:.74em;font-weight:700;letter-spacing:.03em}
 .tag-unpaid{display:inline-block;background:#fff3cd;color:#7a5800;padding:3px 9px;border-radius:99px;font-size:.74em;font-weight:700;letter-spacing:.03em}
 .pay-btn{border:1.5px solid var(--p);background:transparent;color:var(--p);padding:3px 8px;border-radius:6px;cursor:pointer;font-size:.7em}
@@ -419,6 +416,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
   </div>
   <div class="tabs">
     <button class="tab on" onclick="swTab('ops',this)">📊 運営</button>
+    <button class="tab" id="tabDisc" onclick="swTab('disc',this)">🏷️ 割引管理</button>
     <button class="tab" id="tabCal" onclick="swTab('cal',this)">📅 カレンダー</button>
     <button class="tab" onclick="swTab('clean',this)">🧹 清掃</button>
     <button class="tab" id="tabBb" onclick="swTab('bb',this)">📋 掲示板</button>
@@ -553,18 +551,18 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     </div>
     <div class="pay-tbl-wrap"><table class="pay-tbl">
   <colgroup>
-    <col style="width:36px"><col style="width:74px"><col style="width:104px"><col style="width:92px">
-    <col style="width:148px"><col style="width:148px"><col style="width:148px"><col style="width:74px"><col style="width:36px">
+    <col style="width:36px"><col style="width:84px"><col style="width:112px"><col style="width:104px">
+    <col style="width:160px"><col style="width:152px"><col style="width:110px"><col><col style="width:38px">
   </colgroup>
   <thead><tr>
     <th style="text-align:center"><input type="checkbox" id="paySelAll" onclick="paySelectAll(this.checked)" style="width:14px;height:14px;cursor:pointer;vertical-align:middle"></th>
-    <th style="text-align:center">状態</th>
-    <th style="text-align:center">IN日</th>
+    <th>状態</th>
+    <th>IN日</th>
     <th>部屋</th>
-    <th style="text-align:right">実受取(税込)</th>
-    <th style="text-align:center">着金日</th>
+    <th>実受取(税込)</th>
+    <th>着金日</th>
+    <th>OTA</th>
     <th>ゲスト</th>
-    <th style="text-align:center">OTA</th>
     <th style="text-align:center">🔒</th>
   </tr></thead>
   <tbody id="payBody"></tbody></table></div>
@@ -603,6 +601,66 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div class="sec"><h2>📒 民泊手数料まとめ（税込）</h2>
       <div id="accContent"><div class="nd">CSVを読み込んでください</div></div>
       <button onclick="addAccRow()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em;margin-top:10px">＋ 手動入力行を追加（スクエア等）</button>
+    </div>
+  </div>
+
+  <!-- 割引管理 -->
+  <div class="pane" id="discPane">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <h2 style="margin:0;font-size:1em;font-weight:700">🏷️ 割引・セール管理</h2>
+      <button onclick="openDiscModal()" style="background:var(--p);color:#fff;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">＋ 追加</button>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <select id="discFiltOTA" onchange="renderDisc()" style="border:1.5px solid var(--b);border-radius:6px;padding:5px 8px;font-size:.8em;outline:none">
+          <option value="">全OTA</option>
+          <option value="Booking.com">Booking.com</option>
+          <option value="Airbnb">Airbnb</option>
+          <option value="両方">両方</option>
+          <option value="その他">その他</option>
+        </select>
+        <select id="discFiltRoom" onchange="renderDisc()" style="border:1.5px solid var(--b);border-radius:6px;padding:5px 8px;font-size:.8em;outline:none">
+          <option value="">全部屋</option>
+        </select>
+      </div>
+    </div>
+    <div id="discTableWrap"></div>
+  </div>
+
+  <!-- 割引モーダル -->
+  <div id="discModal" class="overlay" onclick="if(event.target===this)closeModal('discModal')" style="z-index:9000">
+    <div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:480px;box-shadow:0 8px 40px rgba(0,0,0,.18)"  onclick="event.stopPropagation()">
+      <h3 id="discModalTitle" style="margin:0 0 14px;font-size:.95em">割引を追加</h3>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="font-size:.8em;color:var(--t2);font-weight:600">部屋
+          <input id="dm_room" list="dm_roomList" placeholder="例：西新宿102" style="width:100%;margin-top:3px;border:1.5px solid var(--b);border-radius:6px;padding:7px 9px;font-size:.87em;outline:none;box-sizing:border-box">
+          <datalist id="dm_roomList"></datalist>
+        </label>
+        <label style="font-size:.8em;color:var(--t2);font-weight:600">OTA
+          <select id="dm_ota" style="width:100%;margin-top:3px;border:1.5px solid var(--b);border-radius:6px;padding:7px 9px;font-size:.87em;outline:none;box-sizing:border-box">
+            <option value="Booking.com">Booking.com</option>
+            <option value="Airbnb">Airbnb</option>
+            <option value="両方">両方</option>
+            <option value="その他">その他</option>
+          </select>
+        </label>
+        <label style="font-size:.8em;color:var(--t2);font-weight:600">内容
+          <input id="dm_content" placeholder="例：Booking 30%OFFセール（ジーニアス10%）" style="width:100%;margin-top:3px;border:1.5px solid var(--b);border-radius:6px;padding:7px 9px;font-size:.87em;outline:none;box-sizing:border-box">
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <label style="font-size:.8em;color:var(--t2);font-weight:600">有効期限
+            <input id="dm_expiry" placeholder="例：2026年6月末" style="width:100%;margin-top:3px;border:1.5px solid var(--b);border-radius:6px;padding:7px 9px;font-size:.87em;outline:none;box-sizing:border-box">
+          </label>
+          <label style="font-size:.8em;color:var(--t2);font-weight:600">適用日
+            <input id="dm_applied" type="date" style="width:100%;margin-top:3px;border:1.5px solid var(--b);border-radius:6px;padding:7px 9px;font-size:.87em;outline:none;box-sizing:border-box">
+          </label>
+        </div>
+        <label style="font-size:.8em;color:var(--t2);font-weight:600">備考
+          <input id="dm_notes" placeholder="例：Booking管理画面→プロモーション" style="width:100%;margin-top:3px;border:1.5px solid var(--b);border-radius:6px;padding:7px 9px;font-size:.87em;outline:none;box-sizing:border-box">
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button onclick="closeModal('discModal')" style="background:#f0f0f0;border:none;padding:8px 18px;border-radius:7px;cursor:pointer;font-size:.85em">キャンセル</button>
+        <button id="discSaveBtn" onclick="saveDisc()" style="background:var(--p);color:#fff;border:none;padding:8px 18px;border-radius:7px;cursor:pointer;font-size:.85em;font-weight:600">保存</button>
+      </div>
     </div>
   </div>
 
@@ -1447,9 +1505,10 @@ function renderOps(){
 
   // OTA
   const otaColors=['#667eea','#f093fb','#4CAF50','#FF9800','#f5576c','#764ba2'];
+  const otaColorOf=name=>name==='Airbnb'?'#FF5A5F':name==='Booking.com'?'#003580':otaColors[otaList.findIndex(o=>o.name===name)%otaColors.length];
   const otaH=otaList.length?`<div class="sec"><h2 onclick="togSec('sec_ota')" style="cursor:pointer;user-select:none"><span id="sec_ota_ico">▶</span> OTA別コミッション</h2><div id="sec_ota" style="display:none"><div class="ota-grid">${otaList.map((o,i)=>`
-    <div class="ota-card" style="border-top-color:${otaColors[i%otaColors.length]}">
-      <div class="ota-name">${o.name}</div>
+    <div class="ota-card" style="border-top:3px solid ${otaColorOf(o.name)}">
+      <div class="ota-name"><span style="display:inline-block;background:${otaColorOf(o.name)};color:#fff;font-size:.78em;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.02em">${o.name}</span></div>
       <div class="ota-row"><span>コミッション</span><span style="color:var(--red);font-weight:600">-${fmtF(o.comm)}</span></div>
       <div class="ota-row"><span>件数</span><span style="color:var(--p);font-weight:600">${o.cnt}件</span></div>
       <div class="ota-row"><span>売上</span><span style="font-weight:600">${fmtF(o.sales)}</span></div>
@@ -2075,17 +2134,17 @@ function renderPayTab(){
     const isEdited=customAmt!=='';
     return`<tr style="${rowStyle}">
       <td style="text-align:center"><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer;vertical-align:middle" ${isLocked?'disabled':''}></td>
-      <td style="text-align:center">${ip?'<span class="tag-paid">入金済</span>':'<span class="tag-unpaid">未確認</span>'}</td>
-      <td style="text-align:center;color:var(--t2);letter-spacing:.01em">${bk.ci}</td>
-      <td style="font-weight:500">${bk.tag}</td>
-      <td style="text-align:right">
-        <span style="font-family:ui-monospace,monospace;font-weight:700;font-size:.95em;color:${isEdited?'var(--orange)':'var(--t1)'}">¥${dispAmt.toLocaleString('ja-JP')}</span>
+      <td>${ip?'<span class="tag-paid">入金済</span>':'<span class="tag-unpaid">未確認</span>'}</td>
+      <td style="color:var(--t2)">${bk.ci}</td>
+      <td>${bk.tag}</td>
+      <td>
+        <span style="font-family:ui-monospace,monospace;font-weight:600;color:${isEdited?'var(--orange)':'var(--t1)'}">¥${dispAmt.toLocaleString('ja-JP')}</span>
         ${!isLocked?`<button onclick="openAmtModal('${bk.id}',${csvAmt},'${bk.g.replace(/'/g,"\\'")}')" title="金額を修正" style="border:1px solid #ddd;background:#f7f7fb;border-radius:4px;cursor:pointer;font-size:.68em;padding:2px 5px;color:var(--t3);margin-left:5px;vertical-align:middle">✏️</button>`:'<span style="display:inline-block;width:28px;margin-left:5px"></span>'}
       </td>
-      <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)" style="font-size:.82em;border:1.5px solid ${payDate?'#a5d6a7':'#ddd'};border-radius:6px;padding:3px 6px;color:${payDate?'#2e7d32':'var(--t3)'};background:${payDate?'#f1f9f1':'#fff'};cursor:pointer;width:110px"></td>
-      <td><div style="max-width:160px;overflow:hidden;text-overflow:ellipsis;color:var(--t1)">${bk.g}</div>${bk.cancel?'<div style="margin-top:2px"><span style="font-size:.68em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 6px">キャンセル料</span></div>':''}</td>
-      <td style="text-align:center;color:var(--t2);font-size:.83em;font-weight:600">${bk.s}</td>
-      <td style="text-align:center"><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1.05em;line-height:1;padding:2px">${isLocked?'🔒':'🔓'}</button></td>
+      <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)" style="font-size:.82em;border:1px solid ${payDate?'#a5d6a7':'#ccc'};border-radius:4px;padding:3px 6px;color:${payDate?'#2e7d32':'#aaa'};background:${payDate?'#f1f9f1':'#fff'};width:118px"></td>
+      <td>${(s=>{ const bg=s==='Airbnb'?'#FF5A5F':s==='Booking.com'?'#003580':'#90A4AE'; return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.73em;font-weight:700;padding:3px 9px;border-radius:4px;letter-spacing:.02em">${s}</span>`; })(bk.s)}</td>
+      <td>${bk.g}${bk.cancel?'<span style="margin-left:5px;font-size:.68em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px">キャンセル料</span>':''}</td>
+      <td style="text-align:center"><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em;padding:2px">${isLocked?'🔒':'🔓'}</button></td>
     </tr>`;
   }).join('')||'<tr><td colspan="9" style="text-align:center;color:#999;padding:16px">予約がありません</td></tr>';
   _payFilteredBks=[...filteredBks];
@@ -2197,6 +2256,135 @@ let _payHighlight=new Set();
 let _payImportIds=null;
 let _payFilteredBks=[];
 function clearPayImportFilter(){_payImportIds=null;_payHighlight=new Set();renderPayTab();}
+
+// ════════════════════════════════════════════
+//  🏷️ 割引・セール管理
+// ════════════════════════════════════════════
+const DISC_KEY='DISCOUNTS_v1';
+let _discEditId=null;
+
+function getDiscs(){return S.get(DISC_KEY)||[];}
+function saveDiscs(arr){S.set(DISC_KEY,arr);}
+
+function otaBadge(ota){
+  const bg=ota==='Airbnb'?'#FF5A5F':ota==='Booking.com'?'#003580':ota==='両方'?'#7b5ea7':'#90A4AE';
+  return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.71em;font-weight:700;padding:2px 8px;border-radius:4px">${ota}</span>`;
+}
+
+function renderDisc(){
+  // 部屋フィルターのoptionを最新化
+  const roomSel=document.getElementById('discFiltRoom');
+  if(roomSel){
+    const rooms=[...new Set(getDiscs().map(d=>d.room).filter(Boolean))].sort();
+    const curVal=roomSel.value;
+    roomSel.innerHTML='<option value="">全部屋</option>'+rooms.map(r=>`<option value="${r}" ${r===curVal?'selected':''}>${r}</option>`).join('');
+  }
+  // datalist更新
+  const dl=document.getElementById('dm_roomList');
+  if(dl){
+    const allRooms=[...new Set(Object.values(ROOMS||{}))].sort();
+    dl.innerHTML=allRooms.map(r=>`<option value="${r}">`).join('');
+  }
+
+  const filtOTA=(document.getElementById('discFiltOTA')||{}).value||'';
+  const filtRoom=(document.getElementById('discFiltRoom')||{}).value||'';
+  let discs=getDiscs();
+  if(filtOTA)discs=discs.filter(d=>d.ota===filtOTA);
+  if(filtRoom)discs=discs.filter(d=>d.room===filtRoom);
+
+  const wrap=document.getElementById('discTableWrap');
+  if(!wrap)return;
+  if(!discs.length){
+    wrap.innerHTML='<div style="color:var(--t3);padding:20px;text-align:center;font-size:.88em">登録なし</div>';
+    return;
+  }
+  wrap.innerHTML=`<div style="overflow-x:auto;border:1.5px solid #c8cae8;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+  <table style="width:100%;border-collapse:collapse;font-size:.87em;table-layout:auto">
+    <thead>
+      <tr style="background:#eaecf8">
+        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;white-space:nowrap;text-align:center">OTA</th>
+        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;white-space:nowrap;text-align:center">部屋</th>
+        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;text-align:center">内容</th>
+        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;white-space:nowrap;text-align:center">有効期限</th>
+        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;white-space:nowrap;text-align:center">適用日</th>
+        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;text-align:center">備考</th>
+        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${discs.map((d,i)=>{
+        const even=i%2===0;
+        const bg=even?'#fff':'#f7f8fd';
+        const sep='border-right:1px solid #e0e2f0';
+        return`<tr style="background:${bg}">
+          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center">${otaBadge(d.ota||'その他')}</td>
+          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;font-weight:600">${d.room||'—'}</td>
+          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep}">${d.content||'—'}</td>
+          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.expiry||'—'}</td>
+          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.applied||'—'}</td>
+          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};color:var(--t2);font-size:.84em">${d.notes||'—'}</td>
+          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;text-align:center;white-space:nowrap">
+            <button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.75em;color:var(--t2)">✏️ 編集</button>
+            <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.75em;color:#c62828;margin-left:4px">🗑️</button>
+          </td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function openDiscModal(id){
+  _discEditId=id||null;
+  const modal=document.getElementById('discModal');
+  const title=document.getElementById('discModalTitle');
+  if(id){
+    const d=getDiscs().find(x=>x.id===id);
+    if(!d)return;
+    title.textContent='割引を編集';
+    document.getElementById('dm_room').value=d.room||'';
+    document.getElementById('dm_ota').value=d.ota||'Booking.com';
+    document.getElementById('dm_content').value=d.content||'';
+    document.getElementById('dm_expiry').value=d.expiry||'';
+    document.getElementById('dm_applied').value=d.applied||'';
+    document.getElementById('dm_notes').value=d.notes||'';
+  } else {
+    title.textContent='割引を追加';
+    ['dm_room','dm_content','dm_expiry','dm_applied','dm_notes'].forEach(i=>{document.getElementById(i).value='';});
+    document.getElementById('dm_ota').value='Booking.com';
+  }
+  openModal('discModal');
+}
+
+function saveDisc(){
+  const room=document.getElementById('dm_room').value.trim();
+  const content=document.getElementById('dm_content').value.trim();
+  if(!room||!content){alert('部屋と内容は必須です');return;}
+  const arr=getDiscs();
+  const data={
+    id:_discEditId||Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    room,
+    ota:document.getElementById('dm_ota').value,
+    content,
+    expiry:document.getElementById('dm_expiry').value.trim(),
+    applied:document.getElementById('dm_applied').value,
+    notes:document.getElementById('dm_notes').value.trim(),
+  };
+  if(_discEditId){
+    const idx=arr.findIndex(x=>x.id===_discEditId);
+    if(idx>=0)arr[idx]=data; else arr.push(data);
+  } else {
+    arr.push(data);
+  }
+  saveDiscs(arr);
+  closeModal('discModal');
+  renderDisc();
+}
+
+function deleteDisc(id){
+  if(!confirm('この割引情報を削除しますか？'))return;
+  saveDiscs(getDiscs().filter(d=>d.id!==id));
+  renderDisc();
+}
 
 // ⑤ Parse both OTA CSV formats
 function handlePayCSV(files){
@@ -2665,6 +2853,7 @@ function swTab(id,btn){
   if(id==='users')renderUserMgmt();
   if(id==='roomMgmt')renderRoomMgmt();
   if(id==='cal')renderCal();
+  if(id==='disc')renderDisc();
 }
 
 function togRmBldg(id){
@@ -3479,13 +3668,13 @@ function renderAcc(){
   const manualTotal=manualRows.reduce((s,r)=>s+(r.comm||0),0);
 
   document.getElementById('accContent').innerHTML=`
-    <div style="font-size:.9em;font-weight:700;color:#FF9800;margin-bottom:6px">Airbnb</div>
-    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderRows(airbnbRows,'#fff8f0')}
-      <tr style="background:#f0f0f0;font-weight:700"><td colspan="5" style="${tdStyle}">Airbnb手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(airbnbTotal)}</td></tr>
+    <div style="margin-bottom:6px"><span style="display:inline-block;background:#FF5A5F;color:#fff;font-size:.78em;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.02em">Airbnb</span></div>
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderRows(airbnbRows,'#fff5f5')}
+      <tr style="background:#ffe8e8;font-weight:700"><td colspan="5" style="${tdStyle}">Airbnb手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(airbnbTotal)}</td></tr>
     </tbody></table>
-    <div style="font-size:.9em;font-weight:700;color:#667eea;margin:12px 0 6px">Booking.com</div>
+    <div style="margin:12px 0 6px"><span style="display:inline-block;background:#003580;color:#fff;font-size:.78em;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.02em">Booking.com</span></div>
     <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderRows(bookingRows,'#f0f4ff')}
-      <tr style="background:#f0f0f0;font-weight:700"><td colspan="5" style="${tdStyle}">Booking.com手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(bookingTotal)}</td></tr>
+      <tr style="background:#dce6f5;font-weight:700"><td colspan="5" style="${tdStyle}">Booking.com手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(bookingTotal)}</td></tr>
     </tbody></table>
     <div style="font-size:.9em;font-weight:700;color:#4CAF50;margin:12px 0 6px">その他（手動入力）</div>
     <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${manualHtml}
