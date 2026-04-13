@@ -525,7 +525,11 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         <input id="srchPayTo" type="date" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.76em;outline:none" onchange="renderPayTab()">
       </div>
     </div>
-    <div id="payTabsWrap"></div>
+    <div id="payImportBanner" style="display:none;background:#e8f5e9;border:1.5px solid #a5d6a7;border-radius:8px;padding:8px 14px;margin-bottom:8px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:.82em;color:#2e7d32;font-weight:600">📄 取込結果を表示中</span>
+      <span id="payImportCount" style="font-size:.82em;color:#2e7d32"></span>
+      <button onclick="clearPayImportFilter()" style="margin-left:auto;background:#2e7d32;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:.78em;cursor:pointer;font-weight:600">全件表示に戻す</button>
+    </div>
     <div class="pay-sum" id="paySum"></div>
     <!-- ⑤ Bulk date edit bar -->
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding:8px 10px;background:#f0f2ff;border-radius:8px">
@@ -533,6 +537,10 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <input type="date" id="bulkPayDate" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.78em;outline:none">
       <button onclick="bulkUpdatePayDate()" style="background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">一括適用</button>
       <button onclick="paySelectSamePayoutId()" style="background:transparent;border:1.5px solid var(--p);color:var(--p);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.75em">同Payout IDを選択</button>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button onclick="exportPayCSV()" title="表示中の一覧をCSVダウンロード" style="background:#fff;border:1.5px solid var(--b);color:var(--t2);padding:5px 11px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">📥 CSV出力</button>
+        <button onclick="printPayTable()" title="表示中の一覧を印刷" style="background:#fff;border:1.5px solid var(--b);color:var(--t2);padding:5px 11px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">🖨️ 印刷</button>
+      </div>
     </div>
     <div class="pay-tbl-wrap"><table class="pay-tbl"><thead>
   <tr>
@@ -1979,45 +1987,42 @@ function renderClean(){
 //  ⑤ PAYMENT - Booking.com & Airbnb
 // ════════════════════════════════════════════
 function renderPayTab(){
-  const months=Object.keys(MS).sort().reverse();
-  const mt=document.getElementById('payMtabs');
   const wrap=document.getElementById('payTabsWrap');
-  if(!months.length){if(wrap)wrap.innerHTML='';document.getElementById('paySum').innerHTML='';document.getElementById('payBody').innerHTML='<tr><td colspan="9" style="text-align:center;color:#999;padding:18px">CSVを読み込んでください</td></tr>';return;}
-  const todayM=new Date().toISOString().substring(0,7);
-  if(!payM||!MS[payM])payM=months.includes(todayM)?todayM:months[months.length-1];
-  const selY=payM.substring(0,4);
-  const selMo=parseInt(payM.substring(5,7));
-  const years=[...new Set(months.map(m=>m.substring(0,4)))].sort();
-  const yearMonths=new Set(months.filter(m=>m.startsWith(selY)).map(m=>parseInt(m.substring(5,7))));
-  const yearHTML=years.map(y=>`<button class="ytab ${y===selY?'on':''}" onclick="swPayYear('${y}')">${y}年</button>`).join('');
-  const moHTML=Array.from({length:12},(_,i)=>{
-    const mo=i+1,moStr=String(mo).padStart(2,'0'),mk=selY+'-'+moStr,has=yearMonths.has(mo);
-    return`<button class="mtab ${mo===selMo?'on':''}" ${has?`onclick="swPayM('${mk}',this)"`:'disabled'}>${mo}月</button>`;
-  }).join('');
-  if(wrap)wrap.innerHTML=`<div class="ytabs"><div class="ytabs-inner">${yearHTML}</div></div><div class="mtabs"><div class="mtabs-inner" style="width:100%">${moHTML}</div></div>`;
-  requestAnimationFrame(()=>{
-    if(!wrap)return;
-    const mtabs=wrap.querySelector('.mtabs');
-    const onBtn=wrap.querySelector('.mtab.on');
-    if(mtabs&&onBtn){const offset=onBtn.offsetLeft-(mtabs.clientWidth/2)+(onBtn.offsetWidth/2);mtabs.scrollTo({left:offset,behavior:'smooth'});}
-    const ytabs=wrap.querySelector('.ytabs');
-    const onY=wrap.querySelector('.ytab.on');
-    if(ytabs&&onY){const yoff=onY.offsetLeft-(ytabs.clientWidth/2)+(onY.offsetWidth/2);ytabs.scrollTo({left:yoff,behavior:'smooth'});}
-  });
+  if(wrap)wrap.innerHTML='';
   const pays=S.get(PAY_KEY)||{};
+  // 全月・全部屋から予約を収集
   const allBks=[];
-  Object.keys(BK).forEach(tag=>{BK[tag].forEach(bk=>{if(bk.ci.startsWith(payM))allBks.push({...bk,tag,prop:ROOMS[tag]||''});});});
+  Object.keys(BK).forEach(tag=>{BK[tag].forEach(bk=>{allBks.push({...bk,tag,prop:ROOMS[tag]||''});});});
   allBks.sort((a,b)=>a.ci.localeCompare(b.ci));
-  const paid=allBks.filter(b=>pays[b.id]&&pays[b.id].status==='1');
-  const unpaid=allBks.filter(b=>!pays[b.id]||pays[b.id].status!=='1');
+  if(!allBks.length){
+    document.getElementById('paySum').innerHTML='';
+    document.getElementById('payBody').innerHTML='<tr><td colspan="9" style="text-align:center;color:#999;padding:18px">CSVを読み込んでください</td></tr>';
+    const banner=document.getElementById('payImportBanner');if(banner)banner.style.display='none';
+    return;
+  }
+  // _payImportIds フィルター
+  let viewBks=allBks;
+  const banner=document.getElementById('payImportBanner');
+  if(_payImportIds&&_payImportIds.size>0){
+    viewBks=allBks.filter(b=>_payImportIds.has(b.id));
+    if(banner){
+      banner.style.display='flex';
+      const cnt=document.getElementById('payImportCount');
+      if(cnt)cnt.textContent=`${viewBks.length}件`;
+    }
+  } else {
+    if(banner)banner.style.display='none';
+  }
+  const paid=viewBks.filter(b=>pays[b.id]&&pays[b.id].status==='1');
+  const unpaid=viewBks.filter(b=>!pays[b.id]||pays[b.id].status!=='1');
   document.getElementById('paySum').innerHTML=`
-    <div class="pay-si"><div class="pay-sl">全予約</div><div class="pay-sv">${allBks.length}件</div></div>
+    <div class="pay-si"><div class="pay-sl">表示件数</div><div class="pay-sv">${viewBks.length}件</div></div>
     <div class="pay-si"><div class="pay-sl">入金済</div><div class="pay-sv" style="color:var(--green)">${paid.length}件</div></div>
     <div class="pay-si"><div class="pay-sl">未確認</div><div class="pay-sv" style="color:var(--orange)">${unpaid.length}件</div></div>
     <div class="pay-si"><div class="pay-sl">入金済金額</div><div class="pay-sv" style="color:var(--green)">${fmtF(paid.reduce((s,b)=>s+b.net,0))}</div></div>
     <div class="pay-si"><div class="pay-sl">未確認金額</div><div class="pay-sv" style="color:var(--orange)">${fmtF(unpaid.reduce((s,b)=>s+b.net,0))}</div></div>`;
   // ④⑩ Apply search filters
-  let filteredBks=[...allBks];
+  let filteredBks=[...viewBks];
   const g=id=>(document.getElementById(id)||{}).value||'';
   const srchRoom=g('srchRoom'),srchOTA=g('srchOTA'),srchStatus=g('srchStatus');
   const srchCiFrom=g('srchCiFrom'),srchCiTo=g('srchCiTo');
@@ -2035,7 +2040,8 @@ function renderPayTab(){
     const pd=pays[bk.id]||{};const ip=pd.status==='1';
     const payDate=pd.payDate||'';
     const isLocked=pd.locked==='1';
-    const rowStyle=isLocked?'background:#f9f9f9;':'';
+    const isHighlight=_payHighlight&&_payHighlight.has(bk.id);
+    const rowStyle=isHighlight?'background:#fffde7;outline:2px solid #f9a825;':isLocked?'background:#f9f9f9;':'';
     const csvAmt=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
     const customAmt=pd.customAmt!=null?pd.customAmt:'';
     const dispAmt=customAmt!==''?customAmt:csvAmt;
@@ -2054,7 +2060,8 @@ function renderPayTab(){
       <td>${bk.s}</td>
       <td><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em">${isLocked?'🔒':'🔓'}</button></td>
     </tr>`;
-  }).join('')||'<tr><td colspan="9" style="text-align:center;color:#999;padding:16px">この月の予約がありません</td></tr>';
+  }).join('')||'<tr><td colspan="9" style="text-align:center;color:#999;padding:16px">予約がありません</td></tr>';
+  _payFilteredBks=[...filteredBks];
 }
 
 // ⑤ Bulk payment date functions
@@ -2152,14 +2159,29 @@ function updatePayDate(id,date){
   renderPayTab();
 }
 
+// トースト通知
+function showToast(msg,color='var(--p)'){
+  const t=document.createElement('div');
+  t.style.cssText=`position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${color};color:#fff;padding:12px 24px;border-radius:12px;font-size:.88em;font-weight:600;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.2);white-space:nowrap`;
+  t.textContent=msg;document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3500);
+}
+let _payHighlight=new Set();
+let _payImportIds=null;
+let _payFilteredBks=[];
+function clearPayImportFilter(){_payImportIds=null;_payHighlight=new Set();renderPayTab();}
+
 // ⑤ Parse both OTA CSV formats
 function handlePayCSV(files){
-  [...files].forEach(f=>{
+  const fileArr=[...files];
+  let done=0;
+  const allMatchedIds=[];
+  fileArr.forEach(f=>{
     const r=new FileReader();
     r.onload=ev=>{
       const text=ev.target.result;
       const rows=parseCSV(text);
-      if(!rows.length)return;
+      if(!rows.length){done++;return;}
       const pays=S.get(PAY_KEY)||{};
       let matched=0;
       // フォーマット判定
@@ -2180,7 +2202,7 @@ function handlePayCSV(files){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
                 if(payDate)pays[bk.id].payDate=payDate;
-                matched++;
+                matched++;allMatchedIds.push(bk.id);
               }
             });
           });
@@ -2199,7 +2221,7 @@ function handlePayCSV(files){
                 pays[bk.id].status='1';
                 if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate;
                 if(!isNaN(netAmt)&&netAmt>0&&pays[bk.id].customAmt==null)pays[bk.id].customAmt=netAmt;
-                matched++;
+                matched++;allMatchedIds.push(bk.id);
               }
             });
           });
@@ -2216,19 +2238,78 @@ function handlePayCSV(files){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
                 if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate;
-                matched++;
+                matched++;allMatchedIds.push(bk.id);
               }
             });
           });
         });
       }
       S.set(PAY_KEY,pays);
-      renderPayTab();
+      done++;
       const fmt=isAirbnb?'Airbnb':isBkJa?'Booking.com（日本語）':'Booking.com（英語）';
-      alert(`✅ ${fmt} CSV: ${matched}件を入金済みとして消込しました`);
+      showToast(`✅ ${fmt}: ${matched}件を消込しました`,'#2e7d32');
+      // 全ファイル処理完了後に取込結果フィルター表示
+      if(done===fileArr.length){
+        _payHighlight=new Set(allMatchedIds);
+        _payImportIds=new Set(allMatchedIds);
+        renderPayTab();
+      }
     };
     r.readAsText(f,'UTF-8');
   });
+}
+
+// ⑤ CSV出力・印刷
+function exportPayCSV(){
+  if(!_payFilteredBks.length){alert('表示中の予約がありません');return;}
+  const pays=S.get(PAY_KEY)||{};
+  const esc=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const rows=[['状態','IN日','部屋','実受取(税込)','着金日','ゲスト','OTA']];
+  _payFilteredBks.forEach(bk=>{
+    const pd=pays[bk.id]||{};
+    const ip=pd.status==='1'?'入金済':'未確認';
+    const csvAmt=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
+    const dispAmt=pd.customAmt!=null?pd.customAmt:csvAmt;
+    rows.push([ip,bk.ci,bk.tag,dispAmt,pd.payDate||'',bk.g,bk.s]);
+  });
+  const csv='\uFEFF'+rows.map(r=>r.map(esc).join(',')).join('\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='入金管理_'+new Date().toISOString().substring(0,10)+'.csv';
+  a.click();URL.revokeObjectURL(a.href);
+}
+function printPayTable(){
+  if(!_payFilteredBks.length){alert('表示中の予約がありません');return;}
+  const pays=S.get(PAY_KEY)||{};
+  const rows=_payFilteredBks.map(bk=>{
+    const pd=pays[bk.id]||{};
+    const ip=pd.status==='1';
+    const csvAmt=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
+    const dispAmt=(pd.customAmt!=null?pd.customAmt:csvAmt).toLocaleString('ja-JP');
+    const stBg=ip?'#e8f5e9':'#fff8e1';const stCl=ip?'#2e7d32':'#e65100';
+    return`<tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;white-space:nowrap;background:${stBg};color:${stCl};font-weight:600">${ip?'入金済':'未確認'}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;white-space:nowrap">${bk.ci}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;white-space:nowrap">${bk.tag}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;text-align:right;font-family:monospace;white-space:nowrap">¥${dispAmt}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;white-space:nowrap">${pd.payDate||'－'}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;max-width:140px;overflow:hidden;text-overflow:ellipsis">${bk.g}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #ddd;white-space:nowrap">${bk.s}</td>
+    </tr>`;
+  }).join('');
+  const paid=_payFilteredBks.filter(b=>pays[b.id]&&pays[b.id].status==='1').length;
+  const win=window.open('','_blank','width=900,height=700');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>入金管理一覧</title>
+  <style>body{font-family:-apple-system,sans-serif;font-size:13px;margin:20px}h2{font-size:1em;margin-bottom:8px}
+  table{border-collapse:collapse;width:100%}th{background:#f4f4f8;padding:7px 10px;text-align:left;border-bottom:2px solid #ccc;white-space:nowrap}
+  .summary{display:flex;gap:20px;margin-bottom:12px;font-size:.88em;color:#555}
+  @media print{button{display:none}}</style></head><body>
+  <h2>入金管理一覧　印刷日：${new Date().toLocaleDateString('ja-JP')}</h2>
+  <div class="summary"><span>表示件数：${_payFilteredBks.length}件</span><span style="color:#2e7d32">入金済：${paid}件</span><span style="color:#e65100">未確認：${_payFilteredBks.length-paid}件</span></div>
+  <button onclick="window.print()" style="margin-bottom:12px;padding:6px 16px;cursor:pointer;border-radius:6px;border:1px solid #999;background:#f5f5f5">🖨️ 印刷する</button>
+  <table><thead><tr><th>状態</th><th>IN日</th><th>部屋</th><th style="text-align:right">実受取(税込)</th><th>着金日</th><th>ゲスト</th><th>OTA</th></tr></thead>
+  <tbody>${rows}</tbody></table></body></html>`);
+  win.document.close();
 }
 
 // Drag & drop for pay upload（ペイン全体にドロップ可）
