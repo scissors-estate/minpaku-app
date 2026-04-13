@@ -1434,16 +1434,26 @@ function renderOps(){
     <div class="wf-row sub2"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--t2)">内：清掃費</span><span class="wf-val neutral">${fmtF(tot.cl)}</span></div>
   </div></div>`;
 
-  // 支出サマリー（運営タブ）
+  // 支出サマリー（運営タブ）― フィルター別に直営/代行の原価を分けて表示
   const officeExpData=S.get(OFFICE_EXP_KEY)||{};
   const offExp=officeExpData[curM]||{};
+  const allRoomVals=Object.values(ms.rooms);
+  const dRent=allRoomVals.filter(r=>!r.isSub).reduce((a,r)=>a+(r.rent||0),0)+(ms.exp.emptyDRent||0);
+  const dUtil=allRoomVals.filter(r=>!r.isSub).reduce((a,r)=>a+(r.util||0),0);
+  const sRent=allRoomVals.filter(r=>r.isSub).reduce((a,r)=>a+(r.rent||0),0)+(ms.exp.emptySRent||0);
+  const sUtil=allRoomVals.filter(r=>r.isSub).reduce((a,r)=>a+(r.util||0),0);
+  const expRent=opsFilt==='direct'?dRent:opsFilt==='subcon'?sRent:exp.rent;
+  const expUtil=opsFilt==='direct'?dUtil:opsFilt==='subcon'?sUtil:exp.util;
+  const expOR=opsFilt==='subcon'?0:(exp.officeRent||0);
+  const expOU=opsFilt==='subcon'?0:(exp.officeUtil||0);
+  const expTot=expRent+expUtil+expOR+expOU;
   const expH=showExp?`<div class="sec"><h2 onclick="togSec('sec_exp')" style="cursor:pointer;user-select:none"><span id="sec_exp_ico">▶</span> 原価</h2><div id="sec_exp" style="display:none">
     <table class="tbl"><thead><tr><th>項目</th><th class="r">金額</th></tr></thead><tbody>
-      <tr><td>部屋家賃合計</td><td class="r" style="color:var(--red)">-${fmtF(exp.rent)}</td></tr>
-      <tr><td>部屋光熱費合計</td><td class="r" style="color:var(--red)">-${fmtF(exp.util)}</td></tr>
-      <tr><td>事務所家賃</td><td class="r" style="color:var(--red)">-${fmtF(exp.officeRent||0)}</td></tr>
-      <tr><td>事務所光熱費</td><td class="r" style="color:var(--red)">-${fmtF(exp.officeUtil||0)}</td></tr>
-      <tr style="border-top:2px solid var(--b)"><td><b>支出合計</b></td><td class="r" style="color:var(--red)"><b>-${fmtF(exp.tot)}</b></td></tr>
+      <tr><td>部屋家賃合計</td><td class="r" style="color:var(--red)">-${fmtF(expRent)}</td></tr>
+      <tr><td>部屋光熱費合計</td><td class="r" style="color:var(--red)">-${fmtF(expUtil)}</td></tr>
+      ${opsFilt!=='subcon'?`<tr><td>事務所家賃</td><td class="r" style="color:var(--red)">-${fmtF(expOR)}</td></tr>
+      <tr><td>事務所光熱費</td><td class="r" style="color:var(--red)">-${fmtF(expOU)}</td></tr>`:''}
+      <tr style="border-top:2px solid var(--b)"><td><b>支出合計</b></td><td class="r" style="color:var(--red)"><b>-${fmtF(expTot)}</b></td></tr>
     </tbody></table>
     <div style="font-size:.75em;color:var(--t3);margin-top:6px">※ 支出の入力は「支出」サブタブ・部屋家賃は「部屋管理」タブで設定</div>
   </div></div>`:'';
