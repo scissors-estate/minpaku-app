@@ -716,9 +716,10 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
   <!-- 掲示板 -->
   <div class="pane" id="bbPane">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-      <button onclick="bbNav(-1)" style="background:#fff;border:1.5px solid var(--b);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.82em">← 前の週末</button>
+      <button onclick="bbNav(-1)" style="background:#fff;border:1.5px solid var(--b);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.82em">← 前の7日</button>
       <span id="bbWeekLabel" style="font-size:.95em;font-weight:700"></span>
-      <button onclick="bbNav(1)" style="background:#fff;border:1.5px solid var(--b);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.82em">次の週末 →</button>
+      <button onclick="bbNav(1)" style="background:#fff;border:1.5px solid var(--b);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.82em">次の7日 →</button>
+      <button onclick="bbWeekOffset=0;renderBB()" style="background:var(--p);color:#fff;border:none;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:.8em;font-weight:600">今日</button>
       <button onclick="addBBDate()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:.8em">📅 日付を追加</button>
     </div>
     <div id="bbContent"></div>
@@ -2340,7 +2341,7 @@ function renderDisc(){
         return`<tr style="background:${bg}">
           <td style="padding:8px 6px;border-bottom:1px solid #e0e2f0;${sep};text-align:center">${otaBadgeShort(d.ota||'その他')}</td>
           <td style="padding:8px 8px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;font-weight:600">${d.room||'—'}</td>
-          <td style="padding:8px 10px;border-bottom:1px solid #e0e2f0;${sep};word-break:break-all">${d.content||'—'}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e0e2f0;${sep};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.content||'—'}</td>
           <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.expiry||'—'}</td>
           <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.applied||'—'}</td>
           <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};color:var(--t2);font-size:.84em">${d.notes||'—'}</td>
@@ -3483,24 +3484,21 @@ function removeBBDate(ds){
 }
 
 function renderBB(){
-  const[sat,sun]=getWeekDates(bbWeekOffset);
-  const satStr=dateToStr(sat),sunStr=dateToStr(sun);
-  document.getElementById('bbWeekLabel').textContent=dayLabel(sat)+'・'+dayLabel(sun);
-  
-  // Collect all target dates in this week range + nearby
+  // 今日から7日間
+  const today=new Date();today.setHours(0,0,0,0);
+  const startDay=new Date(today);startDay.setDate(today.getDate()+bbWeekOffset*7);
+  const endDay=new Date(startDay);endDay.setDate(startDay.getDate()+6);
+  const w=['日','月','火','水','木','金','土'];
+  document.getElementById('bbWeekLabel').textContent=
+    (startDay.getMonth()+1)+'/'+startDay.getDate()+'（'+w[startDay.getDay()]+'）〜'+(endDay.getMonth()+1)+'/'+endDay.getDate()+'（'+w[endDay.getDay()]+'）';
+
   const bbData=S.get(BB_KEY)||{};
-  const extraDates=(bbData._extra||[]).filter(ds=>{
-    const d=new Date(ds);
-    const ref=new Date(sat);ref.setDate(ref.getDate()-7);
-    const ref2=new Date(sun);ref2.setDate(ref2.getDate()+7);
-    return d>=ref&&d<=ref2;
+  const daysToShow=[];
+  for(let i=0;i<7;i++){const d=new Date(startDay);d.setDate(startDay.getDate()+i);daysToShow.push(dateToStr(d));}
+  // extra dates in range
+  (bbData._extra||[]).forEach(ds=>{
+    if(!daysToShow.includes(ds)){const d=new Date(ds);if(d>=startDay&&d<=endDay)daysToShow.push(ds);}
   });
-  
-  // Show Sat + Sun + any extra dates in this week
-  const weekStart=new Date(sat);weekStart.setDate(sat.getDate()-1);
-  const weekEnd=new Date(sun);weekEnd.setDate(sun.getDate()+1);
-  const daysToShow=[satStr,sunStr];
-  extraDates.forEach(ds=>{if(!daysToShow.includes(ds)){const d=new Date(ds);if(d>=weekStart&&d<=weekEnd)daysToShow.push(ds);}});
   daysToShow.sort();
 
   const content=document.getElementById('bbContent');
@@ -3511,14 +3509,21 @@ function renderBB(){
     const isWeekend=day.getDay()===0||day.getDay()===6;
     const title=day.getMonth()+1+'/'+day.getDate()+'（'+w[day.getDay()]+'）'+(isExtra&&!isWeekend?' ⭐追加日':'');
     
-    // CI rooms for this day (未完了のみ)
-    const ciRooms=Object.keys(ROOMS).map(tag=>{
+    // 全清掃部屋（CI含む）★付き
+    const allCleanRooms=Object.keys(ROOMS).map(tag=>{
       const r=getRoomSt(tag,ds);
-      if(!['checkin','warn','unassigned'].includes(r.type))return null;
       if(isChk(ds,tag))return null;
+      const isCI=['checkin','warn','unassigned'].includes(r.type);
+      const isCO=r.type==='cleanonly'||r.type==='danger';
+      let shouldClean=false;
+      if(isCO)shouldClean=true;
+      if(isCI){const cmCd=(r.cm?.cd||'').replace(/\//g,'-');shouldClean=cmCd===ds;}
+      if(!shouldClean)return null;
       const cm=r.cm;
-      return{tag,cleaner:cm?cm.cl:'未割当',cit:cm?cm.cit:'—'};
+      return{tag,isCI,cleaner:cm?cm.cl:'未割当',cit:cm?cm.cit:'—'};
     }).filter(Boolean);
+    // 後方互換：ciRoomsはcleanTags件数カウント用に維持
+    const ciRooms=allCleanRooms.filter(r=>r.isCI);
     
     const cleanTags=Object.keys(ROOMS).filter(tag=>{
       const r=getRoomSt(tag,ds);
@@ -3566,16 +3571,17 @@ function renderBB(){
           <input type="text" value="${staffExtra.replace(/"/g,'&quot;')}" placeholder="追記（例: 田中・鈴木）" onblur="saveBBStaff('${ds}',this.value)" style="width:100%;border:1px solid #e8c97a;border-radius:5px;padding:3px 7px;font-size:.8em;background:#fffef5;outline:none;font-family:system-ui,sans-serif">
         </div>
       </div>
-      ${ciRooms.length>0?`<div style="background:#f0f2ff;border-radius:8px;margin-bottom:10px;overflow:hidden">
-        <div onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.ci-arr').textContent=open?'▶':'▼';" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:.78em;font-weight:700;color:var(--p)">★ 当日INの部屋（${ciRooms.length}件）</span>
-          <span class="ci-arr" style="font-size:.7em;color:var(--p)">▼</span>
+      ${allCleanRooms.length>0?`<div style="background:#f0f2ff;border-radius:8px;margin-bottom:10px;overflow:hidden">
+        <div onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.cl-arr').textContent=open?'▶':'▼';" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:.78em;font-weight:700;color:var(--p)">🧹 清掃予定（${allCleanRooms.length}件　★CI：${ciRooms.length}件）</span>
+          <span class="cl-arr" style="font-size:.7em;color:var(--p)">▶</span>
         </div>
-        <div style="padding:0 10px 10px;display:block">
-          ${ciRooms.map(rm=>`<div style="display:flex;align-items:center;gap:8px;font-size:.75em;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05)">
+        <div style="padding:0 10px 10px;display:none">
+          ${allCleanRooms.map(rm=>`<div style="display:flex;align-items:center;gap:8px;font-size:.75em;padding:5px 2px;border-bottom:1px solid rgba(0,0,0,.05)">
+            <span style="font-weight:700;color:${rm.isCI?'#e65100':'var(--t3)'};min-width:14px;text-align:center">${rm.isCI?'★':'　'}</span>
             <span style="font-family:ui-monospace,monospace;font-weight:600;min-width:75px">${rm.tag}</span>
             <span style="flex:1;color:var(--t2)">→ ${rm.cleaner}</span>
-            <span style="color:var(--p);font-family:ui-monospace,monospace">IN ${rm.cit}</span>
+            ${rm.isCI?`<span style="color:var(--p);font-family:ui-monospace,monospace;font-size:.9em">IN ${rm.cit}</span>`:''}
           </div>`).join('')}
         </div>
       </div>`:''}
