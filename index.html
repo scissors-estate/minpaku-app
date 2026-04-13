@@ -98,6 +98,20 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .sec-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:14px}
 @media(min-width:900px){.sec-grid{grid-template-columns:1fr 1fr}}
 
+/* 🏷️ DISC CARDS (mobile-first) */
+.disc-card{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.07);border-left:4px solid var(--p)}
+.disc-card-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.disc-card-room{font-size:.92em;font-weight:700;flex:1;min-width:0}
+.disc-card-btns{display:flex;gap:6px;flex-shrink:0}
+.disc-card-content{font-size:.88em;color:var(--t);margin-bottom:8px;line-height:1.45;word-break:break-all}
+.disc-card-meta{display:flex;flex-wrap:wrap;gap:6px 16px}
+.disc-card-meta-item{display:flex;flex-direction:column;gap:1px}
+.disc-card-meta-lbl{font-size:.7em;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.03em}
+.disc-card-meta-val{font-size:.82em;color:var(--t2)}
+.disc-tbl-wrap{overflow-x:auto;border:1.5px solid #c8cae8;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+@media(max-width:640px){.disc-show-card{display:block}.disc-show-table{display:none}}
+@media(min-width:641px){.disc-show-card{display:none}.disc-show-table{display:block}}
+
 /* CMP */
 .cmp2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
 .cbox{background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;padding:12px;border-radius:8px;text-align:center}
@@ -2317,42 +2331,70 @@ function renderDisc(){
     wrap.innerHTML='<div style="color:var(--t3);padding:20px;text-align:center;font-size:.88em">登録なし</div>';
     return;
   }
-  wrap.innerHTML=`<div style="overflow-x:auto;border:1.5px solid #c8cae8;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-  <table style="width:100%;border-collapse:collapse;font-size:.87em;table-layout:fixed">
-    <colgroup>
-      <col style="width:42px"><col style="width:72px"><col><col style="width:90px"><col style="width:90px"><col style="width:160px"><col style="width:88px">
-    </colgroup>
-    <thead>
-      <tr style="background:#eaecf8">
-        <th style="padding:8px 6px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">OTA</th>
-        <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">部屋</th>
-        <th style="padding:8px 10px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:left">内容</th>
-        <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;white-space:nowrap;text-align:center">有効期限</th>
-        <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;white-space:nowrap;text-align:center">適用日</th>
-        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;text-align:center">備考</th>
-        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">操作</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${discs.map((d,i)=>{
-        const even=i%2===0;
-        const bg=even?'#fff':'#f7f8fd';
-        const sep='border-right:1px solid #e0e2f0';
-        return`<tr style="background:${bg}">
-          <td style="padding:8px 6px;border-bottom:1px solid #e0e2f0;${sep};text-align:center">${otaBadgeShort(d.ota||'その他')}</td>
-          <td style="padding:8px 8px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;font-weight:600">${d.room||'—'}</td>
-          <td style="padding:8px 10px;border-bottom:1px solid #e0e2f0;${sep};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.content||'—'}</td>
-          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.expiry||'—'}</td>
-          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.applied||'—'}</td>
-          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};color:var(--t2);font-size:.84em">${d.notes||'—'}</td>
-          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;text-align:center;white-space:nowrap">
-            <button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.75em;color:var(--t2)">✏️ 編集</button>
-            <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.75em;color:#c62828;margin-left:4px">🗑️</button>
-          </td>
-        </tr>`;
-      }).join('')}
-    </tbody>
-  </table></div>`;
+
+  // ── カード表示（モバイル） ──
+  const cardsHtml=`<div class="disc-show-card">
+    ${discs.map(d=>{
+      const borderColor=d.ota==='Airbnb'?'#FF5A5F':d.ota==='Booking.com'?'#003580':d.ota==='両方'?'#7b5ea7':'#90A4AE';
+      return`<div class="disc-card" style="border-left-color:${borderColor}">
+        <div class="disc-card-hdr">
+          ${otaBadgeShort(d.ota||'その他')}
+          <span class="disc-card-room">${d.room||'—'}</span>
+          <div class="disc-card-btns">
+            <button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:5px 11px;cursor:pointer;font-size:.78em;color:var(--t2)">✏️</button>
+            <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:5px 11px;cursor:pointer;font-size:.78em;color:#c62828">🗑️</button>
+          </div>
+        </div>
+        <div class="disc-card-content">${d.content||'—'}</div>
+        <div class="disc-card-meta">
+          ${d.expiry?`<div class="disc-card-meta-item"><span class="disc-card-meta-lbl">有効期限</span><span class="disc-card-meta-val">${d.expiry}</span></div>`:''}
+          ${d.applied?`<div class="disc-card-meta-item"><span class="disc-card-meta-lbl">適用日</span><span class="disc-card-meta-val">${d.applied}</span></div>`:''}
+          ${d.notes?`<div class="disc-card-meta-item" style="flex-basis:100%"><span class="disc-card-meta-lbl">備考</span><span class="disc-card-meta-val">${d.notes}</span></div>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  // ── テーブル表示（デスクトップ） ──
+  const sep='border-right:1px solid #e0e2f0';
+  const tableHtml=`<div class="disc-show-table disc-tbl-wrap">
+    <table style="width:100%;border-collapse:collapse;font-size:.87em;table-layout:fixed">
+      <colgroup>
+        <col style="width:42px"><col style="width:72px"><col><col style="width:90px"><col style="width:90px"><col style="width:160px"><col style="width:88px">
+      </colgroup>
+      <thead>
+        <tr style="background:#eaecf8">
+          <th style="padding:8px 6px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">OTA</th>
+          <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">部屋</th>
+          <th style="padding:8px 10px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:left">内容</th>
+          <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;white-space:nowrap;text-align:center">有効期限</th>
+          <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;white-space:nowrap;text-align:center">適用日</th>
+          <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;text-align:center">備考</th>
+          <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${discs.map((d,i)=>{
+          const even=i%2===0;
+          const bg=even?'#fff':'#f7f8fd';
+          return`<tr style="background:${bg}">
+            <td style="padding:8px 6px;border-bottom:1px solid #e0e2f0;${sep};text-align:center">${otaBadgeShort(d.ota||'その他')}</td>
+            <td style="padding:8px 8px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;font-weight:600">${d.room||'—'}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #e0e2f0;${sep};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.content||'—'}</td>
+            <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.expiry||'—'}</td>
+            <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.applied||'—'}</td>
+            <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};color:var(--t2);font-size:.84em">${d.notes||'—'}</td>
+            <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;text-align:center;white-space:nowrap">
+              <button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.75em;color:var(--t2)">✏️ 編集</button>
+              <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.75em;color:#c62828;margin-left:4px">🗑️</button>
+            </td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+
+  wrap.innerHTML=cardsHtml+tableHtml;
 }
 
 function openDiscModal(id){
@@ -3484,35 +3526,37 @@ function removeBBDate(ds){
 }
 
 function renderBB(){
-  // 今日から7日間
-  const today=new Date();today.setHours(0,0,0,0);
-  const startDay=new Date(today);startDay.setDate(today.getDate()+bbWeekOffset*7);
-  const endDay=new Date(startDay);endDay.setDate(startDay.getDate()+6);
+  // 今日から7日間（ローカル日時で計算してタイムゾーンズレを防ぐ）
+  const ld=s=>{const d=new Date(s.getFullYear(),s.getMonth(),s.getDate());return d;};
+  const ldStr=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const now=new Date();
+  const startDay=new Date(now.getFullYear(),now.getMonth(),now.getDate()+bbWeekOffset*7);
+  const endDay=new Date(now.getFullYear(),now.getMonth(),now.getDate()+bbWeekOffset*7+6);
+  const startStr=ldStr(startDay),endStr=ldStr(endDay);
   const w=['日','月','火','水','木','金','土'];
   document.getElementById('bbWeekLabel').textContent=
     (startDay.getMonth()+1)+'/'+startDay.getDate()+'（'+w[startDay.getDay()]+'）〜'+(endDay.getMonth()+1)+'/'+endDay.getDate()+'（'+w[endDay.getDay()]+'）';
 
   const bbData=S.get(BB_KEY)||{};
   const daysToShow=[];
-  for(let i=0;i<7;i++){const d=new Date(startDay);d.setDate(startDay.getDate()+i);daysToShow.push(dateToStr(d));}
-  // extra dates in range
+  for(let i=0;i<7;i++){daysToShow.push(ldStr(new Date(now.getFullYear(),now.getMonth(),now.getDate()+bbWeekOffset*7+i)));}
   (bbData._extra||[]).forEach(ds=>{
-    if(!daysToShow.includes(ds)){const d=new Date(ds);if(d>=startDay&&d<=endDay)daysToShow.push(ds);}
+    if(!daysToShow.includes(ds)&&ds>=startStr&&ds<=endStr)daysToShow.push(ds);
   });
   daysToShow.sort();
 
   const content=document.getElementById('bbContent');
   content.innerHTML=daysToShow.map(ds=>{
-    const day=new Date(ds);
+    const day=new Date(ds+'T00:00:00'); // ローカル時刻で解析
     const w=['日','月','火','水','木','金','土'];
     const isExtra=(bbData._extra||[]).includes(ds);
     const isWeekend=day.getDay()===0||day.getDay()===6;
     const title=day.getMonth()+1+'/'+day.getDate()+'（'+w[day.getDay()]+'）'+(isExtra&&!isWeekend?' ⭐追加日':'');
     
-    // 全清掃部屋（CI含む）★付き
+    // 全清掃部屋（CI含む・完了済み含む）★付き
     const allCleanRooms=Object.keys(ROOMS).map(tag=>{
       const r=getRoomSt(tag,ds);
-      if(isChk(ds,tag))return null;
+      const done=isChk(ds,tag);
       const isCI=['checkin','warn','unassigned'].includes(r.type);
       const isCO=r.type==='cleanonly'||r.type==='danger';
       let shouldClean=false;
@@ -3520,23 +3564,10 @@ function renderBB(){
       if(isCI){const cmCd=(r.cm?.cd||'').replace(/\//g,'-');shouldClean=cmCd===ds;}
       if(!shouldClean)return null;
       const cm=r.cm;
-      return{tag,isCI,cleaner:cm?cm.cl:'未割当',cit:cm?cm.cit:'—'};
+      return{tag,isCI,done,cleaner:cm?cm.cl:'未割当',cit:cm?cm.cit:'—'};
     }).filter(Boolean);
-    // 後方互換：ciRoomsはcleanTags件数カウント用に維持
     const ciRooms=allCleanRooms.filter(r=>r.isCI);
-    
-    const cleanTags=Object.keys(ROOMS).filter(tag=>{
-      const r=getRoomSt(tag,ds);
-      if(isChk(ds,tag))return false;
-      if(r.type==='cleanonly')return true;
-      if(r.type==='danger')return true;
-      if(['checkin','warn','unassigned'].includes(r.type)){
-        // 清掃日が今日の場合のみカウント（前日以前の清掃はカウントしない）
-        const cmCd=(r.cm?.cd||'').replace(/\//g,'-');
-        return cmCd===ds;
-      }
-      return false;
-    });
+    const cleanTags=allCleanRooms; // 完了済みも件数に含める
     
     const staffOnDuty=new Set();
     const parterSet=new Set();
@@ -3573,13 +3604,13 @@ function renderBB(){
       </div>
       ${allCleanRooms.length>0?`<div style="background:#f0f2ff;border-radius:8px;margin-bottom:10px;overflow:hidden">
         <div onclick="var b=this.nextElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'block';this.querySelector('.cl-arr').textContent=open?'▶':'▼';" style="padding:10px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:.78em;font-weight:700;color:var(--p)">🧹 清掃予定（${allCleanRooms.length}件　★CI：${ciRooms.length}件）</span>
+          <span style="font-size:.78em;font-weight:700;color:var(--p)">🧹 清掃予定（${allCleanRooms.length}件　★IN：${ciRooms.length}件　✓完了：${allCleanRooms.filter(r=>r.done).length}件）</span>
           <span class="cl-arr" style="font-size:.7em;color:var(--p)">▶</span>
         </div>
         <div style="padding:0 10px 10px;display:none">
-          ${allCleanRooms.map(rm=>`<div style="display:flex;align-items:center;gap:8px;font-size:.75em;padding:5px 2px;border-bottom:1px solid rgba(0,0,0,.05)">
-            <span style="font-weight:700;color:${rm.isCI?'#e65100':'var(--t3)'};min-width:14px;text-align:center">${rm.isCI?'★':'　'}</span>
-            <span style="font-family:ui-monospace,monospace;font-weight:600;min-width:75px">${rm.tag}</span>
+          ${allCleanRooms.map(rm=>`<div style="display:flex;align-items:center;gap:8px;font-size:.75em;padding:5px 2px;border-bottom:1px solid rgba(0,0,0,.05);opacity:${rm.done?0.45:1}">
+            <span style="font-weight:700;color:${rm.isCI?'#e65100':'var(--t3)'};min-width:14px;text-align:center">${rm.done?'✓':rm.isCI?'★':'　'}</span>
+            <span style="font-family:ui-monospace,monospace;font-weight:600;min-width:75px;${rm.done?'text-decoration:line-through':''}">${rm.tag}</span>
             <span style="flex:1;color:var(--t2)">→ ${rm.cleaner}</span>
             ${rm.isCI?`<span style="color:var(--p);font-family:ui-monospace,monospace;font-size:.9em">IN ${rm.cit}</span>`:''}
           </div>`).join('')}
