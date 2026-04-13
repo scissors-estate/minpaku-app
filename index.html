@@ -323,21 +323,11 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .pay-sl{font-size:.66em;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:2px}
 .pay-sv{font-size:1.1em;font-weight:700;font-family:ui-monospace,monospace;word-break:break-all}
 .pay-tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 380px);border:1px solid #d8daf0;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.07)}
-.pay-tbl{width:100%;min-width:820px;border-collapse:collapse;font-size:.87em;table-layout:fixed}
-/* 列幅（固定）*/
-.pay-tbl .col-chk{width:36px}
-.pay-tbl .col-st{width:74px}
-.pay-tbl .col-ci{width:106px}
-.pay-tbl .col-room{width:112px}
-.pay-tbl .col-amt{width:152px}
-.pay-tbl .col-pd{width:152px}
-.pay-tbl .col-guest{width:auto}
-.pay-tbl .col-ota{width:106px}
-.pay-tbl .col-lock{width:40px}
+.pay-tbl{width:860px;border-collapse:collapse;font-size:.87em;table-layout:fixed}
 /* ヘッダー共通 */
-.pay-tbl th{background:#eeeffa;padding:9px 10px;color:#5a5f8a;font-weight:700;font-size:.76em;letter-spacing:.05em;border-bottom:2px solid #d0d3ee;position:sticky;top:0;z-index:2;white-space:nowrap;overflow:hidden}
+.pay-tbl th{background:#eeeffa;padding:9px 10px;color:#5a5f8a;font-weight:700;font-size:.76em;letter-spacing:.05em;border-bottom:2px solid #d0d3ee;position:sticky;top:0;z-index:2;white-space:nowrap;overflow:hidden;text-align:left}
 /* セル共通 */
-.pay-tbl td{padding:9px 10px;border-bottom:1px solid #ebebf5;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pay-tbl td{padding:9px 10px;border-bottom:1px solid #ebebf5;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
 /* 実受取列：右に余白を多めに */
 .pay-tbl th:nth-child(5),.pay-tbl td:nth-child(5){padding-right:18px}
 /* 着金日列：左に余白を多めに */
@@ -563,8 +553,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     </div>
     <div class="pay-tbl-wrap"><table class="pay-tbl">
   <colgroup>
-    <col style="width:36px"><col style="width:74px"><col style="width:106px"><col style="width:112px">
-    <col style="width:152px"><col style="width:152px"><col><col style="width:106px"><col style="width:40px">
+    <col style="width:36px"><col style="width:74px"><col style="width:104px"><col style="width:92px">
+    <col style="width:148px"><col style="width:148px"><col style="width:148px"><col style="width:74px"><col style="width:36px">
   </colgroup>
   <thead><tr>
     <th style="text-align:center"><input type="checkbox" id="paySelAll" onclick="paySelectAll(this.checked)" style="width:14px;height:14px;cursor:pointer;vertical-align:middle"></th>
