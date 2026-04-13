@@ -2282,7 +2282,7 @@ function renderDisc(){
   // datalist更新
   const dl=document.getElementById('dm_roomList');
   if(dl){
-    const allRooms=[...new Set(Object.values(ROOMS||{}))].sort();
+    const allRooms=[...new Set(Object.keys(ROOMS||{}))].sort();
     dl.innerHTML=allRooms.map(r=>`<option value="${r}">`).join('');
   }
 
