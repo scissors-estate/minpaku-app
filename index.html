@@ -1346,8 +1346,8 @@ function renderOps(){
   const _pd=opsFilt==='direct'?prev?.d:opsFilt==='subcon'?prev?.s:prev?.tot;
   const prevSales=_pd?.sales,prevCnt=_pd?.cnt;
   const prevRooms=prev&&prev.rooms?Object.values(prev.rooms):[];
-  const prevDGross=prevRooms.length?prevRooms.filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(prev.exp?.officeRent||0)-(prev.exp?.officeUtil||0):undefined;
-  const prevSGross=prevRooms.length?prevRooms.filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0):undefined;
+  const prevDGross=prevRooms.length?prevRooms.filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(prev.exp?.officeRent||0)-(prev.exp?.officeUtil||0)-(prev.exp?.emptyDRent||0):undefined;
+  const prevSGross=prevRooms.length?prevRooms.filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(prev.exp?.emptySRent||0):undefined;
   const prevProfit=opsFilt==='direct'?prevDGross:opsFilt==='subcon'?prevSGross:(prev?.tot?.sales!=null&&prev?.exp?.tot!=null?prev.tot.sales-prev.exp.tot:undefined);
   const prevOcc=opsFilt==='direct'?prev?.occ?.d:opsFilt==='subcon'?prev?.occ?.s:prev?.occ?.t;
   const prevLbl=(v,isMoney=true)=>v!==undefined&&v!==null
