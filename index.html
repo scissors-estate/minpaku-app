@@ -2263,7 +2263,20 @@ function clearPayImportFilter(){_payImportIds=null;_payHighlight=new Set();rende
 const DISC_KEY='DISCOUNTS_v1';
 let _discEditId=null;
 
-function getDiscs(){return S.get(DISC_KEY)||[];}
+const DISC_SEED=[
+  {id:'disc001',ota:'Booking.com',room:'新宿102',content:'料金200%（金額上げ）・Booking 祝！2026年セール40%+10%',expiry:'2026年3月末',applied:'2025-12-06',notes:'Airbnb日数制限のため／料金はエアホストで倍額に設定'},
+  {id:'disc002',ota:'Booking.com',room:'墨田A',content:'Booking 30%OFFセール（ジーニアス10%）',expiry:'2026年6月末',applied:'2026-03-19',notes:'Booking管理画面→プロモーション'},
+  {id:'disc003',ota:'Booking.com',room:'青戸302',content:'Booking モバイル割10%＋10%OFFセール（ジーニアス10%）',expiry:'2026年6月末',applied:'2026-01-29',notes:'Booking管理画面→プロモーション'},
+  {id:'disc004',ota:'Booking.com',room:'青戸304',content:'Booking 20%OFFセール（ジーニアス10%）',expiry:'2026年6月末',applied:'2026-01-29',notes:'Booking管理画面→プロモーション'},
+  {id:'disc005',ota:'Booking.com',room:'青戸202',content:'Booking モバイル割10%（ジーニアス適用されるまで）',expiry:'永続',applied:'2026-03-18',notes:'Booking管理画面→プロモーション'},
+  {id:'disc006',ota:'Booking.com',room:'立石A',content:'Booking 20%OFFセール＋モバイル割10%',expiry:'2026年6月末',applied:'2026-03-30',notes:'Booking管理画面→プロモーション'},
+];
+function getDiscs(){
+  const d=S.get(DISC_KEY);
+  // 一度も保存されていない場合のみシードデータを使用
+  if(d===null||d===undefined){S.set(DISC_KEY,DISC_SEED);fbWrite('discounts',DISC_SEED);return DISC_SEED;}
+  return d;
+}
 function saveDiscs(arr){S.set(DISC_KEY,arr);fbWrite('discounts',arr);}
 
 function otaBadge(ota){
@@ -3306,8 +3319,14 @@ function initFirebase(){
     });
     fbDB.ref('discounts').on('value', snap => {
       const val = snap.val();
-      _origSset(DISC_KEY, val||[]);
-      if(document.getElementById('discPane')&&document.getElementById('discPane').classList.contains('on'))renderDisc();
+      if(val !== null){
+        _origSset(DISC_KEY, Array.isArray(val)?val:[]);
+        if(document.getElementById('discPane')&&document.getElementById('discPane').classList.contains('on'))renderDisc();
+      } else {
+        // Firebaseにデータなし→ローカルのデータをアップロード
+        const local=S.get(DISC_KEY);
+        if(local&&local.length)fbWrite('discounts',local);
+      }
     });
     console.log('✅ Firebase接続成功');
   } catch(e) {
