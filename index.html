@@ -322,13 +322,25 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .pay-si{text-align:center;min-width:80px}
 .pay-sl{font-size:.66em;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:2px}
 .pay-sv{font-size:1.1em;font-weight:700;font-family:ui-monospace,monospace;word-break:break-all}
-.pay-tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 380px);border:1px solid var(--b2);border-radius:8px}
-.pay-tbl{width:100%;border-collapse:collapse;font-size:.86em;white-space:nowrap}
-.pay-tbl th{background:#f4f4f8;padding:8px 10px;text-align:left;color:var(--t2);font-weight:600;border-bottom:2px solid var(--b);position:sticky;top:0;z-index:2}
-.pay-tbl td{padding:8px 10px;border-bottom:1px solid var(--b2)}
-.pay-tbl tr:hover td{background:#f8f9ff}
-.tag-paid{display:inline-block;background:#d4edda;color:#155724;padding:2px 7px;border-radius:99px;font-size:.72em;font-weight:600}
-.tag-unpaid{display:inline-block;background:#fff3cd;color:#856404;padding:2px 7px;border-radius:99px;font-size:.72em;font-weight:600}
+.pay-tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 380px);border:1px solid #d8daf0;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.07)}
+.pay-tbl{width:100%;border-collapse:collapse;font-size:.87em;table-layout:fixed}
+.pay-tbl colgroup .col-chk{width:36px}
+.pay-tbl colgroup .col-st{width:78px}
+.pay-tbl colgroup .col-ci{width:98px}
+.pay-tbl colgroup .col-room{width:15%}
+.pay-tbl colgroup .col-amt{width:138px}
+.pay-tbl colgroup .col-pd{width:132px}
+.pay-tbl colgroup .col-guest{width:auto}
+.pay-tbl colgroup .col-ota{width:96px}
+.pay-tbl colgroup .col-lock{width:40px}
+.pay-tbl th{background:#eeeffa;padding:9px 11px;color:#5a5f8a;font-weight:700;font-size:.76em;letter-spacing:.05em;border-bottom:2px solid #d0d3ee;position:sticky;top:0;z-index:2;white-space:nowrap}
+.pay-tbl td{padding:9px 11px;border-bottom:1px solid #ebebf5;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pay-tbl tbody tr:last-child td{border-bottom:none}
+.pay-tbl tbody tr:hover td{background:#f5f6ff}
+.pay-tbl tbody tr:nth-child(even) td{background:#fafafd}
+.pay-tbl tbody tr:nth-child(even):hover td{background:#f0f1ff}
+.tag-paid{display:inline-block;background:#d4edda;color:#1a6e30;padding:3px 9px;border-radius:99px;font-size:.74em;font-weight:700;letter-spacing:.03em}
+.tag-unpaid{display:inline-block;background:#fff3cd;color:#7a5800;padding:3px 9px;border-radius:99px;font-size:.74em;font-weight:700;letter-spacing:.03em}
 .pay-btn{border:1.5px solid var(--p);background:transparent;color:var(--p);padding:3px 8px;border-radius:6px;cursor:pointer;font-size:.7em}
 .pay-btn.paid{background:var(--green);border-color:var(--green);color:#fff}
 .payout-group{background:#f4f4f8;font-size:.73em;color:var(--t2);padding:4px 9px;font-weight:600}
@@ -542,12 +554,23 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         <button onclick="printPayTable()" title="表示中の一覧を印刷" style="background:#fff;border:1.5px solid var(--b);color:var(--t2);padding:5px 11px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">🖨️ 印刷</button>
       </div>
     </div>
-    <div class="pay-tbl-wrap"><table class="pay-tbl"><thead>
-  <tr>
-    <th><input type="checkbox" id="paySelAll" onclick="paySelectAll(this.checked)" style="width:14px;height:14px;cursor:pointer"></th>
-    <th>状態</th><th>IN日</th><th>部屋</th><th style="text-align:right">実受取(税込)</th><th>着金日</th><th>ゲスト</th><th>OTA</th><th>🔒</th>
-  </tr>
-</thead><tbody id="payBody"></tbody></table></div>
+    <div class="pay-tbl-wrap"><table class="pay-tbl">
+  <colgroup>
+    <col class="col-chk"><col class="col-st"><col class="col-ci"><col class="col-room">
+    <col class="col-amt"><col class="col-pd"><col class="col-guest"><col class="col-ota"><col class="col-lock">
+  </colgroup>
+  <thead><tr>
+    <th style="text-align:center"><input type="checkbox" id="paySelAll" onclick="paySelectAll(this.checked)" style="width:14px;height:14px;cursor:pointer;vertical-align:middle"></th>
+    <th style="text-align:center">状態</th>
+    <th style="text-align:center">IN日</th>
+    <th>部屋</th>
+    <th style="text-align:right">実受取(税込)</th>
+    <th style="text-align:center">着金日</th>
+    <th>ゲスト</th>
+    <th style="text-align:center">OTA</th>
+    <th style="text-align:center">🔒</th>
+  </tr></thead>
+  <tbody id="payBody"></tbody></table></div>
   </div>
 
   <!-- 請求書 -->
@@ -2047,18 +2070,18 @@ function renderPayTab(){
     const dispAmt=customAmt!==''?customAmt:csvAmt;
     const isEdited=customAmt!=='';
     return`<tr style="${rowStyle}">
-      <td><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer" ${isLocked?'disabled':''}></td>
-      <td>${ip?'<span class="tag-paid">入金済</span>':'<span class="tag-unpaid">未確認</span>'}</td>
-      <td>${bk.ci}</td>
-      <td>${bk.tag}</td>
-      <td style="text-align:right;white-space:nowrap">
-        <span style="font-family:ui-monospace,monospace;font-weight:600;color:${isEdited?'var(--orange)':'var(--t1)'}">¥${dispAmt.toLocaleString('ja-JP')}</span>
-        ${!isLocked?`<button onclick="openAmtModal('${bk.id}',${csvAmt},'${bk.g.replace(/'/g,"\\'")}')" title="金額を修正" style="border:1px solid var(--b);background:#f5f5f5;border-radius:4px;cursor:pointer;font-size:.72em;padding:2px 6px;color:var(--t2);margin-left:4px">✏️</button>`:'<span style="display:inline-block;width:30px;margin-left:4px"></span>'}
+      <td style="text-align:center"><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer;vertical-align:middle" ${isLocked?'disabled':''}></td>
+      <td style="text-align:center">${ip?'<span class="tag-paid">入金済</span>':'<span class="tag-unpaid">未確認</span>'}</td>
+      <td style="text-align:center;color:var(--t2);font-variant-numeric:tabular-nums">${bk.ci}</td>
+      <td style="font-weight:500">${bk.tag}</td>
+      <td style="text-align:right">
+        <span style="font-family:ui-monospace,monospace;font-weight:700;font-size:.95em;color:${isEdited?'var(--orange)':'var(--t1)'}">¥${dispAmt.toLocaleString('ja-JP')}</span>
+        ${!isLocked?`<button onclick="openAmtModal('${bk.id}',${csvAmt},'${bk.g.replace(/'/g,"\\'")}')" title="金額を修正" style="border:1px solid #ddd;background:#f7f7fb;border-radius:4px;cursor:pointer;font-size:.68em;padding:2px 5px;color:var(--t3);margin-left:5px;vertical-align:middle">✏️</button>`:'<span style="display:inline-block;width:28px;margin-left:5px"></span>'}
       </td>
-      <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)"></td>
-      <td style="max-width:120px"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${bk.g}</div>${bk.cancel?'<div style="margin-top:2px"><span style="font-size:.7em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px;white-space:nowrap">キャンセル料</span></div>':''}</td>
-      <td>${bk.s}</td>
-      <td><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em">${isLocked?'🔒':'🔓'}</button></td>
+      <td style="text-align:center"><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)" style="font-size:.82em;border:1.5px solid ${payDate?'#a5d6a7':'#ddd'};border-radius:6px;padding:3px 6px;color:${payDate?'#2e7d32':'var(--t3)'};background:${payDate?'#f1f9f1':'#fff'};cursor:pointer;width:116px"></td>
+      <td><div style="max-width:160px;overflow:hidden;text-overflow:ellipsis;color:var(--t1)">${bk.g}</div>${bk.cancel?'<div style="margin-top:2px"><span style="font-size:.68em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 6px">キャンセル料</span></div>':''}</td>
+      <td style="text-align:center;color:var(--t2);font-size:.83em;font-weight:600">${bk.s}</td>
+      <td style="text-align:center"><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1.05em;line-height:1;padding:2px">${isLocked?'🔒':'🔓'}</button></td>
     </tr>`;
   }).join('')||'<tr><td colspan="9" style="text-align:center;color:#999;padding:16px">予約がありません</td></tr>';
   _payFilteredBks=[...filteredBks];
