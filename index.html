@@ -918,10 +918,9 @@ const oc=v=>v>=50?'gh':v>=30?'gm':'gl';
 const occBg=v=>v>=50?'#4CAF50':v>=30?'#FF9800':'#f5576c';
 function pv(cur,prv){
   if(prv===undefined||prv===null)return'';
-  const df=cur-prv,sg=df>=0?'+':'';
-  const pct=prv?((df/Math.abs(prv))*100).toFixed(1):0;
+  const df=cur-prv,sg=df>=0?'+':'-';
   const cl=df>=0?'#155724':'#721c24';const bg=df>=0?'#d4edda':'#f8d7da';
-  return`<div class="kprev"><span style="background:${bg};color:${cl};padding:1px 5px;border-radius:3px;font-weight:700">${sg}${Math.abs(df).toLocaleString()}(${sg}${pct}%)</span></div>`;
+  return`<div class="kprev"><span style="background:${bg};color:${cl};padding:1px 5px;border-radius:3px;font-weight:700">${sg}¥${Math.abs(df).toLocaleString()}</span></div>`;
 }
 
 // ════════════════════════════════════════════
