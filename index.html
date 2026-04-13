@@ -323,18 +323,25 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .pay-sl{font-size:.66em;color:var(--t3);text-transform:uppercase;font-weight:600;margin-bottom:2px}
 .pay-sv{font-size:1.1em;font-weight:700;font-family:ui-monospace,monospace;word-break:break-all}
 .pay-tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:calc(100vh - 380px);border:1px solid #d8daf0;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.07)}
-.pay-tbl{width:100%;border-collapse:collapse;font-size:.87em;table-layout:fixed}
-.pay-tbl colgroup .col-chk{width:36px}
-.pay-tbl colgroup .col-st{width:78px}
-.pay-tbl colgroup .col-ci{width:98px}
-.pay-tbl colgroup .col-room{width:15%}
-.pay-tbl colgroup .col-amt{width:138px}
-.pay-tbl colgroup .col-pd{width:132px}
-.pay-tbl colgroup .col-guest{width:auto}
-.pay-tbl colgroup .col-ota{width:96px}
-.pay-tbl colgroup .col-lock{width:40px}
-.pay-tbl th{background:#eeeffa;padding:9px 11px;color:#5a5f8a;font-weight:700;font-size:.76em;letter-spacing:.05em;border-bottom:2px solid #d0d3ee;position:sticky;top:0;z-index:2;white-space:nowrap}
-.pay-tbl td{padding:9px 11px;border-bottom:1px solid #ebebf5;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pay-tbl{width:100%;min-width:820px;border-collapse:collapse;font-size:.87em;table-layout:fixed}
+/* 列幅（固定）*/
+.pay-tbl .col-chk{width:36px}
+.pay-tbl .col-st{width:74px}
+.pay-tbl .col-ci{width:106px}
+.pay-tbl .col-room{width:112px}
+.pay-tbl .col-amt{width:152px}
+.pay-tbl .col-pd{width:152px}
+.pay-tbl .col-guest{width:auto}
+.pay-tbl .col-ota{width:106px}
+.pay-tbl .col-lock{width:40px}
+/* ヘッダー共通 */
+.pay-tbl th{background:#eeeffa;padding:9px 10px;color:#5a5f8a;font-weight:700;font-size:.76em;letter-spacing:.05em;border-bottom:2px solid #d0d3ee;position:sticky;top:0;z-index:2;white-space:nowrap;overflow:hidden}
+/* セル共通 */
+.pay-tbl td{padding:9px 10px;border-bottom:1px solid #ebebf5;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 実受取列：右に余白を多めに */
+.pay-tbl th:nth-child(5),.pay-tbl td:nth-child(5){padding-right:18px}
+/* 着金日列：左に余白を多めに */
+.pay-tbl th:nth-child(6),.pay-tbl td:nth-child(6){padding-left:18px}
 .pay-tbl tbody tr:last-child td{border-bottom:none}
 .pay-tbl tbody tr:hover td{background:#f5f6ff}
 .pay-tbl tbody tr:nth-child(even) td{background:#fafafd}
@@ -556,8 +563,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     </div>
     <div class="pay-tbl-wrap"><table class="pay-tbl">
   <colgroup>
-    <col class="col-chk"><col class="col-st"><col class="col-ci"><col class="col-room">
-    <col class="col-amt"><col class="col-pd"><col class="col-guest"><col class="col-ota"><col class="col-lock">
+    <col style="width:36px"><col style="width:74px"><col style="width:106px"><col style="width:112px">
+    <col style="width:152px"><col style="width:152px"><col><col style="width:106px"><col style="width:40px">
   </colgroup>
   <thead><tr>
     <th style="text-align:center"><input type="checkbox" id="paySelAll" onclick="paySelectAll(this.checked)" style="width:14px;height:14px;cursor:pointer;vertical-align:middle"></th>
@@ -2036,14 +2043,6 @@ function renderPayTab(){
   } else {
     if(banner)banner.style.display='none';
   }
-  const paid=viewBks.filter(b=>pays[b.id]&&pays[b.id].status==='1');
-  const unpaid=viewBks.filter(b=>!pays[b.id]||pays[b.id].status!=='1');
-  document.getElementById('paySum').innerHTML=`
-    <div class="pay-si"><div class="pay-sl">表示件数</div><div class="pay-sv">${viewBks.length}件</div></div>
-    <div class="pay-si"><div class="pay-sl">入金済</div><div class="pay-sv" style="color:var(--green)">${paid.length}件</div></div>
-    <div class="pay-si"><div class="pay-sl">未確認</div><div class="pay-sv" style="color:var(--orange)">${unpaid.length}件</div></div>
-    <div class="pay-si"><div class="pay-sl">入金済金額</div><div class="pay-sv" style="color:var(--green)">${fmtF(paid.reduce((s,b)=>s+b.net,0))}</div></div>
-    <div class="pay-si"><div class="pay-sl">未確認金額</div><div class="pay-sv" style="color:var(--orange)">${fmtF(unpaid.reduce((s,b)=>s+b.net,0))}</div></div>`;
   // ④⑩ Apply search filters
   let filteredBks=[...viewBks];
   const g=id=>(document.getElementById(id)||{}).value||'';
@@ -2058,6 +2057,21 @@ function renderPayTab(){
   if(srchCiTo)filteredBks=filteredBks.filter(b=>b.ci<=srchCiTo);
   if(srchPayFrom)filteredBks=filteredBks.filter(b=>{const pd=pays[b.id]||{};return pd.payDate&&pd.payDate>=srchPayFrom;});
   if(srchPayTo)filteredBks=filteredBks.filter(b=>{const pd=pays[b.id]||{};return pd.payDate&&pd.payDate<=srchPayTo;});
+  // サマリー：何かフィルターが掛かっているときだけ表示
+  const hasFilter=!!(_payImportIds&&_payImportIds.size>0)||!!(srchRoom||srchOTA||srchStatus||srchCiFrom||srchCiTo||srchPayFrom||srchPayTo);
+  const sumEl=document.getElementById('paySum');
+  if(hasFilter){
+    const paid=filteredBks.filter(b=>pays[b.id]&&pays[b.id].status==='1');
+    const unpaid=filteredBks.filter(b=>!pays[b.id]||pays[b.id].status!=='1');
+    sumEl.innerHTML=`
+      <div class="pay-si"><div class="pay-sl">絞込件数</div><div class="pay-sv">${filteredBks.length}件</div></div>
+      <div class="pay-si"><div class="pay-sl">入金済</div><div class="pay-sv" style="color:var(--green)">${paid.length}件</div></div>
+      <div class="pay-si"><div class="pay-sl">未確認</div><div class="pay-sv" style="color:var(--orange)">${unpaid.length}件</div></div>
+      <div class="pay-si"><div class="pay-sl">入金済金額</div><div class="pay-sv" style="color:var(--green)">${fmtF(paid.reduce((s,b)=>s+b.net,0))}</div></div>
+      <div class="pay-si"><div class="pay-sl">未確認金額</div><div class="pay-sv" style="color:var(--orange)">${fmtF(unpaid.reduce((s,b)=>s+b.net,0))}</div></div>`;
+  } else {
+    sumEl.innerHTML='';
+  }
 
   document.getElementById('payBody').innerHTML=filteredBks.map(bk=>{
     const pd=pays[bk.id]||{};const ip=pd.status==='1';
@@ -2072,13 +2086,13 @@ function renderPayTab(){
     return`<tr style="${rowStyle}">
       <td style="text-align:center"><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer;vertical-align:middle" ${isLocked?'disabled':''}></td>
       <td style="text-align:center">${ip?'<span class="tag-paid">入金済</span>':'<span class="tag-unpaid">未確認</span>'}</td>
-      <td style="text-align:center;color:var(--t2);font-variant-numeric:tabular-nums">${bk.ci}</td>
+      <td style="text-align:center;color:var(--t2);letter-spacing:.01em">${bk.ci}</td>
       <td style="font-weight:500">${bk.tag}</td>
       <td style="text-align:right">
         <span style="font-family:ui-monospace,monospace;font-weight:700;font-size:.95em;color:${isEdited?'var(--orange)':'var(--t1)'}">¥${dispAmt.toLocaleString('ja-JP')}</span>
         ${!isLocked?`<button onclick="openAmtModal('${bk.id}',${csvAmt},'${bk.g.replace(/'/g,"\\'")}')" title="金額を修正" style="border:1px solid #ddd;background:#f7f7fb;border-radius:4px;cursor:pointer;font-size:.68em;padding:2px 5px;color:var(--t3);margin-left:5px;vertical-align:middle">✏️</button>`:'<span style="display:inline-block;width:28px;margin-left:5px"></span>'}
       </td>
-      <td style="text-align:center"><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)" style="font-size:.82em;border:1.5px solid ${payDate?'#a5d6a7':'#ddd'};border-radius:6px;padding:3px 6px;color:${payDate?'#2e7d32':'var(--t3)'};background:${payDate?'#f1f9f1':'#fff'};cursor:pointer;width:116px"></td>
+      <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)" style="font-size:.82em;border:1.5px solid ${payDate?'#a5d6a7':'#ddd'};border-radius:6px;padding:3px 6px;color:${payDate?'#2e7d32':'var(--t3)'};background:${payDate?'#f1f9f1':'#fff'};cursor:pointer;width:110px"></td>
       <td><div style="max-width:160px;overflow:hidden;text-overflow:ellipsis;color:var(--t1)">${bk.g}</div>${bk.cancel?'<div style="margin-top:2px"><span style="font-size:.68em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 6px">キャンセル料</span></div>':''}</td>
       <td style="text-align:center;color:var(--t2);font-size:.83em;font-weight:600">${bk.s}</td>
       <td style="text-align:center"><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1.05em;line-height:1;padding:2px">${isLocked?'🔒':'🔓'}</button></td>
