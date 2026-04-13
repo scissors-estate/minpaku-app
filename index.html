@@ -3319,13 +3319,22 @@ function initFirebase(){
     });
     fbDB.ref('discounts').on('value', snap => {
       const val = snap.val();
-      if(val !== null){
-        _origSset(DISC_KEY, Array.isArray(val)?val:[]);
+      const hasData = val !== null && Array.isArray(val) && val.length > 0;
+      const seeded = S.get('DISC_SEEDED_v1');
+      if(hasData){
+        _origSset(DISC_KEY, val);
+        _origSset('DISC_SEEDED_v1', true);
+        if(document.getElementById('discPane')&&document.getElementById('discPane').classList.contains('on'))renderDisc();
+      } else if(!seeded){
+        // 初回：シードデータをFirebaseにセット
+        _origSset(DISC_KEY, DISC_SEED);
+        _origSset('DISC_SEEDED_v1', true);
+        fbWrite('discounts', DISC_SEED);
         if(document.getElementById('discPane')&&document.getElementById('discPane').classList.contains('on'))renderDisc();
       } else {
-        // Firebaseにデータなし→ローカルのデータをアップロード
-        const local=S.get(DISC_KEY);
-        if(local&&local.length)fbWrite('discounts',local);
+        // 意図的に全件削除された場合
+        _origSset(DISC_KEY, []);
+        if(document.getElementById('discPane')&&document.getElementById('discPane').classList.contains('on'))renderDisc();
       }
     });
     console.log('✅ Firebase接続成功');
