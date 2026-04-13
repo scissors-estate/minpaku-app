@@ -2264,7 +2264,7 @@ const DISC_KEY='DISCOUNTS_v1';
 let _discEditId=null;
 
 function getDiscs(){return S.get(DISC_KEY)||[];}
-function saveDiscs(arr){S.set(DISC_KEY,arr);}
+function saveDiscs(arr){S.set(DISC_KEY,arr);fbWrite('discounts',arr);}
 
 function otaBadge(ota){
   const bg=ota==='Airbnb'?'#FF5A5F':ota==='Booking.com'?'#003580':ota==='両方'?'#7b5ea7':'#90A4AE';
@@ -3303,6 +3303,11 @@ function initFirebase(){
         _origSset(BB_KEY, val);
         if(document.getElementById('bbContent'))renderBB();
       }
+    });
+    fbDB.ref('discounts').on('value', snap => {
+      const val = snap.val();
+      _origSset(DISC_KEY, val||[]);
+      if(document.getElementById('discPane')&&document.getElementById('discPane').classList.contains('on'))renderDisc();
     });
     console.log('✅ Firebase接続成功');
   } catch(e) {
