@@ -1001,9 +1001,18 @@ function parseBookings(){
 function parseCleaning(){
   CH={};CM={};
   parseCSV(_clText).forEach(r=>{
-    const rp=(r['ルーム']||'').trim();if(!rp)return;
-    const parts=rp.split('/');
-    const prop=parts[0]||'',tag=parts[1]||parts[0]||'';
+    // 新フォーマット（4/20以降）: 物件名・部屋タイプ・部屋番号が別々の列
+    // 旧フォーマット: ルーム列に "物件名/部屋タイプ/部屋番号" がまとめて入る
+    const hasNewFormat=r['物件名']!==undefined||r['部屋番号']!==undefined;
+    let prop,tag;
+    if(hasNewFormat){
+      prop=(r['物件名']||'').trim();
+      tag=(r['部屋番号']||r['部屋タイプ']||'').trim();
+    } else {
+      const rp=(r['ルーム']||'').trim();if(!rp)return;
+      const parts=rp.split('/');
+      prop=parts[0]||'';tag=parts[1]||parts[0]||'';
+    }
     if(!tag)return;
     if(!ROOMS[tag]&&prop)ROOMS[tag]=prop;
     const cl=(r['クリーナー']||'').trim()||'未割当';
