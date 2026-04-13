@@ -2283,6 +2283,11 @@ function otaBadge(ota){
   const bg=ota==='Airbnb'?'#FF5A5F':ota==='Booking.com'?'#003580':ota==='両方'?'#7b5ea7':'#90A4AE';
   return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.71em;font-weight:700;padding:2px 8px;border-radius:4px">${ota}</span>`;
 }
+function otaBadgeShort(ota){
+  const bg=ota==='Airbnb'?'#FF5A5F':ota==='Booking.com'?'#003580':ota==='両方'?'#7b5ea7':'#90A4AE';
+  const lbl=ota==='Airbnb'?'A':ota==='Booking.com'?'B':ota==='両方'?'AB':'他';
+  return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.8em;font-weight:700;padding:3px 7px;border-radius:4px;min-width:24px;text-align:center">${lbl}</span>`;
+}
 
 function renderDisc(){
   // 部屋フィルターのoptionを最新化
@@ -2312,14 +2317,17 @@ function renderDisc(){
     return;
   }
   wrap.innerHTML=`<div style="overflow-x:auto;border:1.5px solid #c8cae8;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
-  <table style="width:100%;border-collapse:collapse;font-size:.87em;table-layout:auto">
+  <table style="width:100%;border-collapse:collapse;font-size:.87em;table-layout:fixed">
+    <colgroup>
+      <col style="width:42px"><col style="width:72px"><col><col style="width:90px"><col style="width:90px"><col style="width:160px"><col style="width:88px">
+    </colgroup>
     <thead>
       <tr style="background:#eaecf8">
-        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;white-space:nowrap;text-align:center">OTA</th>
-        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;white-space:nowrap;text-align:center">部屋</th>
-        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;text-align:center">内容</th>
-        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;white-space:nowrap;text-align:center">有効期限</th>
-        <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;white-space:nowrap;text-align:center">適用日</th>
+        <th style="padding:8px 6px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">OTA</th>
+        <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">部屋</th>
+        <th style="padding:8px 10px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:left">内容</th>
+        <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;white-space:nowrap;text-align:center">有効期限</th>
+        <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;white-space:nowrap;text-align:center">適用日</th>
         <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;text-align:center">備考</th>
         <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">操作</th>
       </tr>
@@ -2330,9 +2338,9 @@ function renderDisc(){
         const bg=even?'#fff':'#f7f8fd';
         const sep='border-right:1px solid #e0e2f0';
         return`<tr style="background:${bg}">
-          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center">${otaBadge(d.ota||'その他')}</td>
-          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;font-weight:600">${d.room||'—'}</td>
-          <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep}">${d.content||'—'}</td>
+          <td style="padding:8px 6px;border-bottom:1px solid #e0e2f0;${sep};text-align:center">${otaBadgeShort(d.ota||'その他')}</td>
+          <td style="padding:8px 8px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;font-weight:600">${d.room||'—'}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e0e2f0;${sep};word-break:break-all">${d.content||'—'}</td>
           <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.expiry||'—'}</td>
           <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.applied||'—'}</td>
           <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};color:var(--t2);font-size:.84em">${d.notes||'—'}</td>
