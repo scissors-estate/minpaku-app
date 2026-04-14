@@ -2862,8 +2862,9 @@ function loadCSVs(){
     CM={...prevCM,...CM};
 
     computeMS();
-    const now=new Date().toLocaleString('ja-JP');
-    document.getElementById('meta').textContent='CSV取込: '+now;
+    const _d=new Date();
+    const now=_d.toLocaleDateString('ja-JP')+'　'+_d.getHours()+':'+String(_d.getMinutes()).padStart(2,'0');
+    document.getElementById('meta').textContent='CSV取込:'+now;
     const prevSnap={};
     Object.keys(MS).forEach(mk=>{const ms=MS[mk];if(ms&&ms.tot)prevSnap[mk]={sales:ms.tot.sales,net:ms.tot.net,occ:ms.occ.t,cnt:ms.tot.cnt};});
     S.set(PREV_KEY,prevSnap);
@@ -3379,7 +3380,7 @@ function initFirebase(){
         renderPayTab();
         populateInvMonths();
         try{populateAccMonths();}catch(e){}
-        if(stored.meta) document.getElementById('meta').textContent = stored.meta + '（クラウド同期済）';
+        if(stored.meta) document.getElementById('meta').textContent = stored.meta;
         checkAutoSnap();
       }
     });
@@ -3484,8 +3485,9 @@ function saveBookingsToFb(){
     const seen=new Set();
     cleanCH[tag]=(CH[tag]||[]).filter(c=>{if(seen.has(c.d))return false;seen.add(c.d);return true;});
   });
-  const now = new Date().toLocaleString('ja-JP');
-  fbWrite('bookings', { BK, ROOMS, CH: cleanCH, CM, meta: 'CSV取込: ' + now });
+  const _d = new Date();
+  const now = _d.toLocaleDateString('ja-JP')+'　'+_d.getHours()+':'+String(_d.getMinutes()).padStart(2,'0');
+  fbWrite('bookings', { BK, ROOMS, CH: cleanCH, CM, meta: 'CSV取込:' + now });
 }
 
 // チェック・支払い・光熱費・写真の変更をFirebaseに同期
