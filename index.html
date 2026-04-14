@@ -622,7 +622,12 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
   <div class="pane" id="discPane">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <h2 style="margin:0;font-size:1em;font-weight:700">🏷️ 割引・セール管理</h2>
-      <button onclick="openDiscModal()" style="background:var(--p);color:#fff;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">＋ 追加</button>
+      <button id="discAddBtn" onclick="openDiscModal()" style="background:var(--p);color:#fff;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">＋ 追加</button>
+      <!-- ビュー切替（セグメントコントロール） -->
+      <div style="display:flex;gap:0;background:#d8dae8;border-radius:9px;padding:3px">
+        <button id="discViewActiveBtn" onclick="setDiscView('active')" style="border:none;cursor:pointer;padding:5px 16px;border-radius:7px;font-size:.8em;font-weight:700;background:#fff;color:var(--t);box-shadow:0 1px 4px rgba(0,0,0,.13);transition:all .15s">適用中</button>
+        <button id="discViewArchivedBtn" onclick="setDiscView('archived')" style="border:none;cursor:pointer;padding:5px 16px;border-radius:7px;font-size:.8em;font-weight:700;background:transparent;color:var(--t2);box-shadow:none;transition:all .15s">過去ログ</button>
+      </div>
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
         <select id="discFiltOTA" onchange="renderDisc()" style="border:1.5px solid var(--b);border-radius:6px;padding:5px 8px;font-size:.8em;outline:none">
           <option value="">全OTA</option>
@@ -2277,6 +2282,7 @@ function clearPayImportFilter(){_payImportIds=null;_payHighlight=new Set();rende
 // ════════════════════════════════════════════
 const DISC_KEY='DISCOUNTS_v1';
 let _discEditId=null;
+let _discView='active'; // 'active' | 'archived'
 
 const DISC_SEED=[
   {id:'disc001',ota:'Booking.com',room:'新宿102',content:'料金200%（金額上げ）・Booking 祝！2026年セール40%+10%',expiry:'2026年3月末',applied:'2025-12-06',notes:'Airbnb日数制限のため／料金はエアホストで倍額に設定'},
@@ -2304,7 +2310,56 @@ function otaBadgeShort(ota){
   return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.8em;font-weight:700;padding:3px 7px;border-radius:4px;min-width:24px;text-align:center">${lbl}</span>`;
 }
 
+// 有効期限テキスト → Dateに変換（"2026年6月末" 等）
+function parseExpiryDate(str){
+  if(!str||str==='永続'||str==='—')return null;
+  const m=str.match(/(\d{4})年(\d{1,2})月末/);
+  if(m){const y=parseInt(m[1]),mo=parseInt(m[2]);return new Date(y,mo,0);}
+  const d=new Date(str);
+  return isNaN(d)?null:d;
+}
+
+// 有効期限切れを自動アーカイブ
+function checkAndArchiveExpired(){
+  const arr=getDiscs();
+  const today=new Date();today.setHours(0,0,0,0);
+  let changed=false;
+  arr.forEach(d=>{
+    if(!d.archived){
+      const exp=parseExpiryDate(d.expiry);
+      if(exp&&exp<today){d.archived=true;changed=true;}
+    }
+  });
+  if(changed)saveDiscs(arr);
+}
+
+// ビュー切替
+function setDiscView(v){
+  _discView=v;
+  const ab=document.getElementById('discViewActiveBtn');
+  const rb=document.getElementById('discViewArchivedBtn');
+  const addBtn=document.getElementById('discAddBtn');
+  if(ab){ab.style.background=v==='active'?'#fff':'transparent';ab.style.color=v==='active'?'var(--t)':'var(--t2)';ab.style.boxShadow=v==='active'?'0 1px 4px rgba(0,0,0,.13)':'none';}
+  if(rb){rb.style.background=v==='archived'?'#fff':'transparent';rb.style.color=v==='archived'?'var(--t)':'var(--t2)';rb.style.boxShadow=v==='archived'?'0 1px 4px rgba(0,0,0,.13)':'none';}
+  renderDisc();
+}
+
+// 消込（アーカイブ）
+function archiveDisc(id){
+  const arr=getDiscs();const d=arr.find(x=>x.id===id);
+  if(d){d.archived=true;saveDiscs(arr);renderDisc();}
+}
+
+// 復元
+function restoreDisc(id){
+  const arr=getDiscs();const d=arr.find(x=>x.id===id);
+  if(d){d.archived=false;saveDiscs(arr);renderDisc();}
+}
+
 function renderDisc(){
+  // 有効期限切れを自動アーカイブ
+  checkAndArchiveExpired();
+
   // 部屋フィルターのoptionを最新化
   const roomSel=document.getElementById('discFiltRoom');
   if(roomSel){
@@ -2324,25 +2379,35 @@ function renderDisc(){
   let discs=getDiscs();
   if(filtOTA)discs=discs.filter(d=>d.ota===filtOTA);
   if(filtRoom)discs=discs.filter(d=>d.room===filtRoom);
+  // ビューでフィルタ
+  discs=discs.filter(d=>_discView==='archived'?!!d.archived:!d.archived);
 
   const wrap=document.getElementById('discTableWrap');
   if(!wrap)return;
   if(!discs.length){
-    wrap.innerHTML='<div style="color:var(--t3);padding:20px;text-align:center;font-size:.88em">登録なし</div>';
+    const msg=_discView==='archived'?'過去ログはありません':'登録なし';
+    wrap.innerHTML=`<div style="color:var(--t3);padding:20px;text-align:center;font-size:.88em">${msg}</div>`;
     return;
   }
+
+  const isArchived=_discView==='archived';
 
   // ── カード表示（モバイル） ──
   const cardsHtml=`<div class="disc-show-card">
     ${discs.map(d=>{
       const borderColor=d.ota==='Airbnb'?'#FF5A5F':d.ota==='Booking.com'?'#003580':d.ota==='両方'?'#7b5ea7':'#90A4AE';
-      return`<div class="disc-card" style="border-left-color:${borderColor}">
+      const cardStyle=isArchived?'opacity:.7;filter:grayscale(.3)':'';
+      return`<div class="disc-card" style="border-left-color:${borderColor};${cardStyle}">
         <div class="disc-card-hdr">
-          ${otaBadgeShort(d.ota||'その他')}
+          ${otaBadge(d.ota||'その他')}
           <span class="disc-card-room">${d.room||'—'}</span>
           <div class="disc-card-btns">
-            <button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:5px 11px;cursor:pointer;font-size:.78em;color:var(--t2)">✏️</button>
-            <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:5px 11px;cursor:pointer;font-size:.78em;color:#c62828">🗑️</button>
+            ${isArchived
+              ?`<button onclick="restoreDisc('${d.id}')" style="background:none;border:1px solid #c8e6c9;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#388e3c">↩️ 復元</button>
+                <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#c62828">🗑️</button>`
+              :`<button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:5px 11px;cursor:pointer;font-size:.78em;color:var(--t2)">✏️</button>
+                <button onclick="archiveDisc('${d.id}')" style="background:none;border:1px solid #ffe0b2;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#e65100">消込</button>`
+            }
           </div>
         </div>
         <div class="disc-card-content">${d.content||'—'}</div>
@@ -2360,7 +2425,7 @@ function renderDisc(){
   const tableHtml=`<div class="disc-show-table disc-tbl-wrap">
     <table style="width:100%;border-collapse:collapse;font-size:.87em;table-layout:fixed">
       <colgroup>
-        <col style="width:42px"><col style="width:72px"><col><col style="width:90px"><col style="width:90px"><col style="width:160px"><col style="width:88px">
+        <col style="width:96px"><col style="width:76px"><col style="width:200px"><col style="width:82px"><col style="width:84px"><col><col style="width:112px">
       </colgroup>
       <thead>
         <tr style="background:#eaecf8">
@@ -2369,24 +2434,29 @@ function renderDisc(){
           <th style="padding:8px 10px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:left">内容</th>
           <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;white-space:nowrap;text-align:center">有効期限</th>
           <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;white-space:nowrap;text-align:center">適用日</th>
-          <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;letter-spacing:.04em;text-align:center">備考</th>
-          <th style="padding:9px 12px;border-bottom:2px solid #b8bbdc;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">操作</th>
+          <th style="padding:9px 10px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:left">備考</th>
+          <th style="padding:9px 10px;border-bottom:2px solid #b8bbdc;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">操作</th>
         </tr>
       </thead>
       <tbody>
         ${discs.map((d,i)=>{
           const even=i%2===0;
-          const bg=even?'#fff':'#f7f8fd';
-          return`<tr style="background:${bg}">
-            <td style="padding:8px 6px;border-bottom:1px solid #e0e2f0;${sep};text-align:center">${otaBadgeShort(d.ota||'その他')}</td>
+          const bg=isArchived?(even?'#f9f9f9':'#f3f3f3'):(even?'#fff':'#f7f8fd');
+          const faded=isArchived?'opacity:.72':'';
+          return`<tr style="background:${bg};${faded}">
+            <td style="padding:8px 6px;border-bottom:1px solid #e0e2f0;${sep};text-align:center">${otaBadge(d.ota||'その他')}</td>
             <td style="padding:8px 8px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;font-weight:600">${d.room||'—'}</td>
-            <td style="padding:8px 10px;border-bottom:1px solid #e0e2f0;${sep};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.content||'—'}</td>
-            <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.expiry||'—'}</td>
-            <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.applied||'—'}</td>
-            <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;${sep};color:var(--t2);font-size:.84em">${d.notes||'—'}</td>
-            <td style="padding:9px 12px;border-bottom:1px solid #e0e2f0;text-align:center;white-space:nowrap">
-              <button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.75em;color:var(--t2)">✏️ 編集</button>
-              <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.75em;color:#c62828;margin-left:4px">🗑️</button>
+            <td style="padding:8px 10px;border-bottom:1px solid #e0e2f0;${sep};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(d.content||'').replace(/"/g,'&quot;')}">${d.content||'—'}</td>
+            <td style="padding:8px 8px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;font-size:.83em;white-space:nowrap">${d.expiry||'—'}</td>
+            <td style="padding:8px 8px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;white-space:nowrap">${d.applied||'—'}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #e0e2f0;${sep};color:var(--t2);font-size:.82em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(d.notes||'').replace(/"/g,'&quot;')}">${d.notes||'—'}</td>
+            <td style="padding:8px 8px;border-bottom:1px solid #e0e2f0;text-align:center;white-space:nowrap">
+              ${isArchived
+                ?`<button onclick="restoreDisc('${d.id}')" style="background:none;border:1px solid #c8e6c9;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#388e3c">↩️ 復元</button>
+                   <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#c62828;margin-left:3px">🗑️</button>`
+                :`<button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:var(--t2)">✏️</button>
+                  <button onclick="archiveDisc('${d.id}')" style="background:none;border:1px solid #ffe0b2;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#e65100;margin-left:3px">消込</button>`
+              }
             </td>
           </tr>`;
         }).join('')}
