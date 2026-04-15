@@ -25,12 +25,14 @@
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--t);min-height:100vh;font-size:15px}
 
 /* ── SPLASH ── */
-#splashScreen{position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,var(--p),var(--p2));display:block;pointer-events:none;animation:splashFadeOut .5s ease 1.3s forwards}
-#splashScreen .splash-inner{padding:14% 8% 0;width:100%;opacity:0;transform:translateY(10px);animation:splashFadeIn .6s ease .1s forwards}
+#splashScreen{position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,var(--p),var(--p2));display:block;pointer-events:none;animation:splashFadeOut .5s ease 1.9s forwards}
+#splashScreen .splash-inner{padding:24% 8% 0;width:100%;opacity:0;transform:translateY(10px);animation:splashFadeIn .6s ease .1s forwards,splashOut .4s ease 1.3s forwards}
 .splash-title{font-size:28px;font-weight:700;color:#fff;letter-spacing:.03em;line-height:1.2;margin-bottom:14px}
 .splash-hr{width:140px;height:1px;background:rgba(255,255,255,.45);margin-bottom:10px}
 .splash-by{font-size:12px;letter-spacing:.2em;color:rgba(255,255,255,.85);text-transform:uppercase}
+.splash-datetime{position:absolute;top:28%;left:8%;font-size:17px;line-height:1.5;color:rgba(255,255,255,.85);letter-spacing:.05em;opacity:0;transform:translateY(10px);animation:splashFadeIn .6s ease .1s forwards,splashOut .4s ease 1.7s forwards}
 @keyframes splashFadeIn{to{opacity:1;transform:translateY(0)}}
+@keyframes splashOut{to{opacity:0;transform:translateY(-4px)}}
 @keyframes splashFadeOut{to{opacity:0;visibility:hidden}}
 
 /* ── PASSWORD ── */
@@ -414,7 +416,18 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div class="splash-hr"></div>
     <div class="splash-by">by Scissors Estate</div>
   </div>
+  <div class="splash-datetime" id="splashDatetime"></div>
 </div>
+<script>
+(function(){
+  var d=new Date();
+  var w=['日','月','火','水','木','金','土'];
+  var line1=d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日（'+w[d.getDay()]+'）';
+  var line2=d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');
+  var el=document.getElementById('splashDatetime');
+  if(el)el.innerHTML=line1+'<br>'+line2;
+})();
+</script>
 
 <!-- ════ LOGIN ════ -->
 <div id="pwScreen">
