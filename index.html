@@ -24,6 +24,15 @@
 }
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--t);min-height:100vh;font-size:15px}
 
+/* ── SPLASH ── */
+#splashScreen{position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,var(--p),var(--p2));display:block;pointer-events:none;animation:splashFadeOut .5s ease 1.3s forwards}
+#splashScreen .splash-inner{padding:14% 8% 0;width:100%;opacity:0;transform:translateY(10px);animation:splashFadeIn .6s ease .1s forwards}
+.splash-title{font-size:28px;font-weight:700;color:#fff;letter-spacing:.03em;line-height:1.2;margin-bottom:14px}
+.splash-hr{width:140px;height:1px;background:rgba(255,255,255,.45);margin-bottom:10px}
+.splash-by{font-size:12px;letter-spacing:.2em;color:rgba(255,255,255,.85);text-transform:uppercase}
+@keyframes splashFadeIn{to{opacity:1;transform:translateY(0)}}
+@keyframes splashFadeOut{to{opacity:0;visibility:hidden}}
+
 /* ── PASSWORD ── */
 #pwScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--p),var(--p2));padding:20px}
 .pw-card{background:#fff;border-radius:18px;padding:36px 28px;max-width:340px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.2)}
@@ -397,6 +406,15 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 </style>
 </head>
 <body>
+
+<!-- ════ SPLASH ════ -->
+<div id="splashScreen" onanimationend="if(event.animationName==='splashFadeOut')this.remove()">
+  <div class="splash-inner">
+    <div class="splash-title">民泊運営アプリ</div>
+    <div class="splash-hr"></div>
+    <div class="splash-by">by Scissors Estate</div>
+  </div>
+</div>
 
 <!-- ════ LOGIN ════ -->
 <div id="pwScreen">
@@ -828,6 +846,13 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div class="set-row"><span class="set-lbl">振込先</span><textarea class="set-inp" id="setBank" rows="2" style="resize:vertical"></textarea></div>
     <div class="set-row"><span class="set-lbl">次の請求書番号</span><input class="set-inp" id="setInvNum" type="number"></div>
     <hr class="set-divider">
+    <div style="font-size:.85em;font-weight:700;margin-bottom:8px">📱 バイブレーション</div>
+    <div style="font-size:.75em;color:var(--t3);margin-bottom:8px">保存・送信・ログイン成功などの完了時にスマホが振動します（Android対応・iOS非対応）</div>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0;margin-bottom:12px">
+      <input type="checkbox" id="setBuzz" style="width:18px;height:18px;cursor:pointer">
+      <span style="font-size:.85em">完了時の振動を有効にする</span>
+    </label>
+    <hr class="set-divider">
     <div style="font-size:.85em;font-weight:700;margin-bottom:8px">⚠️ 直前予約注意対象物件</div>
     <div style="font-size:.75em;color:var(--t3);margin-bottom:8px">土日に空室の場合、掲示板に「予約が入ったら掃除手配が必要」として表示される物件</div>
     <div id="lastMinuteRoomsList" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>
@@ -842,9 +867,18 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6';
 const OFFICES=['両国事務所','亀有事務所','SC事務所','梅島事務所','青戸事務所'];
 const SERVICES=['AirHost'];
+
+// バイブレーション（Android Chromeで動作。iOS Safariでは何も起きないが害なし）
+// ON/OFFは 設定画面 → localStorage(BUZZ_KEY) で切替。デフォルトはON。
+function buzz(pattern){
+  try{
+    if(localStorage.getItem(BUZZ_KEY)==='off')return;
+    if(navigator.vibrate)navigator.vibrate(pattern||50);
+  }catch(e){}
+}
 
 let cfg={
   pw:'minpaku2026',defaultRent:3912091,
@@ -993,6 +1027,7 @@ function checkPw(){
   }
   currentUser=user;
   saveSession(uid);
+  buzz([30,50,30]);
   enterApp();
 }
 
@@ -1181,6 +1216,7 @@ function saveRoomRent(tag,from,rentInc){
   else rents[tag].push({from,rentInc});
   rents[tag].sort((a,b)=>a.from.localeCompare(b.from));
   S.set(ROOM_RENT_KEY,rents);
+  buzz(50);
   computeMS();renderOps();renderRoomMgmt();
 }
 function delRoomRent(tag,from){
@@ -1788,6 +1824,7 @@ function saveUtil(tag,type,val){
   if(!utilData[curM][tag])utilData[curM][tag]={elec:0,gas:0,water:0};
   utilData[curM][tag][type]=v;
   S.set(UTIL_KEY,utilData);
+  buzz(30);
   computeMS();renderOps();
 }
 
@@ -2238,6 +2275,7 @@ function togPay(id,val){
   if(!pays[id])pays[id]={};
   pays[id].status=val?'1':'0';
   S.set(PAY_KEY,pays);
+  buzz(30);
   renderPayTab();
 }
 let _amtModalId=null,_amtModalCsv=0;
@@ -2254,6 +2292,7 @@ function openAmtModal(id,csvAmt,guest){
 function savePayAmt(){
   const val=document.getElementById('amtModalInput').value;
   updatePayAmt(_amtModalId,val);
+  buzz(50);
   closeModal('amtModal');
 }
 function revertPayAmt(){
@@ -2524,6 +2563,7 @@ function saveDisc(){
     arr.push(data);
   }
   saveDiscs(arr);
+  buzz(50);
   closeModal('discModal');
   renderDisc();
 }
@@ -2889,6 +2929,7 @@ function loadCSVs(){
     populateInvMonths();
     try{populateAccMonths();}catch(e){}
     closeModal('csvModal');
+    buzz([30,50,30]);
   }catch(e){
     console.error('loadCSVs error:',e);
     alert('読み込みエラー: '+e.message);
@@ -2923,7 +2964,7 @@ function openSnap(){
     :'<div style="font-size:.82em;color:#555">スナップショットはまだありません。</div>';
   openModal('snapModal');
 }
-function saveSnap(){S.set(SNAP_KEY,{timestamp:new Date().toISOString(),data:MS});closeModal('snapModal');alert('✅ 保存しました');renderOps();}
+function saveSnap(){S.set(SNAP_KEY,{timestamp:new Date().toISOString(),data:MS});closeModal('snapModal');buzz(50);alert('✅ 保存しました');renderOps();}
 function clearSnap(){if(confirm('削除しますか？')){S.set(SNAP_KEY,null);closeModal('snapModal');renderOps();}}
 
 // 自動スナップ: 毎日0時以降の初回起動時に自動保存
@@ -2966,6 +3007,9 @@ function openSettings(){
   document.getElementById('setFee').value=cfg.fee;
   document.getElementById('setBank').value=cfg.bank;
   document.getElementById('setInvNum').value=cfg.nextInv;
+  // バイブON/OFF（デフォルトON）
+  const buzzEl=document.getElementById('setBuzz');
+  if(buzzEl)buzzEl.checked=(localStorage.getItem(BUZZ_KEY)!=='off');
   renderOfficeList();
   openModal('settingsModal');
 }
@@ -2982,7 +3026,10 @@ function saveSettings(){
   // ⑬ Save users
   S.set('mp_users6',USERS);
   populateLoginUsers();
-  saveCfg();closeModal('settingsModal');alert('✅ 設定を保存しました');
+  // バイブON/OFF保存
+  const buzzEl=document.getElementById('setBuzz');
+  if(buzzEl)localStorage.setItem(BUZZ_KEY,buzzEl.checked?'on':'off');
+  saveCfg();closeModal('settingsModal');buzz(50);alert('✅ 設定を保存しました');
 }
 
 // ════════════════════════════════════════════
@@ -3760,15 +3807,17 @@ function renderBB(){
 function saveBBNote(ds,note){
   const bbData=S.get(BB_KEY)||{};
   bbData[ds]=note;S.set(BB_KEY,bbData);
+  buzz(50);
 }
 function saveBBStaff(ds,val){
   const bbData=S.get(BB_KEY)||{};
   bbData['_staff_'+ds]=val;S.set(BB_KEY,bbData);
+  buzz(50);
 }
 function toggleBBLock(ds){
   const bbData=S.get(BB_KEY)||{};
   bbData['_lock_'+ds]=!bbData['_lock_'+ds];
-  S.set(BB_KEY,bbData);renderBB();
+  S.set(BB_KEY,bbData);buzz(30);renderBB();
 }
 
 // ════════════════════════════════════════════
