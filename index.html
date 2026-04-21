@@ -2261,7 +2261,7 @@ function renderPayTab(){
     const isEdited=customAmt!=='';
     return`<tr style="${rowStyle}">
       <td style="text-align:center"><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer;vertical-align:middle" ${isLocked?'disabled':''}></td>
-      <td>${ip?'<span class="tag-paid">入金済</span>':'<span class="tag-unpaid">未確認</span>'}</td>
+      <td>${isLocked?(ip?'<span class="tag-paid" title="ロック中：解除してから変更してください">入金済</span>':'<span class="tag-unpaid" title="ロック中：解除してから変更してください">未確認</span>'):(ip?`<span class="tag-paid" style="cursor:pointer" onclick="togPayWithConfirm('${bk.id}',false)" title="クリックで未確認に戻す">入金済</span>`:`<span class="tag-unpaid" style="cursor:pointer" onclick="togPayWithConfirm('${bk.id}',true)" title="クリックで入金済にする">未確認</span>`)}</td>
       <td style="color:var(--t2)">${bk.ci}</td>
       <td>${bk.tag}</td>
       <td>
@@ -2328,6 +2328,21 @@ function clearPaySearch(){
 
 function togPay(id,val){
   const pays=S.get(PAY_KEY)||{};
+  if(!pays[id])pays[id]={};
+  pays[id].status=val?'1':'0';
+  S.set(PAY_KEY,pays);
+  buzz(30);
+  renderPayTab();
+}
+// 状態クリックで切替（確認ダイアログ付き）。ロック中は切替不可。
+function togPayWithConfirm(id,val){
+  const pays=S.get(PAY_KEY)||{};
+  const pd=pays[id]||{};
+  if(pd.locked==='1'){alert('ロック中のため変更できません。\n先に🔒マークから解除してください。');return;}
+  const msg=val
+    ?'この予約を「入金済」にしますか？'
+    :'この予約を「未確認」に戻しますか？\n（CSV取込で誤って入金済になった場合などに使用）';
+  if(!confirm(msg))return;
   if(!pays[id])pays[id]={};
   pays[id].status=val?'1':'0';
   S.set(PAY_KEY,pays);
@@ -2660,7 +2675,7 @@ function handlePayCSV(files){
               if(bk.id===code||(bk.id&&code&&bk.id.includes(code))){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
-                if(payDate)pays[bk.id].payDate=payDate;
+                if(payDate){pays[bk.id].payDate=payDate;pays[bk.id].locked='1';}
                 matched++;allMatchedIds.push(bk.id);
               }
             });
@@ -2678,7 +2693,7 @@ function handlePayCSV(files){
               if(bk.id===refNum){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
-                if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate;
+                if(payDate&&!pays[bk.id].payDate){pays[bk.id].payDate=payDate;pays[bk.id].locked='1';}
                 if(!isNaN(netAmt)&&netAmt>0&&pays[bk.id].customAmt==null)pays[bk.id].customAmt=netAmt;
                 matched++;allMatchedIds.push(bk.id);
               }
@@ -2696,7 +2711,7 @@ function handlePayCSV(files){
               if(bk.id===refNum){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
-                if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate;
+                if(payDate&&!pays[bk.id].payDate){pays[bk.id].payDate=payDate;pays[bk.id].locked='1';}
                 matched++;allMatchedIds.push(bk.id);
               }
             });
