@@ -1177,6 +1177,39 @@ function parseBookings(){
   Object.keys(BK).forEach(t=>BK[t].sort((a,b)=>a.ci.localeCompare(b.ci)));
 }
 
+// 過去のCSV解析バグで作られた「数字のみのタグ」部屋（例:「1003」）を、
+// 本来のタグ（例:「亀有1003」）にマージして削除する。CH/BKデータも引き継ぐ。
+// 戻り値: クリーンアップが行われたら true（その場合は呼び出し側で saveBookingsToFb 推奨）
+function cleanupGhostRooms(){
+  const tags=Object.keys(ROOMS||{});
+  const ghosts=[];
+  tags.forEach(t=>{
+    if(/^\d+$/.test(t)){
+      const prop=ROOMS[t];
+      const realTag=tags.find(t2=>t2!==t&&ROOMS[t2]===prop&&t2.endsWith(t)&&!/^\d+$/.test(t2));
+      if(realTag)ghosts.push({ghost:t,real:realTag});
+    }
+  });
+  if(!ghosts.length)return false;
+  ghosts.forEach(({ghost,real})=>{
+    if(CH&&CH[ghost]){
+      if(!CH[real])CH[real]=[];
+      CH[ghost].forEach(c=>{if(!CH[real].some(c2=>c2.d===c.d))CH[real].push(c);});
+      CH[real].sort((a,b)=>a.d.localeCompare(b.d));
+      delete CH[ghost];
+    }
+    if(BK&&BK[ghost]){
+      if(!BK[real])BK[real]=[];
+      BK[ghost].forEach(b=>{if(!BK[real].some(b2=>b2.id===b.id))BK[real].push(b);});
+      BK[real].sort((a,b)=>a.ci.localeCompare(b.ci));
+      delete BK[ghost];
+    }
+    delete ROOMS[ghost];
+  });
+  console.log('🧹 ゴースト部屋を削除:',ghosts.map(g=>`${g.ghost}→${g.real}`).join(', '));
+  return true;
+}
+
 function parseCleaning(){
   CH={};CM={};
   parseCSV(_clText).forEach(r=>{
@@ -2938,6 +2971,8 @@ function loadCSVs(){
     });
     CM={...prevCM,...CM};
 
+    // マージ後にゴースト部屋（過去のバグ由来）を再度掃除
+    cleanupGhostRooms();
     computeMS();
     const _d=new Date();
     const now=_d.toLocaleDateString('ja-JP')+'　'+_d.getHours()+':'+String(_d.getMinutes()).padStart(2,'0');
@@ -3497,6 +3532,11 @@ function initFirebase(){
         if(stored.ROOMS) { Object.assign(ROOMS, stored.ROOMS); }
         if(stored.CH) { Object.assign(CH, stored.CH); }
         if(stored.CM) { Object.assign(CM, stored.CM); }
+        // 過去のバグで作られたゴースト部屋（例:「1003」）を削除して本来のタグに統合
+        if(cleanupGhostRooms()){
+          // クリーンアップが行われたらFirebaseに書き戻して全端末で同期
+          try{ saveBookingsToFb(); }catch(e){ console.warn('cleanup save failed', e); }
+        }
         computeMS();
         renderOpsTabs();
         // ② cleanDateが設定されている事を確認してからrenderClean
