@@ -909,7 +909,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6';
 const OFFICES=['両国事務所','亀有事務所','SC事務所','梅島事務所','青戸事務所'];
 const SERVICES=['AirHost'];
 
@@ -3038,11 +3038,11 @@ function loadCSVs(){
     cleanupGhostRooms();
 
     // ── CSV差分レポート（新規予約・キャンセル・変更検出） ──
-    const _prevHadData=Object.keys(prevBK).some(t=>(prevBK[t]||[]).length>0);
+    // ※ FirebaseのBK読込タイミングに依存しないよう、前回取込時に保存したlocalStorageスナップを使用
+    const _prevBkSnap=S.get(PREV_BK_SNAP_KEY)||null; // {id: {ci,co,n,g,prop,tag}}
     let _diffNew=[],_diffCancelled=[],_diffChanged=[];
-    if(_prevHadData){
-      const prevIdMap=new Map();
-      Object.keys(prevBK).forEach(tag=>(prevBK[tag]||[]).forEach(b=>{if(b.id)prevIdMap.set(b.id,{...b,tag});}));
+    if(_prevBkSnap){
+      const prevIdMap=new Map(Object.entries(_prevBkSnap));
       const newIdMap=new Map();
       Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id)newIdMap.set(b.id,{...b,tag});}));
       // 新規：今回あって前回ない
@@ -3062,6 +3062,10 @@ function loadCSVs(){
       _diffCancelled.sort((a,b)=>a.ci.localeCompare(b.ci));
       _diffChanged.sort((a,b)=>a.ci.localeCompare(b.ci));
     }
+    // 今回のBK状態をlocalStorageに保存（次回取込時の比較ベースになる）
+    const _newBkSnap={};
+    Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id)_newBkSnap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag};}));
+    S.set(PREV_BK_SNAP_KEY,_newBkSnap);
 
     computeMS();
     const _d=new Date();
