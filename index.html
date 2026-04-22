@@ -465,6 +465,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <button class="tab" id="tabCal" onclick="swTab('cal',this)">📅 カレンダー</button>
     <button class="tab" onclick="swTab('clean',this)">🧹 清掃</button>
     <button class="tab" id="tabBb" onclick="swTab('bb',this)">📋 掲示板</button>
+    <button class="tab" id="tabDiff" onclick="swTab('diff',this);renderDiffTab()">🔔 予約変動</button>
     <button class="tab" id="tabPay" onclick="swTab('pay',this)">💰 入金管理</button>
     <button class="tab" id="tabInv" onclick="swTab('inv',this)">📄 請求書</button>
     <button class="tab" id="tabAcc" onclick="swTab('acc',this)">📒 会計</button>
@@ -593,6 +594,12 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         <button onclick="exportPayCSV()" title="表示中の一覧をCSVダウンロード" style="background:#fff;border:1.5px solid var(--b);color:var(--t2);padding:5px 11px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">📥 CSV出力</button>
         <button onclick="printPayTable()" title="表示中の一覧を印刷" style="background:#fff;border:1.5px solid var(--b);color:var(--t2);padding:5px 11px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">🖨️ 印刷</button>
       </div>
+    </div>
+    <!-- 一括ロックバー -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;background:#fff8e1;border:1.5px solid #ffd54f;border-radius:8px">
+      <span style="font-size:.78em;color:#795548;font-weight:600">🔒 一括ロック：</span>
+      <span style="font-size:.75em;color:#795548">「入金済 ＋ 着金日あり ＋ 未ロック」の行をまとめてロックします</span>
+      <button onclick="bulkLockPaid()" style="margin-left:auto;background:#f57f17;color:#fff;border:none;padding:6px 16px;border-radius:7px;cursor:pointer;font-size:.8em;font-weight:700;white-space:nowrap">🔒 一括ロック実行</button>
     </div>
     <div class="pay-tbl-wrap"><table class="pay-tbl">
   <colgroup>
@@ -775,6 +782,17 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div id="bbContent"></div>
   </div>
 
+  <!-- 予約変動 -->
+  <div class="pane" id="diffPane">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <div>
+        <div style="font-size:1em;font-weight:700">🔔 予約変動レポート</div>
+        <div id="diffPaneTs" style="font-size:.75em;color:var(--t3);margin-top:2px"></div>
+      </div>
+    </div>
+    <div id="diffPaneBody"></div>
+  </div>
+
 </div>
 
 <!-- ════ MODALS ════ -->
@@ -876,11 +894,22 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
   </div>
 </div>
 
+<!-- 差分レポートModal（CSV取込後の新規・キャンセル表示） -->
+<div class="overlay" id="diffModal" onclick="if(event.target===this)closeModal('diffModal')">
+  <div class="modal" style="max-width:560px">
+    <h2>📋 取込差分レポート</h2>
+    <div id="diffModalBody" style="max-height:65vh;overflow-y:auto"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('diffModal')">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6';
 const OFFICES=['両国事務所','亀有事務所','SC事務所','梅島事務所','青戸事務所'];
 const SERVICES=['AirHost'];
 
@@ -1018,7 +1047,11 @@ function enterApp(){
   document.getElementById('mainApp').style.display='flex';
   document.getElementById('mainApp').style.flexDirection='column';
   const isStaff=currentUser.role==='staff';
-  ['tabPay','tabInv','tabAcc','tabBb'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isStaff?'none':'';});
+  ['tabPay','tabInv','tabAcc','tabBb','tabDiff'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isStaff?'none':'';});
+  // 差分バッジ復元
+  const _savedDiff=S.get(DIFF_KEY);
+  const _tabDiff=document.getElementById('tabDiff');
+  if(_tabDiff&&_savedDiff){const _n=(_savedDiff.n||[]).length+(_savedDiff.c||[]).length+(_savedDiff.ch||[]).length;if(_n>0)_tabDiff.textContent=`🔔 予約変動 ${_n}`;}
   const isAdmin=currentUser&&(currentUser.role==='admin'||currentUser.role==='office');
   const tabUsers=document.getElementById('tabUsers');
   if(tabUsers)tabUsers.style.display=isAdmin?'':'none';
@@ -2326,6 +2359,21 @@ function clearPaySearch(){
   renderPayTab();
 }
 
+function bulkLockPaid(){
+  const pays=S.get(PAY_KEY)||{};
+  const targets=Object.keys(pays).filter(id=>{
+    const pd=pays[id]||{};
+    return pd.status==='1'&&pd.payDate&&pd.locked!=='1';
+  });
+  if(!targets.length){alert('ロック対象がありません。\n（入金済 + 着金日あり + 未ロック の行が0件です）');return;}
+  if(!confirm(`「入金済 + 着金日あり + 未ロック」の ${targets.length}件をまとめてロックします。\n\nよろしいですか？`))return;
+  targets.forEach(id=>{pays[id].locked='1';});
+  S.set(PAY_KEY,pays);
+  if(fbReady)fbWrite('payments',pays);
+  buzz([30,50,30]);
+  renderPayTab();
+  alert(`✅ ${targets.length}件をロックしました。`);
+}
 function togPay(id,val){
   const pays=S.get(PAY_KEY)||{};
   if(!pays[id])pays[id]={};
@@ -2988,6 +3036,33 @@ function loadCSVs(){
 
     // マージ後にゴースト部屋（過去のバグ由来）を再度掃除
     cleanupGhostRooms();
+
+    // ── CSV差分レポート（新規予約・キャンセル・変更検出） ──
+    const _prevHadData=Object.keys(prevBK).some(t=>(prevBK[t]||[]).length>0);
+    let _diffNew=[],_diffCancelled=[],_diffChanged=[];
+    if(_prevHadData){
+      const prevIdMap=new Map();
+      Object.keys(prevBK).forEach(tag=>(prevBK[tag]||[]).forEach(b=>{if(b.id)prevIdMap.set(b.id,{...b,tag});}));
+      const newIdMap=new Map();
+      Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id)newIdMap.set(b.id,{...b,tag});}));
+      // 新規：今回あって前回ない
+      newIdMap.forEach((b,id)=>{if(!prevIdMap.has(id))_diffNew.push(b);});
+      // キャンセル：前回あって今回ない
+      prevIdMap.forEach((b,id)=>{if(!newIdMap.has(id))_diffCancelled.push(b);});
+      // 変更：同IDで日程・人数が変わった
+      prevIdMap.forEach((prevB,id)=>{
+        const newB=newIdMap.get(id);
+        if(!newB)return;
+        const chgs=[];
+        if(prevB.ci!==newB.ci||prevB.co!==newB.co)chgs.push({type:'日程',from:`${prevB.ci}〜${prevB.co}`,to:`${newB.ci}〜${newB.co}`});
+        if((prevB.n||1)!==(newB.n||1))chgs.push({type:'人数',from:`${prevB.n||1}名`,to:`${newB.n||1}名`});
+        if(chgs.length>0)_diffChanged.push({...newB,chgs});
+      });
+      _diffNew.sort((a,b)=>a.ci.localeCompare(b.ci));
+      _diffCancelled.sort((a,b)=>a.ci.localeCompare(b.ci));
+      _diffChanged.sort((a,b)=>a.ci.localeCompare(b.ci));
+    }
+
     computeMS();
     const _d=new Date();
     const now=_d.toLocaleDateString('ja-JP')+'　'+_d.getHours()+':'+String(_d.getMinutes()).padStart(2,'0');
@@ -3002,7 +3077,16 @@ function loadCSVs(){
     populateInvMonths();
     try{populateAccMonths();}catch(e){}
     closeModal('csvModal');
+    // 差分データを保存（タブからいつでも参照可能に）
+    const _d2=new Date();
+    const _diffTs=_d2.toLocaleDateString('ja-JP')+'　'+_d2.getHours()+':'+String(_d2.getMinutes()).padStart(2,'0');
+    S.set(DIFF_KEY,{ts:_diffTs,n:_diffNew,c:_diffCancelled,ch:_diffChanged});
+    // バッジ更新
+    const _diffTotal=_diffNew.length+_diffCancelled.length+_diffChanged.length;
+    const _tabDiff=document.getElementById('tabDiff');
+    if(_tabDiff)_tabDiff.textContent=_diffTotal>0?`🔔 予約変動 ${_diffTotal}`:'🔔 予約変動';
     buzz([30,50,30]);
+    if(_diffNew.length>0||_diffCancelled.length>0||_diffChanged.length>0)setTimeout(()=>showDiffModal(_diffNew,_diffCancelled,_diffChanged),300);
   }catch(e){
     console.error('loadCSVs error:',e);
     alert('読み込みエラー: '+e.message);
@@ -3014,6 +3098,74 @@ function resetAllBookings(){
   if(fbReady)fbWrite('bookings',{BK:{},ROOMS:{},CH:{},CM:{},meta:'リセット済み'});
   renderOpsTabs();renderClean();renderPayTab();
   alert('リセットしました。全期間のCSVをアップロードしてください。');
+}
+function renderDiffTab(){
+  const saved=S.get(DIFF_KEY);
+  const tsEl=document.getElementById('diffPaneTs');
+  const bodyEl=document.getElementById('diffPaneBody');
+  if(!saved||(!saved.n?.length&&!saved.c?.length&&!saved.ch?.length)){
+    if(tsEl)tsEl.textContent='';
+    if(bodyEl)bodyEl.innerHTML='<div style="text-align:center;color:var(--t3);padding:40px 0;font-size:.88em">まだデータがありません。<br>CSVを取込むと変動が表示されます。</div>';
+    return;
+  }
+  if(tsEl)tsEl.textContent='取込日時：'+saved.ts;
+  // showDiffModalと同じHTML生成ロジックを流用して bodyEl に描画
+  const tmp=document.getElementById('diffModalBody');
+  showDiffModal(saved.n||[],saved.c||[],saved.ch||[]);
+  if(bodyEl&&tmp)bodyEl.innerHTML=tmp.innerHTML;
+}
+function showDiffModal(newBks,cancelledBks,changedBks){
+  changedBks=changedBks||[];
+  const fmtD=d=>d?d.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$2/$3'):'';
+  const siteTag=(s,type)=>{
+    if(!s)return'';
+    const bg=type==='new'?'#e8f4fd':type==='cancel'?'#ffe8e8':'#fff3e0';
+    const col=type==='new'?'#1565c0':type==='cancel'?'#c62828':'#e65100';
+    return`<span style="background:${bg};color:${col};border-radius:4px;padding:1px 5px;margin-left:4px;font-size:.88em">${s}</span>`;
+  };
+  let html='';
+  if(newBks.length>0){
+    html+=`<div style="margin-bottom:16px">
+      <div style="font-weight:700;color:var(--green);font-size:.88em;margin-bottom:8px;padding-bottom:5px;border-bottom:2px solid #c8f0d0">🆕 新規予約 <span style="font-size:1.1em">${newBks.length}</span>件</div>
+      <div style="display:flex;flex-direction:column;gap:5px">`;
+    newBks.forEach(b=>{
+      html+=`<div style="background:#f3fff5;border-radius:7px;padding:8px 10px;font-size:.8em;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
+        <div><span style="font-weight:600">${b.prop||b.tag}</span><span style="color:var(--t3);margin:0 3px">·</span><span style="color:var(--t2)">${fmtD(b.ci)}〜${fmtD(b.co)}</span><span style="margin-left:5px">${b.g||'不明'}</span>${siteTag(b.s,'new')}</div>
+        <div style="color:var(--green);font-weight:700;white-space:nowrap">¥${(b.net||0).toLocaleString()}</div>
+      </div>`;
+    });
+    html+='</div></div>';
+  }
+  if(cancelledBks.length>0){
+    html+=`<div style="margin-bottom:16px">
+      <div style="font-weight:700;color:var(--red);font-size:.88em;margin-bottom:8px;padding-bottom:5px;border-bottom:2px solid #ffc8c8">❌ キャンセル <span style="font-size:1.1em">${cancelledBks.length}</span>件</div>
+      <div style="display:flex;flex-direction:column;gap:5px">`;
+    cancelledBks.forEach(b=>{
+      html+=`<div style="background:#fff5f5;border-radius:7px;padding:8px 10px;font-size:.8em;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
+        <div><span style="font-weight:600">${b.prop||b.tag}</span><span style="color:var(--t3);margin:0 3px">·</span><span style="color:var(--t2)">${fmtD(b.ci)}〜${fmtD(b.co)}</span><span style="margin-left:5px">${b.g||'不明'}</span>${siteTag(b.s,'cancel')}</div>
+        <div style="color:var(--t3);text-decoration:line-through;white-space:nowrap">¥${(b.net||0).toLocaleString()}</div>
+      </div>`;
+    });
+    html+='</div></div>';
+  }
+  if(changedBks.length>0){
+    html+=`<div style="margin-bottom:8px">
+      <div style="font-weight:700;color:var(--orange);font-size:.88em;margin-bottom:8px;padding-bottom:5px;border-bottom:2px solid #ffd8a0">📝 変更 <span style="font-size:1.1em">${changedBks.length}</span>件</div>
+      <div style="display:flex;flex-direction:column;gap:5px">`;
+    changedBks.forEach(b=>{
+      const chgLines=b.chgs.map(c=>`<div style="color:var(--t2);margin-top:3px;padding-left:4px;border-left:2px solid var(--orange)"><span style="font-weight:600;color:var(--orange)">${c.type}</span>　<span style="text-decoration:line-through;color:var(--t3)">${fmtD(c.from)||c.from}</span> → <span style="font-weight:600">${fmtD(c.to)||c.to}</span></div>`).join('');
+      html+=`<div style="background:#fff9f0;border-radius:7px;padding:8px 10px;font-size:.8em">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
+          <div><span style="font-weight:600">${b.prop||b.tag}</span><span style="color:var(--t3);margin:0 3px">·</span><span style="margin-left:2px">${b.g||'不明'}</span>${siteTag(b.s,'change')}</div>
+        </div>
+        ${chgLines}
+      </div>`;
+    });
+    html+='</div></div>';
+  }
+  if(!html)return;
+  document.getElementById('diffModalBody').innerHTML=html;
+  openModal('diffModal');
 }
 ['bkZone','clZone'].forEach(id=>{
   const z=document.getElementById(id);
