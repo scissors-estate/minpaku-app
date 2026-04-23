@@ -3085,6 +3085,7 @@ function loadCSVs(){
     const _d2=new Date();
     const _diffTs=_d2.toLocaleDateString('ja-JP')+'　'+_d2.getHours()+':'+String(_d2.getMinutes()).padStart(2,'0');
     S.set(DIFF_KEY,{ts:_diffTs,n:_diffNew,c:_diffCancelled,ch:_diffChanged});
+    if(fbReady)fbWrite('diffReport',{ts:_diffTs,n:_diffNew,c:_diffCancelled,ch:_diffChanged});
     // バッジ更新
     const _diffTotal=_diffNew.length+_diffCancelled.length+_diffChanged.length;
     const _tabDiff=document.getElementById('tabDiff');
@@ -3774,6 +3775,15 @@ function initFirebase(){
       if(val){
         _origSset(BB_KEY, val);
         if(document.getElementById('bbContent'))renderBB();
+      }
+    });
+    fbDB.ref('diffReport').on('value', snap => {
+      const val = snap.val();
+      if(val){
+        S.set(DIFF_KEY, val);
+        const total=(val.n?.length||0)+(val.c?.length||0)+(val.ch?.length||0);
+        const tabDiff=document.getElementById('tabDiff');
+        if(tabDiff)tabDiff.textContent=total>0?`🔔 予約変動 ${total}`:'🔔 予約変動';
       }
     });
     fbDB.ref('discounts').on('value', snap => {
