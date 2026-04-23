@@ -483,11 +483,15 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     </div>
     <!-- ④ Filter (収益サブタブ内) -->
     <div id="revSubPane">
-      <div class="filter-bar">
+      <div class="filter-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
         <span>表示：</span>
         <button class="filt-btn on" onclick="setFilt('all',this)">全体</button>
         <button class="filt-btn" onclick="setFilt('direct',this)">直営のみ</button>
         <button class="filt-btn" onclick="setFilt('subcon',this)">代行のみ</button>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
+          <select id="opsPrintMonth" style="padding:6px 8px;border:1px solid var(--b);border-radius:6px;font-size:.85em"></select>
+          <button onclick="printOpsReport()" style="padding:7px 14px;background:var(--p);color:#fff;border:none;border-radius:6px;font-size:.85em;font-weight:600;cursor:pointer">🖨️ 月次レポート印刷</button>
+        </span>
       </div>
       <div id="opsContent"></div>
     </div>
@@ -1544,6 +1548,9 @@ function getFilteredData(ms){
 function renderOpsTabs(){
   const months=Object.keys(MS).sort();
   const wrap=document.getElementById('mtabsWrap');
+  // 印刷月セレクト更新
+  const printSel=document.getElementById('opsPrintMonth');
+  if(printSel)printSel.innerHTML=months.slice().reverse().map(m=>`<option value="${m}">${m}</option>`).join('');
   if(!months.length){
     wrap.innerHTML='<div style="padding:10px;font-size:.8em;color:#999">CSVを読み込んでください</div>';
     document.getElementById('opsContent').innerHTML='<div class="nd">📂 右上の「CSV更新」からCSVを読み込んでください</div>';
@@ -1604,6 +1611,122 @@ function swM(m,btn){
   document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('on'));
   if(btn)btn.classList.add('on');
   renderOps();
+}
+
+function printOpsReport(){
+  const month=document.getElementById('opsPrintMonth').value;
+  if(!month||!MS[month]){alert('対象月のデータがありません。');return;}
+  const ms=MS[month];
+  const{d,s,exp,roomList,otaList}=ms;
+  const tot=ms.tot;
+  const tR=ms.tR||Object.keys(ROOMS).length;
+  const today=new Date().toLocaleDateString('ja-JP');
+  // 粗利計算
+  const grossProfit=tot.sales-ms.exp.tot;
+  const dGross=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.officeRent||0)-(ms.exp.officeUtil||0)-(ms.exp.serviceFee||0)-(ms.exp.emptyDRent||0);
+  const sGross=Object.values(ms.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.emptySRent||0);
+  // 稼働
+  const guestsAll=Object.values(ms.rooms).reduce((a,r)=>a+(r.gu||0),0);
+  const guestsDirect=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.gu||0),0);
+  const guestsSub=Object.values(ms.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.gu||0),0);
+  // 角印SVG
+  const sealSVG=`<svg xmlns="http://www.w3.org/2000/svg" width="74" height="74" viewBox="0 0 100 100" style="opacity:0.5"><rect x="3" y="3" width="94" height="94" fill="none" stroke="#c41e3a" stroke-width="3.5"/><rect x="9" y="9" width="82" height="82" fill="none" stroke="#c41e3a" stroke-width="0.8"/><g fill="#c41e3a" font-size="14" font-weight="700" font-family="serif" text-anchor="middle"><text x="78" y="28">株</text><text x="78" y="46">式</text><text x="78" y="64">会</text><text x="78" y="82">社</text><text x="59" y="28">シ</text><text x="59" y="46">ザ</text><text x="59" y="64">ー</text><text x="59" y="82">ス</text><text x="40" y="28">エ</text><text x="40" y="46">ス</text><text x="40" y="64">テ</text><text x="40" y="82">ー</text><text x="22" y="28">ト</text><text x="22" y="46">之</text><text x="22" y="64">印</text></g></svg>`;
+  // OTA
+  const otaRows=otaList.map(o=>`<tr><td>${o.name}</td><td class="ra">${o.cnt} 件</td><td class="ra">${fmtF(o.sales)}</td><td class="ra" style="color:#c00">-${fmtF(o.comm)}</td></tr>`).join('');
+  // 部屋別
+  const roomRows=roomList.map(rm=>{
+    const occR=+(rm.days/ms.dm*100).toFixed(1);
+    const unitP=rm.days>0?Math.round(rm.sales/rm.days):0;
+    return `<tr><td>${rm.tag}${rm.isSub?'<span style="color:#c91e7a;font-size:.85em"> (代行)</span>':''}</td><td class="ra">${rm.days}日</td><td class="ra">${occR}%</td><td class="ra">${rm.cnt}件</td><td class="ra">${rm.gu}名</td><td class="ra">${fmtF(unitP)}</td><td class="ra">${fmtF(rm.sales)}</td><td class="ra" style="color:${rm.grossProfit>=0?'#1b7a3a':'#c00'}">${fmtF(rm.grossProfit)}</td></tr>`;
+  }).join('');
+  // 支出合計のみ
+  const expTot=exp.tot||0;
+  const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>月次運営レポート ${month}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;padding:24px;font-size:12px;max-width:920px;margin:0 auto;color:#222}
+h1{text-align:center;font-size:22px;font-weight:700;margin-bottom:6px;letter-spacing:3px}
+.sub-title{text-align:center;font-size:14px;color:#555;margin-bottom:20px}
+.hrow{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;border-bottom:1.5px solid #333;padding-bottom:12px}
+.hcol-l{font-size:13px;line-height:1.7}
+.hcol-r{text-align:right;font-size:11px;line-height:1.8;position:relative}
+.hcol-r .seal{position:absolute;top:-5px;right:-25px}
+h2{font-size:14px;font-weight:700;margin:18px 0 8px;padding:5px 9px;background:#333;color:#fff;border-radius:3px;letter-spacing:1px}
+table{width:100%;border-collapse:collapse;margin-bottom:8px}
+th,td{padding:6px 8px;border:1px solid #bbb;font-size:11.5px}
+th{background:#eee;font-weight:700;text-align:left}
+.ra{text-align:right;font-family:ui-monospace,monospace}
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.kpi-card{border:1.5px solid #333;padding:10px 12px;border-radius:4px;background:#fafafa}
+.kpi-lbl{font-size:10px;color:#666;margin-bottom:3px}
+.kpi-val{font-size:17px;font-weight:700;font-family:ui-monospace,monospace}
+.kpi-sub{font-size:10px;color:#666;margin-top:3px}
+.wf-row{display:flex;justify-content:space-between;padding:5px 8px;border-bottom:1px solid #ddd;font-size:12px}
+.wf-row.main{font-weight:700;background:#f5f5f5}
+.wf-row.result{font-weight:700;border-top:1.5px solid #333;border-bottom:1.5px solid #333;background:#eef}
+.minus{color:#c00}.plus{color:#1b7a3a}.neutral{color:#222}
+.foot{margin-top:25px;padding-top:10px;border-top:1px solid #999;font-size:10px;color:#777;text-align:right}
+@media print{body{padding:12px}@page{size:A4;margin:8mm}}
+</style></head><body>
+<h1>月 次 運 営 レ ポ ー ト</h1>
+<div class="sub-title">対象期間：${month}</div>
+<div class="hrow">
+  <div class="hcol-l">
+    <div style="font-size:11px;color:#666">レポート発行先</div>
+    <div style="font-size:14px;font-weight:700;margin-top:2px">${cfg.recip||'御中'}</div>
+  </div>
+  <div class="hcol-r">
+    <div>発行日：${today}</div>
+    <div style="font-size:13px;font-weight:700;margin-top:5px">${cfg.issuer||'株式会社シザースエステート'}</div>
+    <div>${cfg.addr||''}</div>
+    <div>${cfg.tel||''}</div>
+    <div class="seal">${sealSVG}</div>
+  </div>
+</div>
+
+<h2>主要指標（KPI）</h2>
+<div class="kpi-grid">
+  <div class="kpi-card"><div class="kpi-lbl">売上（税抜）</div><div class="kpi-val">${fmtF(tot.sales)}</div><div class="kpi-sub">直営 ${fmtF(d.sales)} ／ 代行 ${fmtF(s.sales)}</div></div>
+  <div class="kpi-card"><div class="kpi-lbl">粗利</div><div class="kpi-val" style="color:${grossProfit>=0?'#1b7a3a':'#c00'}">${fmtF(grossProfit)}</div><div class="kpi-sub">直営 ${fmtF(dGross)} ／ 代行 ${fmtF(sGross)}</div></div>
+  <div class="kpi-card"><div class="kpi-lbl">稼働率（全体）</div><div class="kpi-val">${ms.occ.t}%</div><div class="kpi-sub">${tot.days||0}日 / ${tR*ms.dm}日</div></div>
+  <div class="kpi-card"><div class="kpi-lbl">稼働部屋数</div><div class="kpi-val">${ms.tR}部屋</div><div class="kpi-sub">直営 ${ms.dR} ／ 代行 ${ms.sR}</div></div>
+  <div class="kpi-card"><div class="kpi-lbl">予約件数</div><div class="kpi-val">${tot.cnt}件</div><div class="kpi-sub">直営 ${d.cnt} ／ 代行 ${s.cnt}</div></div>
+  <div class="kpi-card"><div class="kpi-lbl">宿泊人数</div><div class="kpi-val">${guestsAll}名</div><div class="kpi-sub">直営 ${guestsDirect} ／ 代行 ${guestsSub}</div></div>
+</div>
+
+<h2>売上内訳</h2>
+<div class="wf-row main"><span>💰 売上（税抜）</span><span class="ra neutral">${fmtF(tot.sales)}</span></div>
+<div class="wf-row"><span>　└ コミッション</span><span class="ra minus">-${fmtF(tot.comm)}</span></div>
+<div class="wf-row result"><span>　= 内訳合計</span><span class="ra plus">${fmtF(tot.net)}</span></div>
+<div class="wf-row"><span>　　├ 内：宿泊費</span><span class="ra neutral">${fmtF(tot.net-tot.cl)}</span></div>
+<div class="wf-row"><span>　　└ 内：清掃費</span><span class="ra neutral">${fmtF(tot.cl)}</span></div>
+
+${otaList.length?`<h2>OTA別コミッション</h2>
+<table><thead><tr><th>OTA</th><th class="ra">件数</th><th class="ra">売上</th><th class="ra">コミッション</th></tr></thead>
+<tbody>${otaRows}</tbody></table>`:''}
+
+<h2>直営 vs 代行</h2>
+<table><thead><tr><th>項目</th><th class="ra">直営</th><th class="ra">代行</th><th class="ra">合計</th></tr></thead>
+<tbody>
+<tr><td>売上</td><td class="ra">${fmtF(d.sales)}</td><td class="ra">${fmtF(s.sales)}</td><td class="ra">${fmtF(tot.sales)}</td></tr>
+<tr><td>粗利</td><td class="ra">${fmtF(dGross)}</td><td class="ra">${fmtF(sGross)}</td><td class="ra">${fmtF(grossProfit)}</td></tr>
+<tr><td>稼働率</td><td class="ra">${ms.occ.d}%</td><td class="ra">${ms.occ.s}%</td><td class="ra">${ms.occ.t}%</td></tr>
+<tr><td>予約件数</td><td class="ra">${d.cnt}件</td><td class="ra">${s.cnt}件</td><td class="ra">${tot.cnt}件</td></tr>
+<tr><td>稼働部屋数</td><td class="ra">${ms.dR}部屋</td><td class="ra">${ms.sR}部屋</td><td class="ra">${ms.tR}部屋</td></tr>
+</tbody></table>
+
+<h2>原価サマリー</h2>
+<table><tbody>
+<tr><td style="font-weight:700;width:60%">支出合計</td><td class="ra" style="color:#c00;font-weight:700">-${fmtF(expTot)}</td></tr>
+<tr><td style="font-weight:700;background:#eef">差引粗利</td><td class="ra" style="font-weight:700;color:${grossProfit>=0?'#1b7a3a':'#c00'};background:#eef">${fmtF(grossProfit)}</td></tr>
+</tbody></table>
+
+<h2>部屋別詳細</h2>
+<table><thead><tr><th>部屋</th><th class="ra">稼働日</th><th class="ra">稼働率</th><th class="ra">件数</th><th class="ra">人数</th><th class="ra">平均単価</th><th class="ra">売上</th><th class="ra">粗利</th></tr></thead>
+<tbody>${roomRows}</tbody></table>
+
+<div class="foot">レポート出力日時：${new Date().toLocaleString('ja-JP')}　／　民泊運営アプリ</div>
+<script>window.onload=()=>{window.print();}<\/script>
+</body></html>`;
+  const win=window.open('','_blank');win.document.write(html);win.document.close();
 }
 
 function renderOps(){
