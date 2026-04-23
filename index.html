@@ -630,7 +630,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div class="sec">
       <h2>明細（部屋単位）</h2>
       <table class="inv-tbl">
-        <thead><tr><th>摘要</th><th class="ra" style="width:70px">数量</th><th class="ra" style="width:90px">単価</th><th class="ra" style="width:100px">金額</th><th style="width:30px"></th></tr></thead>
+        <thead><tr><th style="width:340px">摘要</th><th class="ra" style="width:70px">数量</th><th class="ra" style="width:90px">単価</th><th class="ra" style="width:100px">金額</th><th style="width:30px"></th></tr></thead>
         <tbody id="invBody"></tbody>
       </table>
       <button class="inv-add" onclick="addInvItem()">＋ 行を追加</button>
@@ -2901,13 +2901,13 @@ function buildInv(){
 
 function renderInvItems(){
   document.getElementById('invBody').innerHTML=invItems.map((it,i)=>{
-    const isNewRoom=it.desc.startsWith('代行費用')&&i>0;
+    const isNewRoom=!it.desc.startsWith('清掃費用')&&i>0;
     const sep=isNewRoom?`<tr><td colspan="5" style="height:10px;border-top:2px solid #ccc;padding:0;background:#f5f5f5"></td></tr>`:'';
     return sep+`<tr>
-      <td><input class="inv-inp" style="padding:4px 6px;font-size:.78em" value="${it.desc}" onchange="invItems[${i}].desc=this.value;renderInvTotal()"></td>
-      <td class="ra"><input class="inv-inp" type="number" style="width:58px;padding:4px 6px;text-align:right;font-size:.78em;font-family:ui-monospace,monospace" value="${it.qty}" onchange="invItems[${i}].qty=parseInt(this.value)||0;renderInvTotal()"></td>
-      <td class="ra"><input class="inv-inp" type="number" style="width:85px;padding:4px 6px;text-align:right;font-size:.78em;font-family:ui-monospace,monospace" value="${it.unit}" onchange="invItems[${i}].unit=parseInt(this.value)||0;renderInvTotal()"></td>
-      <td class="ra" style="font-family:ui-monospace,monospace;font-size:.8em">${fmtF(it.qty*it.unit)}</td>
+      <td><input class="inv-inp" style="padding:5px 8px;font-size:.92em" value="${it.desc}" onchange="invItems[${i}].desc=this.value;renderInvTotal()"></td>
+      <td class="ra"><input class="inv-inp" type="number" style="width:58px;padding:5px 6px;text-align:right;font-size:.92em;font-family:ui-monospace,monospace" value="${it.qty}" onchange="invItems[${i}].qty=parseInt(this.value)||0;renderInvItems()"></td>
+      <td class="ra"><input class="inv-inp" type="number" style="width:85px;padding:5px 6px;text-align:right;font-size:.92em;font-family:ui-monospace,monospace" value="${it.unit}" onchange="invItems[${i}].unit=parseInt(this.value)||0;renderInvItems()"></td>
+      <td class="ra" style="font-family:ui-monospace,monospace;font-size:.95em">${fmtF(it.qty*it.unit)}</td>
       <td><button class="inv-del" onclick="invItems.splice(${i},1);renderInvItems()">✕</button></td>
     </tr>`;
   }).join('');
@@ -2932,7 +2932,7 @@ function printInv(){
   const invNum=`INV-${String(cfg.nextInv).padStart(10,'0')}`;
   const today=new Date().toISOString().split('T')[0];
   const rows=invItems.map((it,idx)=>{
-    const isNewRoom=it.desc.startsWith('代行費用')&&idx>0;
+    const isNewRoom=!it.desc.startsWith('清掃費用')&&idx>0;
     const sep=isNewRoom?`<tr><td colspan="4" style="height:8px;border:none;border-top:1.5px solid #888;padding:0"></td></tr>`:'';
     return sep+`<tr><td>${it.desc}</td><td class="ra">${it.qty} 件</td><td class="ra">${it.unit.toLocaleString('ja-JP')}</td><td class="ra">${(it.qty*it.unit).toLocaleString('ja-JP')}</td></tr>`;
   }).join('');
