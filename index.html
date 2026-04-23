@@ -2884,13 +2884,15 @@ function buildInv(){
       // Agency fee per room
       invItems.push({desc:`代行費用（${tag}）`,qty:1,unit:cfg.fee});
       // Cleaning: count CI-based bookings with cleaning fee
-      let cleanCnt=0,cleanTotal=0;
+      let cleanCnt=0,cleanTotal=0,cleanDetails=[];
       (BK[tag]||[]).forEach(bk=>{
-        if(bk.ci.startsWith(month)&&bk.cleaning>0){cleanCnt++;cleanTotal+=bk.cleaning;}
+        if(bk.ci.startsWith(month)&&bk.cleaning>0){
+          cleanCnt++;cleanTotal+=bk.cleaning;
+          cleanDetails.push({tag,ci:bk.ci,co:bk.co,g:bk.g||'',fee:bk.cleaning});
+        }
       });
       if(cleanCnt>0){
-        const unitP=Math.round(cleanTotal/cleanCnt);
-        invItems.push({desc:`清掃費用（${tag}）`,qty:cleanCnt,unit:unitP});
+        invItems.push({desc:`清掃費用（${tag}）${cleanCnt}室分`,qty:1,unit:cleanTotal,_cleanDetails:cleanDetails});
       }
     });
   });
@@ -2962,6 +2964,7 @@ function printInv(){
   <table class="dtbl"><thead><tr><th>摘要</th><th class="ra">数量</th><th class="ra">単価</th><th class="ra">明細金額</th></tr></thead><tbody>${rows}</tbody></table>
   <div class="stot"><div class="sr"><span>内訳 10%対象（税抜）</span><span>${fmtF(sub)}</span></div><div class="sr"><span>10%消費税</span><span>${fmtF(tax)}</span></div></div>
   <div class="memo"><b>備考</b><br>${note.replace(/\n/g,'<br>')}</div>
+  ${(()=>{const cd=[];invItems.forEach(it=>{if(it._cleanDetails)cd.push(...it._cleanDetails);});if(!cd.length)return '';cd.sort((a,b)=>(a.tag+a.ci).localeCompare(b.tag+b.ci));const tot=cd.reduce((s,d)=>s+d.fee,0);const drows=cd.map(d=>`<tr><td>${d.tag}</td><td>${d.ci.slice(5).replace('-','/')}</td><td>${d.co.slice(5).replace('-','/')}</td><td>${d.g}</td><td class="ra" style="font-family:monospace">${d.fee.toLocaleString('ja-JP')}</td></tr>`).join('');return `<div style="page-break-before:always"></div><h1 style="margin-top:0">清 掃 費 用 明 細</h1><div style="text-align:right;font-size:12px;margin-bottom:10px">対象月：${month}</div><table class="dtbl"><thead><tr><th>部屋</th><th>チェックイン</th><th>チェックアウト</th><th>ゲスト名</th><th class="ra">金額</th></tr></thead><tbody>${drows}</tbody><tfoot><tr><td colspan="4" class="ra" style="background:#fafafa;font-weight:700">合計</td><td class="ra" style="background:#fafafa;font-weight:700;font-family:monospace">${tot.toLocaleString('ja-JP')}</td></tr></tfoot></table>`;})()}
   <script>window.onload=()=>{window.print();}<\/script></body></html>`;
   const win=window.open('','_blank');win.document.write(html);win.document.close();
   cfg.nextInv++;saveCfg();
