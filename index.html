@@ -2892,7 +2892,7 @@ function buildInv(){
         }
       });
       if(cleanCnt>0){
-        invItems.push({desc:`清掃費用（${tag}）${cleanCnt}室分`,qty:1,unit:cleanTotal,_cleanDetails:cleanDetails});
+        invItems.push({desc:`清掃費用（${tag}）${cleanCnt}件分`,qty:1,unit:cleanTotal,_cleanDetails:cleanDetails});
       }
     });
   });
@@ -2900,14 +2900,17 @@ function buildInv(){
 }
 
 function renderInvItems(){
-  document.getElementById('invBody').innerHTML=invItems.map((it,i)=>`
-    <tr>
+  document.getElementById('invBody').innerHTML=invItems.map((it,i)=>{
+    const isNewRoom=it.desc.startsWith('代行費用')&&i>0;
+    const sep=isNewRoom?`<tr><td colspan="5" style="height:10px;border-top:2px solid #ccc;padding:0;background:#f5f5f5"></td></tr>`:'';
+    return sep+`<tr>
       <td><input class="inv-inp" style="padding:4px 6px;font-size:.78em" value="${it.desc}" onchange="invItems[${i}].desc=this.value;renderInvTotal()"></td>
       <td class="ra"><input class="inv-inp" type="number" style="width:58px;padding:4px 6px;text-align:right;font-size:.78em;font-family:ui-monospace,monospace" value="${it.qty}" onchange="invItems[${i}].qty=parseInt(this.value)||0;renderInvTotal()"></td>
       <td class="ra"><input class="inv-inp" type="number" style="width:85px;padding:4px 6px;text-align:right;font-size:.78em;font-family:ui-monospace,monospace" value="${it.unit}" onchange="invItems[${i}].unit=parseInt(this.value)||0;renderInvTotal()"></td>
       <td class="ra" style="font-family:ui-monospace,monospace;font-size:.8em">${fmtF(it.qty*it.unit)}</td>
       <td><button class="inv-del" onclick="invItems.splice(${i},1);renderInvItems()">✕</button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   renderInvTotal();
 }
 function addInvItem(){invItems.push({desc:'',qty:1,unit:0});renderInvItems();}
@@ -2928,7 +2931,12 @@ function printInv(){
   const tax=Math.round(sub*.1),tot=sub+tax;
   const invNum=`INV-${String(cfg.nextInv).padStart(10,'0')}`;
   const today=new Date().toISOString().split('T')[0];
-  const rows=invItems.map(it=>`<tr><td>${it.desc}</td><td class="ra">${it.qty} 件</td><td class="ra">${it.unit.toLocaleString('ja-JP')}</td><td class="ra">${(it.qty*it.unit).toLocaleString('ja-JP')}</td></tr><tr><td colspan="4" style="padding:1px 0;border:none"></td></tr>`).join('');
+  const rows=invItems.map((it,idx)=>{
+    const isNewRoom=it.desc.startsWith('代行費用')&&idx>0;
+    const sep=isNewRoom?`<tr><td colspan="4" style="height:8px;border:none;border-top:1.5px solid #888;padding:0"></td></tr>`:'';
+    return sep+`<tr><td>${it.desc}</td><td class="ra">${it.qty} 件</td><td class="ra">${it.unit.toLocaleString('ja-JP')}</td><td class="ra">${(it.qty*it.unit).toLocaleString('ja-JP')}</td></tr>`;
+  }).join('');
+  const sealSVG=`<svg xmlns="http://www.w3.org/2000/svg" width="74" height="74" viewBox="0 0 100 100" style="transform:rotate(-3deg);opacity:0.9"><rect x="3" y="3" width="94" height="94" fill="none" stroke="#c41e3a" stroke-width="3.5"/><rect x="9" y="9" width="82" height="82" fill="none" stroke="#c41e3a" stroke-width="0.8"/><g fill="#c41e3a" font-size="14" font-weight="700" font-family="serif" text-anchor="middle"><text x="78" y="28">株</text><text x="78" y="46">式</text><text x="78" y="64">会</text><text x="78" y="82">社</text><text x="59" y="28">シ</text><text x="59" y="46">ザ</text><text x="59" y="64">ー</text><text x="59" y="82">ス</text><text x="40" y="28">エ</text><text x="40" y="46">ス</text><text x="40" y="64">テ</text><text x="40" y="82">ー</text><text x="22" y="28">ト</text><text x="22" y="46">之</text><text x="22" y="64">印</text></g></svg>`;
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>請求書 ${invNum}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;padding:28px;font-size:13px;max-width:780px;margin:0 auto}
   h1{text-align:center;font-size:20px;font-weight:700;margin-bottom:20px;letter-spacing:2px}
@@ -2955,7 +2963,7 @@ function printInv(){
     <div><div class="rec">${cfg.recip} 御中</div>
     <div style="margin-top:12px;font-size:13px"><b>件名</b>&nbsp;&nbsp;民泊代行手数料として</div></div>
     <div><table class="mt"><tr><td>請求日</td><td>${today}</td></tr><tr><td>請求書番号</td><td>${invNum}</td></tr><tr><td>登録番号</td><td>${cfg.reg}</td></tr></table>
-    <div class="ib" style="margin-top:10px"><div style="font-size:14px;font-weight:700">${cfg.issuer}</div><div>${cfg.addr}</div><div>${cfg.tel}</div></div></div>
+    <div class="ib" style="margin-top:10px;position:relative"><div style="font-size:14px;font-weight:700">${cfg.issuer}</div><div>${cfg.addr}</div><div>${cfg.tel}</div><div style="position:absolute;top:-8px;right:-30px">${sealSVG}</div></div></div>
   </div>
   <div class="sum"><table><tr><th>小計</th><th>消費税</th><th>請求金額</th></tr>
   <tr><td>${fmtF(sub)}</td><td>${fmtF(tax)}</td><td><span class="bigamt">${fmtF(tot)}</span></td></tr></table></div>
@@ -2964,7 +2972,7 @@ function printInv(){
   <table class="dtbl"><thead><tr><th>摘要</th><th class="ra">数量</th><th class="ra">単価</th><th class="ra">明細金額</th></tr></thead><tbody>${rows}</tbody></table>
   <div class="stot"><div class="sr"><span>内訳 10%対象（税抜）</span><span>${fmtF(sub)}</span></div><div class="sr"><span>10%消費税</span><span>${fmtF(tax)}</span></div></div>
   <div class="memo"><b>備考</b><br>${note.replace(/\n/g,'<br>')}</div>
-  ${(()=>{const cd=[];invItems.forEach(it=>{if(it._cleanDetails)cd.push(...it._cleanDetails);});if(!cd.length)return '';cd.sort((a,b)=>(a.tag+a.ci).localeCompare(b.tag+b.ci));const tot=cd.reduce((s,d)=>s+d.fee,0);const drows=cd.map(d=>`<tr><td>${d.tag}</td><td>${d.ci.slice(5).replace('-','/')}</td><td>${d.co.slice(5).replace('-','/')}</td><td>${d.g}</td><td class="ra" style="font-family:monospace">${d.fee.toLocaleString('ja-JP')}</td></tr>`).join('');return `<div style="page-break-before:always"></div><h1 style="margin-top:0">清 掃 費 用 明 細</h1><div style="text-align:right;font-size:12px;margin-bottom:10px">対象月：${month}</div><table class="dtbl"><thead><tr><th>部屋</th><th>チェックイン</th><th>チェックアウト</th><th>ゲスト名</th><th class="ra">金額</th></tr></thead><tbody>${drows}</tbody><tfoot><tr><td colspan="4" class="ra" style="background:#fafafa;font-weight:700">合計</td><td class="ra" style="background:#fafafa;font-weight:700;font-family:monospace">${tot.toLocaleString('ja-JP')}</td></tr></tfoot></table>`;})()}
+  ${(()=>{const cd=[];invItems.forEach(it=>{if(it._cleanDetails)cd.push(...it._cleanDetails);});if(!cd.length)return '';cd.sort((a,b)=>(a.tag+a.ci).localeCompare(b.tag+b.ci));const tot=cd.reduce((s,d)=>s+d.fee,0);const drows=cd.map(d=>`<tr><td style="height:32px;vertical-align:middle">${d.tag}</td><td style="height:32px;vertical-align:middle">${d.ci.slice(5).replace('-','/')}</td><td style="height:32px;vertical-align:middle">${d.co.slice(5).replace('-','/')}</td><td style="height:32px;vertical-align:middle">${d.g}</td><td class="ra" style="height:32px;vertical-align:middle;font-family:monospace">¥${d.fee.toLocaleString('ja-JP')}</td></tr>`).join('');return `<div style="page-break-before:always"></div><h1 style="margin-top:0">清 掃 費 用 明 細</h1><div style="text-align:right;font-size:12px;margin-bottom:10px">対象月：${month}</div><table class="dtbl"><thead><tr><th style="width:110px">部屋</th><th style="width:90px">チェックイン</th><th style="width:90px">チェックアウト</th><th>ゲスト名</th><th class="ra" style="width:110px">金額</th></tr></thead><tbody>${drows}</tbody><tfoot><tr><td colspan="4" class="ra" style="background:#fafafa;font-weight:700;height:32px;vertical-align:middle">合計</td><td class="ra" style="background:#fafafa;font-weight:700;font-family:monospace;height:32px;vertical-align:middle">¥${tot.toLocaleString('ja-JP')}</td></tr></tfoot></table>`;})()}
   <script>window.onload=()=>{window.print();}<\/script></body></html>`;
   const win=window.open('','_blank');win.document.write(html);win.document.close();
   cfg.nextInv++;saveCfg();
