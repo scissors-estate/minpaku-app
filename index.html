@@ -634,6 +634,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
         <tbody id="invBody"></tbody>
       </table>
       <button class="inv-add" onclick="addInvItem()">＋ 行を追加</button>
+      <button class="inv-add" onclick="addInvSep()" style="margin-left:8px">＋ 区切りを追加</button>
+      <button class="inv-add" onclick="resetInv()" style="margin-left:8px;color:#d32f2f;border-color:#d32f2f">🔄 CSVから再構築</button>
       <div class="inv-total" id="invTotal"></div>
     </div>
     <div class="sec">
@@ -909,7 +911,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6';
 const OFFICES=['両国事務所','亀有事務所','SC事務所','梅島事務所','青戸事務所'];
 const SERVICES=['AirHost'];
 
@@ -2866,7 +2868,34 @@ function populateInvMonths(){
   if(months.length)buildInv();
 }
 
+function saveInv(){
+  const month=document.getElementById('invMonth').value;if(!month)return;
+  const all=S.get(INV_EDITS_KEY)||{};
+  all[month]=invItems;
+  S.set(INV_EDITS_KEY,all);
+  if(fbReady)fbWrite('invEdits',all);
+}
+function resetInv(){
+  const month=document.getElementById('invMonth').value;if(!month)return;
+  if(!confirm(`${month}の手動編集をリセットしてCSVから再構築しますか？\nこの操作は取り消せません。`))return;
+  const all=S.get(INV_EDITS_KEY)||{};
+  delete all[month];
+  S.set(INV_EDITS_KEY,all);
+  if(fbReady)fbWrite('invEdits',all);
+  buildInvFromCSV();
+}
 function buildInv(){
+  const month=document.getElementById('invMonth').value;if(!month)return;
+  // 保存された編集データがあれば優先
+  const all=S.get(INV_EDITS_KEY)||{};
+  if(all[month]&&all[month].length>0){
+    invItems=all[month];
+    renderInvItems();
+    return;
+  }
+  buildInvFromCSV();
+}
+function buildInvFromCSV(){
   const month=document.getElementById('invMonth').value;if(!month)return;
   invItems=[];
   // ⑥ Room-level: find subcon rooms with CI in this month
@@ -2901,8 +2930,11 @@ function buildInv(){
 
 function renderInvItems(){
   document.getElementById('invBody').innerHTML=invItems.map((it,i)=>{
-    const isNewRoom=!it.desc.startsWith('清掃費用')&&i>0;
-    const sep=isNewRoom?`<tr><td colspan="5" style="height:10px;border-top:2px solid #ccc;padding:0;background:#f5f5f5"></td></tr>`:'';
+    if(it._separator){
+      return `<tr><td colspan="5" style="height:12px;border-top:2px solid #ccc;padding:0;background:#f5f5f5;position:relative"><button onclick="invItems.splice(${i},1);renderInvItems()" style="position:absolute;right:6px;top:-3px;border:none;background:transparent;color:#999;cursor:pointer;font-size:13px;line-height:1">✕</button></td></tr>`;
+    }
+    const isAutoSep=it.desc.startsWith('代行費用')&&i>0&&!invItems[i-1]._separator;
+    const sep=isAutoSep?`<tr><td colspan="5" style="height:10px;border-top:2px solid #ccc;padding:0;background:#f5f5f5"></td></tr>`:'';
     return sep+`<tr>
       <td><input class="inv-inp" style="padding:5px 8px;font-size:.92em" value="${it.desc}" onchange="invItems[${i}].desc=this.value;renderInvTotal()"></td>
       <td class="ra"><input class="inv-inp" type="number" style="width:58px;padding:5px 6px;text-align:right;font-size:.92em;font-family:ui-monospace,monospace" value="${it.qty}" onchange="invItems[${i}].qty=parseInt(this.value)||0;renderInvItems()"></td>
@@ -2914,26 +2946,31 @@ function renderInvItems(){
   renderInvTotal();
 }
 function addInvItem(){invItems.push({desc:'',qty:1,unit:0});renderInvItems();}
+function addInvSep(){invItems.push({_separator:true});renderInvItems();}
 function renderInvTotal(){
-  const sub=invItems.reduce((s,it)=>s+it.qty*it.unit,0);
+  const sub=invItems.reduce((s,it)=>s+(it._separator?0:(it.qty||0)*(it.unit||0)),0);
   const tax=Math.round(sub*.1),tot=sub+tax;
   document.getElementById('invTotal').innerHTML=`
     <div class="inv-trow"><span>小計（税抜）</span><span style="font-family:ui-monospace,monospace">${fmtF(sub)}</span></div>
     <div class="inv-trow"><span>消費税（10%）</span><span style="font-family:ui-monospace,monospace">${fmtF(tax)}</span></div>
     <div class="inv-trow big"><span>請求金額</span><span>${fmtF(tot)}</span></div>`;
+  saveInv();
 }
 
 function printInv(){
   const month=document.getElementById('invMonth').value||'';
   const due=document.getElementById('invDue').value||'';
   const note=document.getElementById('invNote').value||'';
-  const sub=invItems.reduce((s,it)=>s+it.qty*it.unit,0);
+  const sub=invItems.reduce((s,it)=>s+(it._separator?0:(it.qty||0)*(it.unit||0)),0);
   const tax=Math.round(sub*.1),tot=sub+tax;
   const invNum=`INV-${String(cfg.nextInv).padStart(10,'0')}`;
   const today=new Date().toISOString().split('T')[0];
   const rows=invItems.map((it,idx)=>{
-    const isNewRoom=!it.desc.startsWith('清掃費用')&&idx>0;
-    const sep=isNewRoom?`<tr><td colspan="4" style="height:8px;border:none;border-top:1.5px solid #888;padding:0"></td></tr>`:'';
+    if(it._separator){
+      return `<tr><td colspan="4" style="height:6px;border:none;border-top:1.5px solid #888;padding:0"></td></tr>`;
+    }
+    const isAutoSep=it.desc.startsWith('代行費用')&&idx>0&&!invItems[idx-1]._separator;
+    const sep=isAutoSep?`<tr><td colspan="4" style="height:8px;border:none;border-top:1.5px solid #888;padding:0"></td></tr>`:'';
     return sep+`<tr><td>${it.desc}</td><td class="ra">${it.qty} 件</td><td class="ra">${it.unit.toLocaleString('ja-JP')}</td><td class="ra">${(it.qty*it.unit).toLocaleString('ja-JP')}</td></tr>`;
   }).join('');
   const sealSVG=`<svg xmlns="http://www.w3.org/2000/svg" width="74" height="74" viewBox="0 0 100 100" style="opacity:0.5"><rect x="3" y="3" width="94" height="94" fill="none" stroke="#c41e3a" stroke-width="3.5"/><rect x="9" y="9" width="82" height="82" fill="none" stroke="#c41e3a" stroke-width="0.8"/><g fill="#c41e3a" font-size="14" font-weight="700" font-family="serif" text-anchor="middle"><text x="78" y="28">株</text><text x="78" y="46">式</text><text x="78" y="64">会</text><text x="78" y="82">社</text><text x="59" y="28">シ</text><text x="59" y="46">ザ</text><text x="59" y="64">ー</text><text x="59" y="82">ス</text><text x="40" y="28">エ</text><text x="40" y="46">ス</text><text x="40" y="64">テ</text><text x="40" y="82">ー</text><text x="22" y="28">ト</text><text x="22" y="46">之</text><text x="22" y="64">印</text></g></svg>`;
@@ -3787,6 +3824,10 @@ function initFirebase(){
         _origSset(BB_KEY, val);
         if(document.getElementById('bbContent'))renderBB();
       }
+    });
+    fbDB.ref('invEdits').on('value', snap => {
+      const val = snap.val();
+      if(val) S.set(INV_EDITS_KEY, val);
     });
     fbDB.ref('diffReport').on('value', snap => {
       const val = snap.val();
