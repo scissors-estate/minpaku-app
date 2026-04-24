@@ -1279,12 +1279,12 @@ function parseCleaning(){
       prop=(r['物件名']||'').trim();
       const roomType=(r['部屋タイプ']||'').trim();
       const roomNum=(r['部屋番号']||'').trim();
-      // 1) 部屋タイプに統一タグが入っているケース（例「亀有1103」）を優先
-      // 2) 部屋タイプが汎用名（例「Standard」）の場合は、物件名+部屋番号で既存タグを検索
-      // 3) それでも見つからなければ部屋番号をそのままタグとする
-      if(roomType&&ROOMS[roomType]){
+      // 部屋タイプ列を最優先（清掃CSV側の正規タグとして信頼）
+      // ROOMSに存在しなくてもOK（後でROOMSに追加される）
+      if(roomType){
         tag=roomType;
       } else {
+        // 部屋タイプが空の場合のみ、物件名+部屋番号で既存タグを検索→部屋番号fallback
         const existingTag=Object.keys(ROOMS).find(t=>ROOMS[t]===prop&&t.endsWith(roomNum));
         tag=existingTag||roomNum;
       }
