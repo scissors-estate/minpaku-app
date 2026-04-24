@@ -1249,7 +1249,8 @@ function cleanupGhostRooms(){
   return true;
 }
 
-// 清掃CSVに含まれない部屋で、予約も清掃データもない部屋を削除（過去の名前変更等で残ったゴースト）
+// 清掃CSVの正規タグにないROOMS部屋を削除（過去の名前変更等で残ったゴースト）
+// データがあって物件に正規タグが1つだけならマージ、複数あれば安全側で残す
 function cleanupOrphanRooms(){
   if(!window._cleanCanonical)return false;
   const orphans=[];
@@ -1258,12 +1259,34 @@ function cleanupOrphanRooms(){
     const canonicalSet=window._cleanCanonical[prop];
     if(!canonicalSet||!canonicalSet.size)return;  // 物件が清掃CSVにない→対象外
     if(canonicalSet.has(tag))return;  // 正規タグ→残す
-    if((BK[tag]||[]).length>0)return;  // 予約あり→残す
-    if((CH[tag]||[]).length>0)return;  // 清掃データあり→残す
-    orphans.push(tag);
+    const hasData=(BK[tag]||[]).length>0||(CH[tag]||[]).length>0;
+    if(hasData){
+      // データあり：正規タグが1つだけならそこにマージ可能
+      if(canonicalSet.size===1){
+        orphans.push({tag,canonical:[...canonicalSet][0]});
+      }
+      return;  // 複数正規タグ→マージ先不明で残す
+    }
+    orphans.push({tag,canonical:null});  // データなし→単純削除
   });
-  orphans.forEach(t=>delete ROOMS[t]);
-  if(orphans.length)console.log('🧹 オーファン部屋削除:',orphans.join(', '));
+  orphans.forEach(({tag,canonical})=>{
+    if(canonical){
+      if(BK[tag]&&BK[tag].length){
+        if(!BK[canonical])BK[canonical]=[];
+        BK[tag].forEach(b=>{if(!BK[canonical].some(b2=>b2.id===b.id))BK[canonical].push(b);});
+        BK[canonical].sort((a,b)=>a.ci.localeCompare(b.ci));
+        delete BK[tag];
+      }
+      if(CH[tag]&&CH[tag].length){
+        if(!CH[canonical])CH[canonical]=[];
+        CH[tag].forEach(c=>{if(!CH[canonical].some(c2=>c2.d===c.d))CH[canonical].push(c);});
+        CH[canonical].sort((a,b)=>a.d.localeCompare(b.d));
+        delete CH[tag];
+      }
+    }
+    delete ROOMS[tag];
+  });
+  if(orphans.length)console.log('🧹 オーファン部屋削除:',orphans.map(o=>`${o.tag}${o.canonical?'→'+o.canonical:''}`).join(', '));
   return orphans.length>0;
 }
 
