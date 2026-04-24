@@ -1249,8 +1249,27 @@ function cleanupGhostRooms(){
   return true;
 }
 
+// 清掃CSVに含まれない部屋で、予約も清掃データもない部屋を削除（過去の名前変更等で残ったゴースト）
+function cleanupOrphanRooms(){
+  if(!window._cleanCanonical)return false;
+  const orphans=[];
+  Object.keys(ROOMS).forEach(tag=>{
+    const prop=ROOMS[tag];
+    const canonicalSet=window._cleanCanonical[prop];
+    if(!canonicalSet||!canonicalSet.size)return;  // 物件が清掃CSVにない→対象外
+    if(canonicalSet.has(tag))return;  // 正規タグ→残す
+    if((BK[tag]||[]).length>0)return;  // 予約あり→残す
+    if((CH[tag]||[]).length>0)return;  // 清掃データあり→残す
+    orphans.push(tag);
+  });
+  orphans.forEach(t=>delete ROOMS[t]);
+  if(orphans.length)console.log('🧹 オーファン部屋削除:',orphans.join(', '));
+  return orphans.length>0;
+}
+
 function parseCleaning(){
   CH={};CM={};
+  window._cleanCanonical={};  // {物件名: Set<canonical tag>} - ゴースト部屋検出用
   parseCSV(_clText).forEach(r=>{
     // 新フォーマット（4/20以降）: 物件名・部屋タイプ・部屋番号が別々の列
     // 旧フォーマット: ルーム列に "物件名/部屋タイプ/部屋番号" がまとめて入る
@@ -1276,6 +1295,11 @@ function parseCleaning(){
     }
     if(!tag)return;
     if(!ROOMS[tag]&&prop)ROOMS[tag]=prop;
+    // 清掃CSVに記載された正規タグを物件ごとに記録（後でオーファン部屋検出に使用）
+    if(prop&&tag){
+      if(!window._cleanCanonical[prop])window._cleanCanonical[prop]=new Set();
+      window._cleanCanonical[prop].add(tag);
+    }
     const cl=(r['クリーナー']||'').trim()||'未割当';
     const cm2=(r['コメント']||'').trim();
     const raw=(r['清掃日']||'').trim();
@@ -3279,6 +3303,7 @@ function loadCSVs(){
 
     // マージ後にゴースト部屋（過去のバグ由来）を再度掃除
     cleanupGhostRooms();
+    cleanupOrphanRooms();  // 清掃CSVにない & 予約も清掃もない部屋を削除
 
     // ── CSV差分レポート（新規予約・キャンセル・変更検出） ──
     // ※ FirebaseのBK読込タイミングに依存しないよう、前回取込時に保存したlocalStorageスナップを使用
@@ -3948,7 +3973,7 @@ function initFirebase(){
         if(stored.CH) { Object.assign(CH, stored.CH); }
         if(stored.CM) { Object.assign(CM, stored.CM); }
         // 過去のバグで作られたゴースト部屋（例:「1003」）を削除して本来のタグに統合
-        if(cleanupGhostRooms()){
+        if(cleanupGhostRooms()|cleanupOrphanRooms()){
           // クリーンアップが行われたらFirebaseに書き戻して全端末で同期
           try{ saveBookingsToFb(); }catch(e){ console.warn('cleanup save failed', e); }
         }
