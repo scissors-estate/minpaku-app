@@ -1075,9 +1075,8 @@ function enterApp(){
   const isStaff=currentUser.role==='staff';
   ['tabPay','tabInv','tabAcc','tabBb','tabDiff'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isStaff?'none':'';});
   // 差分バッジ復元
-  const _savedDiff=S.get(DIFF_KEY);
   const _tabDiff=document.getElementById('tabDiff');
-  if(_tabDiff&&_savedDiff){const _n=(_savedDiff.n||[]).length+(_savedDiff.c||[]).length+(_savedDiff.ch||[]).length;if(_n>0)_tabDiff.textContent=`🔔 予約変動 ${_n}`;}
+  if(_tabDiff)_tabDiff.textContent='🔔 予約変動';
   const isAdmin=currentUser&&(currentUser.role==='admin'||currentUser.role==='office');
   const tabUsers=document.getElementById('tabUsers');
   if(tabUsers)tabUsers.style.display=isAdmin?'':'none';
@@ -3634,10 +3633,9 @@ function loadCSVs(){
     const _diffTs=_d2.toLocaleDateString('ja-JP')+'　'+_d2.getHours()+':'+String(_d2.getMinutes()).padStart(2,'0');
     S.set(DIFF_KEY,{ts:_diffTs,n:_diffNew,c:_diffCancelled,ch:_diffChanged});
     if(fbReady)fbWrite('diffReport',{ts:_diffTs,n:_diffNew,c:_diffCancelled,ch:_diffChanged});
-    // バッジ更新
     const _diffTotal=_diffNew.length+_diffCancelled.length+_diffChanged.length;
     const _tabDiff=document.getElementById('tabDiff');
-    if(_tabDiff)_tabDiff.textContent=_diffTotal>0?`🔔 予約変動 ${_diffTotal}`:'🔔 予約変動';
+    if(_tabDiff)_tabDiff.textContent='🔔 予約変動';
     buzz([30,50,30]);
     if(_diffNew.length>0||_diffCancelled.length>0||_diffChanged.length>0)setTimeout(()=>showDiffModal(_diffNew,_diffCancelled,_diffChanged),300);
   }catch(e){
@@ -4416,9 +4414,8 @@ function initFirebase(){
       const val = snap.val();
       if(val){
         S.set(DIFF_KEY, val);
-        const total=(val.n?.length||0)+(val.c?.length||0)+(val.ch?.length||0);
         const tabDiff=document.getElementById('tabDiff');
-        if(tabDiff)tabDiff.textContent=total>0?`🔔 予約変動 ${total}`:'🔔 予約変動';
+        if(tabDiff)tabDiff.textContent='🔔 予約変動';
       }
     });
     fbDB.ref('discounts').on('value', snap => {
