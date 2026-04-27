@@ -796,11 +796,24 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 
   <!-- 予約変動 -->
   <div class="pane" id="diffPane">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
       <div>
         <div style="font-size:1em;font-weight:700">🔔 予約変動レポート</div>
         <div id="diffPaneTs" style="font-size:.75em;color:var(--t3);margin-top:2px"></div>
       </div>
+    </div>
+    <div style="background:#f5f7fb;border-radius:8px;padding:10px 12px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:.82em">
+      <span style="font-weight:600">📊 比較期間：</span>
+      <label style="display:flex;align-items:center;gap:5px">
+        <span style="color:#666">基準（古い）</span>
+        <select id="diffBaseSel" onchange="renderDiffTab()" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.95em;outline:none"></select>
+      </label>
+      <span style="color:#999">→</span>
+      <label style="display:flex;align-items:center;gap:5px">
+        <span style="color:#666">比較（新しい）</span>
+        <select id="diffCompSel" onchange="renderDiffTab()" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.95em;outline:none"></select>
+      </label>
+      <button onclick="resetDiffSel()" style="background:transparent;border:1.5px solid #999;color:#666;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.95em">最新に戻す</button>
     </div>
     <div id="diffPaneBody"></div>
   </div>
@@ -921,7 +934,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6',BK_HIST_KEY='mp_bkhist6',MS_HIST_KEY='mp_mshist6';
+const HIST_MAX=30; // 履歴の最大保持件数（CSV取込ごとに追加）
 const OFFICES=['両国事務所','亀有事務所','SC事務所','梅島事務所','青戸事務所'];
 const SERVICES=['AirHost'];
 
@@ -1094,6 +1108,7 @@ function checkPw(){
 // ════════════════════════════════════════════
 let ROOMS={},BK={},CH={},CM={},MS={};
 let curM=null,payM=null,opsFilt='all',cF={props:new Set(['all']),states:new Set(['all']),cleaners:new Set(['all'])};
+let _opsPrevSel='__manual__'; // 運営タブの「前回基準」選択値（デフォルト='__manual__'=朝のスナップ／手動スナップ。'__latest__'=履歴の最新, ISO時刻=その時点）
 let invItems=[];
 let _bkTexts=[],_clText='',_bkReady=false,_cancelledIds=new Set();
 let calViewDate=null,calCollapsed={},_calBldgs=[],calPropFilter='all';
@@ -1130,6 +1145,13 @@ const excl=v=>Math.round(parseFloat(v||0)/1.1);
 const fmtF=n=>'¥'+Math.round(n).toLocaleString('ja-JP');
 const oc=v=>v>=50?'gh':v>=30?'gm':'gl';
 const occBg=v=>v>=50?'#4CAF50':v>=30?'#FF9800':'#f5576c';
+// 履歴用タイムスタンプフォーマット
+function fmtHistTs(d){
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');
+  const hh=String(d.getHours()).padStart(2,'0'),mi=String(d.getMinutes()).padStart(2,'0');
+  return `${y}/${m}/${dd} ${hh}:${mi}`;
+}
+
 function pv(cur,prv,unit='¥'){
   if(prv===undefined||prv===null)return'';
   const df=cur-prv,sg=df>=0?'+':'-';
@@ -1854,6 +1876,48 @@ ${otaList.length?`<h2>OTA別コミッション</h2>
   const win=window.open('','_blank');win.document.write(html);win.document.close();
 }
 
+// 運営タブ用：選択された「前回基準」のMSデータを取得
+function getOpsPrevMS(){
+  const sel=_opsPrevSel||'__manual__';
+  if(sel==='__manual__'){
+    const snap=S.get(SNAP_KEY);
+    if(snap)return{data:snap.data,ts:snap.timestamp,label:snap.auto?'朝の自動スナップ':'手動スナップ'};
+    // 朝のスナップが無ければ履歴最新にフォールバック
+    const hist=(S.get(MS_HIST_KEY)||[]).filter(h=>h&&h.isoTs).slice().sort((a,b)=>a.isoTs.localeCompare(b.isoTs));
+    if(hist.length===0)return null;
+    const h=hist[hist.length-1];
+    return{data:h.ms,ts:h.isoTs,label:h.ts};
+  }
+  const hist=(S.get(MS_HIST_KEY)||[]).filter(h=>h&&h.isoTs).slice().sort((a,b)=>a.isoTs.localeCompare(b.isoTs));
+  if(hist.length===0)return null;
+  if(sel==='__latest__'){
+    const h=hist[hist.length-1];
+    return{data:h.ms,ts:h.isoTs,label:h.ts};
+  }
+  const found=hist.find(h=>h.isoTs===sel);
+  if(found)return{data:found.ms,ts:found.isoTs,label:found.ts};
+  const h=hist[hist.length-1];
+  return{data:h.ms,ts:h.isoTs,label:h.ts};
+}
+
+// 「前回基準」セレクター用のオプション一覧（朝のスナップを最上位に）
+function getOpsPrevOptions(){
+  const opts=[];
+  const snap=S.get(SNAP_KEY);
+  if(snap){
+    const lbl=snap.auto?'🌅 朝のスナップ':'📌 手動スナップ';
+    opts.push({value:'__manual__',label:`${lbl}（${new Date(snap.timestamp).toLocaleString('ja-JP')}）`});
+  }
+  const hist=(S.get(MS_HIST_KEY)||[]).filter(h=>h&&h.isoTs).slice().sort((a,b)=>b.isoTs.localeCompare(a.isoTs));
+  if(hist.length>0){
+    opts.push({value:'__latest__',label:`📥 最新CSV取込（${hist[0].ts}）`});
+    hist.forEach((h,i)=>{if(i>0)opts.push({value:h.isoTs,label:`📥 ${h.ts}`});});
+  }
+  return opts;
+}
+
+function setOpsPrev(v){_opsPrevSel=v;renderOps();}
+
 function renderOps(){
   const el=document.getElementById('opsContent');
   if(!curM||!MS[curM]){el.innerHTML='<div class="nd">データなし</div>';return;}
@@ -1862,7 +1926,8 @@ function renderOps(){
   const{d,s,exp,profit,roomList,otaList}=ms;
   const tot=fd.tot;
   const showExp=fd.showExp;
-  const snap=S.get(SNAP_KEY);const prev=snap?snap.data[curM]:null;
+  const prevSrc=getOpsPrevMS();
+  const prev=prevSrc&&prevSrc.data?prevSrc.data[curM]:null;
   const tR=ms.tR||Object.keys(ROOMS).length;
 
   // KPI
@@ -1900,7 +1965,17 @@ function renderOps(){
 
   const sub=(d,s,unit='')=>`<div style="display:flex;gap:8px;margin-top:4px"><span style="font-size:.72em;color:var(--p)">直営 ${d}${unit}</span><span style="font-size:.72em;color:var(--t3)">|</span><span style="font-size:.72em;color:var(--pink)">代行 ${s}${unit}</span></div>`;
 
-  const kpiH=`
+  // 「前回基準」セレクター
+  const _prevOpts=getOpsPrevOptions();
+  const _prevSelHTML=_prevOpts.length>0?`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:.78em;background:#f5f7fb;padding:7px 11px;border-radius:7px;flex-wrap:wrap">
+      <span style="color:#666">📅 前回基準：</span>
+      <select onchange="setOpsPrev(this.value)" style="border:1.5px solid var(--b);border-radius:5px;padding:3px 7px;font-size:1em;outline:none">
+        ${_prevOpts.map(o=>`<option value="${o.value}"${o.value===_opsPrevSel?' selected':''}>${o.label}</option>`).join('')}
+      </select>
+    </div>`:'';
+
+  const kpiH=_prevSelHTML+`
     <div class="kgrid">
       <div class="kcard"><div class="klbl">売上（税抜）</div><div class="kval">${fmtF(tot.sales)}</div>${sub(fmtF(d.sales),fmtF(s.sales))}${pv(tot.sales,prevSales)}${prevLbl(prevSales)}</div>
       <div class="kcard green"><div class="klbl">粗利</div><div class="kval">${fmtF(dispGrossProfit)}</div>${sub(fmtF(dGross),fmtF(sGross))}${pv(dispGrossProfit,prevProfit)}${prevLbl(prevProfit)}</div>
@@ -3516,8 +3591,16 @@ function loadCSVs(){
     }
     // 今回のBK状態をlocalStorageに保存（次回取込時の比較ベースになる）
     const _newBkSnap={};
-    Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id)_newBkSnap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag};}));
+    Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id)_newBkSnap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag,net:b.net||0,s:b.s};}));
     S.set(PREV_BK_SNAP_KEY,_newBkSnap);
+
+    // 予約履歴に追加（最大HIST_MAX件・古いものから自動削除）
+    const _bkHistEntry={isoTs:new Date().toISOString(),ts:fmtHistTs(new Date()),snap:_newBkSnap};
+    const _bkHist=(S.get(BK_HIST_KEY)||[]).filter(h=>h&&h.isoTs);
+    _bkHist.push(_bkHistEntry);
+    while(_bkHist.length>HIST_MAX)_bkHist.shift();
+    S.set(BK_HIST_KEY,_bkHist);
+    if(fbReady)fbWrite('bkHistory',_bkHist);
 
     computeMS();
     const _d=new Date();
@@ -3526,6 +3609,15 @@ function loadCSVs(){
     const prevSnap={};
     Object.keys(MS).forEach(mk=>{const ms=MS[mk];if(ms&&ms.tot)prevSnap[mk]={sales:ms.tot.sales,net:ms.tot.net,occ:ms.occ.t,cnt:ms.tot.cnt};});
     S.set(PREV_KEY,prevSnap);
+
+    // 運営履歴（MS全体）に追加（最大HIST_MAX件）
+    const _msHistEntry={isoTs:new Date().toISOString(),ts:fmtHistTs(new Date()),ms:JSON.parse(JSON.stringify(MS))};
+    const _msHist=(S.get(MS_HIST_KEY)||[]).filter(h=>h&&h.isoTs);
+    _msHist.push(_msHistEntry);
+    while(_msHist.length>HIST_MAX)_msHist.shift();
+    S.set(MS_HIST_KEY,_msHist);
+    if(fbReady)fbWrite('msHistory',_msHist);
+
     saveBookingsToFb();
     renderOpsTabs();
     renderClean();
@@ -3556,19 +3648,86 @@ function resetAllBookings(){
   renderOpsTabs();renderClean();renderPayTab();
   alert('リセットしました。全期間のCSVをアップロードしてください。');
 }
+// 履歴セレクターを構築
+function populateDiffSelects(){
+  const hist=(S.get(BK_HIST_KEY)||[]).filter(h=>h&&h.isoTs).slice().sort((a,b)=>a.isoTs.localeCompare(b.isoTs));
+  const baseSel=document.getElementById('diffBaseSel');
+  const compSel=document.getElementById('diffCompSel');
+  if(!baseSel||!compSel)return;
+  // 「現在のBK」（取込済みの最新ライブデータ）も選択肢に含める
+  const liveOpt=`<option value="__live__">現在</option>`;
+  const histOpts=hist.slice().reverse().map((h,i)=>`<option value="${h.isoTs}">${h.ts}</option>`).join('');
+  baseSel.innerHTML=histOpts+liveOpt;
+  compSel.innerHTML=liveOpt+histOpts;
+  // デフォルト：基準=直前（最新の1つ前）、比較=現在
+  if(hist.length>=2){
+    baseSel.value=hist[hist.length-2].isoTs; // 最新の1つ前
+  }else if(hist.length===1){
+    baseSel.value=hist[0].isoTs;
+  }
+  compSel.value='__live__';
+}
+function resetDiffSel(){populateDiffSelects();renderDiffTab();}
+
+// 2つのスナップショットから差分を計算
+function computeDiff(prevSnap,newSnap){
+  const prevIdMap=new Map(Object.entries(prevSnap||{}));
+  const newIdMap=new Map(Object.entries(newSnap||{}));
+  const dN=[],dC=[],dCh=[];
+  newIdMap.forEach((b,id)=>{if(!prevIdMap.has(id))dN.push({...b,id});});
+  prevIdMap.forEach((b,id)=>{if(!newIdMap.has(id))dC.push({...b,id});});
+  prevIdMap.forEach((prevB,id)=>{
+    const newB=newIdMap.get(id);if(!newB)return;
+    const chgs=[];
+    if(prevB.ci!==newB.ci||prevB.co!==newB.co)chgs.push({type:'日程',from:`${prevB.ci}〜${prevB.co}`,to:`${newB.ci}〜${newB.co}`});
+    if((prevB.n||1)!==(newB.n||1))chgs.push({type:'人数',from:`${prevB.n||1}名`,to:`${newB.n||1}名`});
+    if(chgs.length>0)dCh.push({...newB,id,chgs});
+  });
+  dN.sort((a,b)=>a.ci.localeCompare(b.ci));
+  dC.sort((a,b)=>a.ci.localeCompare(b.ci));
+  dCh.sort((a,b)=>a.ci.localeCompare(b.ci));
+  return{n:dN,c:dC,ch:dCh};
+}
+
+// 現在のライブBK状態をスナップ形式に変換
+function getLiveBkSnap(){
+  const snap={};
+  Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id)snap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag,net:b.net||0,s:b.s};}));
+  return snap;
+}
+
 function renderDiffTab(){
-  const saved=S.get(DIFF_KEY);
+  populateDiffSelects();
+  const baseSel=document.getElementById('diffBaseSel');
+  const compSel=document.getElementById('diffCompSel');
   const tsEl=document.getElementById('diffPaneTs');
   const bodyEl=document.getElementById('diffPaneBody');
-  if(!saved||(!saved.n?.length&&!saved.c?.length&&!saved.ch?.length)){
-    if(tsEl)tsEl.textContent='';
-    if(bodyEl)bodyEl.innerHTML='<div style="text-align:center;color:var(--t3);padding:40px 0;font-size:.88em">まだデータがありません。<br>CSVを取込むと変動が表示されます。</div>';
+  const hist=(S.get(BK_HIST_KEY)||[]).filter(h=>h&&h.isoTs);
+
+  // 履歴がまだ無い場合は旧来のDIFF_KEYにフォールバック
+  if(hist.length===0){
+    const saved=S.get(DIFF_KEY);
+    if(!saved||(!saved.n?.length&&!saved.c?.length&&!saved.ch?.length)){
+      if(tsEl)tsEl.textContent='';
+      if(bodyEl)bodyEl.innerHTML='<div style="text-align:center;color:var(--t3);padding:40px 0;font-size:.88em">まだデータがありません。<br>CSVを取込むと変動が表示されます。</div>';
+      return;
+    }
+    if(tsEl)tsEl.textContent='取込日時：'+saved.ts;
+    showDiffModal(saved.n||[],saved.c||[],saved.ch||[]);
+    const tmp=document.getElementById('diffModalBody');
+    if(bodyEl&&tmp)bodyEl.innerHTML=tmp.innerHTML;
     return;
   }
-  if(tsEl)tsEl.textContent='取込日時：'+saved.ts;
-  // showDiffModalと同じHTML生成ロジックを流用して bodyEl に描画
+
+  if(!baseSel||!compSel)return;
+  const baseVal=baseSel.value,compVal=compSel.value;
+  const getSnap=v=>v==='__live__'?getLiveBkSnap():(hist.find(h=>h.isoTs===v)?.snap||{});
+  const baseLabel=baseVal==='__live__'?'現在':(hist.find(h=>h.isoTs===baseVal)?.ts||baseVal);
+  const compLabel=compVal==='__live__'?'現在':(hist.find(h=>h.isoTs===compVal)?.ts||compVal);
+  const diff=computeDiff(getSnap(baseVal),getSnap(compVal));
+  if(tsEl)tsEl.textContent=`比較：${baseLabel} → ${compLabel}`;
+  showDiffModal(diff.n,diff.c,diff.ch);
   const tmp=document.getElementById('diffModalBody');
-  showDiffModal(saved.n||[],saved.c||[],saved.ch||[]);
   if(bodyEl&&tmp)bodyEl.innerHTML=tmp.innerHTML;
 }
 function showDiffModal(newBks,cancelledBks,changedBks){
@@ -4236,6 +4395,14 @@ function initFirebase(){
     fbDB.ref('invHistory').on('value', snap => {
       const val = snap.val();
       if(val) S.set(INV_HISTORY_KEY, val);
+    });
+    fbDB.ref('bkHistory').on('value', snap => {
+      const val = snap.val();
+      if(val) S.set(BK_HIST_KEY, val);
+    });
+    fbDB.ref('msHistory').on('value', snap => {
+      const val = snap.val();
+      if(val) S.set(MS_HIST_KEY, val);
     });
     fbDB.ref('diffReport').on('value', snap => {
       const val = snap.val();
