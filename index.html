@@ -13,6 +13,7 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -634,12 +635,13 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div class="sec">
       <h2>明細（部屋単位）</h2>
       <table class="inv-tbl">
-        <thead><tr><th style="width:340px">摘要</th><th class="ra" style="width:70px">数量</th><th class="ra" style="width:90px">単価</th><th class="ra" style="width:100px">金額</th><th style="width:30px"></th></tr></thead>
+        <thead><tr><th style="width:24px"></th><th style="width:340px">摘要</th><th class="ra" style="width:70px">数量</th><th class="ra" style="width:90px">単価</th><th class="ra" style="width:100px">金額</th><th style="width:30px"></th></tr></thead>
         <tbody id="invBody"></tbody>
       </table>
       <button class="inv-add" onclick="addInvItem()">＋ 行を追加</button>
       <button class="inv-add" onclick="addInvSep()" style="margin-left:8px">＋ 区切りを追加</button>
       <button class="inv-add" onclick="resetInv()" style="margin-left:8px;color:#d32f2f;border-color:#d32f2f">🔄 CSVから再構築</button>
+      <div style="font-size:.75em;color:#888;margin-top:6px">💡 行の左端「⋮⋮」をドラッグで並び替えできます</div>
       <div class="inv-total" id="invTotal"></div>
     </div>
     <div class="sec">
@@ -647,7 +649,11 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
       <textarea class="inv-inp" id="invNote" rows="3" style="resize:vertical">振込手数料は御社負担でお願い致します。
 ※代行費用・清掃費用はチェックインベースで計算しています。</textarea>
     </div>
-    <button class="inv-print" onclick="printInv()">🖨️ PDFで印刷・保存</button>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+      <button class="inv-print" onclick="printInv()" style="background:#90A4AE">🖨️ 下書き印刷</button>
+      <button class="inv-print" onclick="issueInv()">✅ 発行する（履歴に保存）</button>
+      <button class="inv-print" onclick="showInvHistory()" style="background:#5C6BC0">📚 発行履歴</button>
+    </div>
   </div>
   <!-- 会計 -->
   <div class="pane" id="accPane">
@@ -915,7 +921,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6';
 const OFFICES=['両国事務所','亀有事務所','SC事務所','梅島事務所','青戸事務所'];
 const SERVICES=['AirHost'];
 
@@ -3171,21 +3177,44 @@ function buildInvFromCSV(){
 }
 
 function renderInvItems(){
+  const handleHTML=`<td class="inv-drag" style="cursor:grab;text-align:center;color:#bbb;font-size:14px;user-select:none;line-height:1;padding:0 2px" title="ドラッグで並び替え">⋮⋮</td>`;
   document.getElementById('invBody').innerHTML=invItems.map((it,i)=>{
     if(it._separator){
-      return `<tr><td colspan="5" style="height:12px;border-top:2px solid #ccc;padding:0;background:#f5f5f5;position:relative"><button onclick="invItems.splice(${i},1);renderInvItems()" style="position:absolute;right:6px;top:-3px;border:none;background:transparent;color:#999;cursor:pointer;font-size:13px;line-height:1">✕</button></td></tr>`;
+      return `<tr data-idx="${i}">${handleHTML}<td colspan="4" style="height:12px;border-top:2px solid #ccc;padding:0;background:#f5f5f5;position:relative"><button onclick="invItems.splice(${i},1);renderInvItems();saveInv()" style="position:absolute;right:6px;top:-3px;border:none;background:transparent;color:#999;cursor:pointer;font-size:13px;line-height:1">✕</button></td><td></td></tr>`;
     }
     const isAutoSep=it.desc.startsWith('代行費用')&&i>0&&!invItems[i-1]._separator;
-    const sep=isAutoSep?`<tr><td colspan="5" style="height:10px;border-top:2px solid #ccc;padding:0;background:#f5f5f5"></td></tr>`:'';
-    return sep+`<tr>
+    const sep=isAutoSep?`<tr class="auto-sep"><td colspan="6" style="height:10px;border-top:2px solid #ccc;padding:0;background:#f5f5f5"></td></tr>`:'';
+    return sep+`<tr data-idx="${i}">
+      ${handleHTML}
       <td><input class="inv-inp" style="padding:5px 8px;font-size:.92em" value="${it.desc}" onchange="invItems[${i}].desc=this.value;renderInvTotal()"></td>
       <td class="ra"><input class="inv-inp" type="number" style="width:58px;padding:5px 6px;text-align:right;font-size:.92em;font-family:ui-monospace,monospace" value="${it.qty}" onchange="invItems[${i}].qty=parseInt(this.value)||0;renderInvItems()"></td>
       <td class="ra"><input class="inv-inp" type="number" style="width:85px;padding:5px 6px;text-align:right;font-size:.92em;font-family:ui-monospace,monospace" value="${it.unit}" onchange="invItems[${i}].unit=parseInt(this.value)||0;renderInvItems()"></td>
       <td class="ra" style="font-family:ui-monospace,monospace;font-size:.95em">${fmtF(it.qty*it.unit)}</td>
-      <td><button class="inv-del" onclick="invItems.splice(${i},1);renderInvItems()">✕</button></td>
+      <td><button class="inv-del" onclick="invItems.splice(${i},1);renderInvItems();saveInv()">✕</button></td>
     </tr>`;
   }).join('');
   renderInvTotal();
+  initInvSortable();
+}
+
+let _invSortable=null;
+function initInvSortable(){
+  if(typeof Sortable==='undefined')return;
+  const tbody=document.getElementById('invBody');if(!tbody)return;
+  if(_invSortable){try{_invSortable.destroy();}catch(e){}}
+  _invSortable=Sortable.create(tbody,{
+    handle:'.inv-drag',
+    animation:150,
+    filter:'.auto-sep',
+    onEnd:function(evt){
+      // auto-sep行（data-idxなし）を除外して、本物のindexだけで並び替え
+      const trs=[...tbody.querySelectorAll('tr[data-idx]')];
+      const newOrder=trs.map(tr=>invItems[parseInt(tr.dataset.idx)]);
+      invItems=newOrder;
+      renderInvItems();
+      saveInv();
+    }
+  });
 }
 function addInvItem(){invItems.push({desc:'',qty:1,unit:0});renderInvItems();}
 function addInvSep(){invItems.push({_separator:true});renderInvItems();}
@@ -3199,19 +3228,23 @@ function renderInvTotal(){
   saveInv();
 }
 
-function printInv(){
-  const month=document.getElementById('invMonth').value||'';
-  const due=document.getElementById('invDue').value||'';
-  const note=document.getElementById('invNote').value||'';
-  const sub=invItems.reduce((s,it)=>s+(it._separator?0:(it.qty||0)*(it.unit||0)),0);
+// 印刷HTMLを生成（snapshot指定時はそのデータを使用、未指定時は現在のフォーム）
+function buildInvHTML(snapshot){
+  const isSnap=!!snapshot;
+  const month=isSnap?snapshot.month:(document.getElementById('invMonth').value||'');
+  const due=isSnap?snapshot.due:(document.getElementById('invDue').value||'');
+  const note=isSnap?snapshot.note:(document.getElementById('invNote').value||'');
+  const items=isSnap?snapshot.items:invItems;
+  const sub=items.reduce((s,it)=>s+(it._separator?0:(it.qty||0)*(it.unit||0)),0);
   const tax=Math.round(sub*.1),tot=sub+tax;
-  const invNum=`INV-${String(cfg.nextInv).padStart(10,'0')}`;
-  const today=new Date().toISOString().split('T')[0];
-  const rows=invItems.map((it,idx)=>{
+  const invNum=isSnap?snapshot.invNum:`INV-${String(cfg.nextInv).padStart(10,'0')}`;
+  const today=isSnap?snapshot.issuedDate:new Date().toISOString().split('T')[0];
+  const c=isSnap?snapshot.cfg:{recip:cfg.recip,reg:cfg.reg,issuer:cfg.issuer,addr:cfg.addr,tel:cfg.tel,bank:cfg.bank};
+  const rows=items.map((it,idx)=>{
     if(it._separator){
       return `<tr><td colspan="4" style="height:6px;border:none;border-top:1.5px solid #888;padding:0"></td></tr>`;
     }
-    const isAutoSep=it.desc.startsWith('代行費用')&&idx>0&&!invItems[idx-1]._separator;
+    const isAutoSep=it.desc.startsWith('代行費用')&&idx>0&&!items[idx-1]._separator;
     const sep=isAutoSep?`<tr><td colspan="4" style="height:8px;border:none;border-top:1.5px solid #888;padding:0"></td></tr>`:'';
     return sep+`<tr><td>${it.desc}</td><td class="ra">${it.qty} 件</td><td class="ra">${it.unit.toLocaleString('ja-JP')}</td><td class="ra">${(it.qty*it.unit).toLocaleString('ja-JP')}</td></tr>`;
   }).join('');
@@ -3239,22 +3272,113 @@ function printInv(){
   @media print{body{padding:12px}@page{margin:8mm}}</style></head><body>
   <h1>請　求　書</h1>
   <div class="hrow">
-    <div><div class="rec">${cfg.recip} 御中</div>
+    <div><div class="rec">${c.recip} 御中</div>
     <div style="margin-top:12px;font-size:13px"><b>件名</b>&nbsp;&nbsp;民泊代行手数料として</div></div>
-    <div><table class="mt"><tr><td>請求日</td><td>${today}</td></tr><tr><td>請求書番号</td><td>${invNum}</td></tr><tr><td>登録番号</td><td>${cfg.reg}</td></tr></table>
-    <div class="ib" style="margin-top:10px;position:relative"><div style="font-size:14px;font-weight:700">${cfg.issuer}</div><div>${cfg.addr}</div><div>${cfg.tel}</div><div style="position:absolute;top:-8px;right:-30px">${sealSVG}</div></div></div>
+    <div><table class="mt"><tr><td>請求日</td><td>${today}</td></tr><tr><td>請求書番号</td><td>${invNum}</td></tr><tr><td>登録番号</td><td>${c.reg}</td></tr></table>
+    <div class="ib" style="margin-top:10px;position:relative"><div style="font-size:14px;font-weight:700">${c.issuer}</div><div>${c.addr}</div><div>${c.tel}</div><div style="position:absolute;top:-8px;right:-30px">${sealSVG}</div></div></div>
   </div>
   <div class="sum"><table><tr><th>小計</th><th>消費税</th><th>請求金額</th></tr>
   <tr><td>${fmtF(sub)}</td><td>${fmtF(tax)}</td><td><span class="bigamt">${fmtF(tot)}</span></td></tr></table></div>
   <div class="bank"><table><tr><th>入金期日</th><th>振込先</th></tr>
-  <tr><td>${due||'　'}</td><td>${cfg.bank.replace(/\n/g,'<br>')}</td></tr></table></div>
+  <tr><td>${due||'　'}</td><td>${c.bank.replace(/\n/g,'<br>')}</td></tr></table></div>
   <table class="dtbl"><thead><tr><th>摘要</th><th class="ra">数量</th><th class="ra">単価</th><th class="ra">明細金額</th></tr></thead><tbody>${rows}</tbody></table>
   <div class="stot"><div class="sr"><span>内訳 10%対象（税抜）</span><span>${fmtF(sub)}</span></div><div class="sr"><span>10%消費税</span><span>${fmtF(tax)}</span></div></div>
   <div class="memo"><b>備考</b><br>${note.replace(/\n/g,'<br>')}</div>
-  ${(()=>{const cd=[];invItems.forEach(it=>{if(it._cleanDetails)cd.push(...it._cleanDetails);});if(!cd.length)return '';cd.sort((a,b)=>(a.tag+a.ci).localeCompare(b.tag+b.ci));const tot=cd.reduce((s,d)=>s+d.fee,0);const drows=cd.map(d=>`<tr><td style="height:32px;vertical-align:middle">${d.tag}</td><td style="height:32px;vertical-align:middle">${d.ci.slice(5).replace('-','/')}</td><td style="height:32px;vertical-align:middle">${d.co.slice(5).replace('-','/')}</td><td style="height:32px;vertical-align:middle">${d.g}</td><td class="ra" style="height:32px;vertical-align:middle;font-family:monospace">¥${d.fee.toLocaleString('ja-JP')}</td></tr>`).join('');return `<div style="page-break-before:always"></div><h1 style="margin-top:0">清 掃 費 用 明 細</h1><div style="text-align:right;font-size:12px;margin-bottom:10px">対象月：${month}</div><table class="dtbl"><thead><tr><th style="width:110px">部屋</th><th style="width:90px">チェックイン</th><th style="width:90px">チェックアウト</th><th>ゲスト名</th><th class="ra" style="width:110px">金額</th></tr></thead><tbody>${drows}</tbody><tfoot><tr><td colspan="4" class="ra" style="background:#fafafa;font-weight:700;height:32px;vertical-align:middle">合計</td><td class="ra" style="background:#fafafa;font-weight:700;font-family:monospace;height:32px;vertical-align:middle">¥${tot.toLocaleString('ja-JP')}</td></tr></tfoot></table>`;})()}
+  ${(()=>{const cd=[];items.forEach(it=>{if(it._cleanDetails)cd.push(...it._cleanDetails);});if(!cd.length)return '';cd.sort((a,b)=>(a.tag+a.ci).localeCompare(b.tag+b.ci));const tot=cd.reduce((s,d)=>s+d.fee,0);const drows=cd.map(d=>`<tr><td style="height:32px;vertical-align:middle">${d.tag}</td><td style="height:32px;vertical-align:middle">${d.ci.slice(5).replace('-','/')}</td><td style="height:32px;vertical-align:middle">${d.co.slice(5).replace('-','/')}</td><td style="height:32px;vertical-align:middle">${d.g}</td><td class="ra" style="height:32px;vertical-align:middle;font-family:monospace">¥${d.fee.toLocaleString('ja-JP')}</td></tr>`).join('');return `<div style="page-break-before:always"></div><h1 style="margin-top:0">清 掃 費 用 明 細</h1><div style="text-align:right;font-size:12px;margin-bottom:10px">対象月：${month}</div><table class="dtbl"><thead><tr><th style="width:110px">部屋</th><th style="width:90px">チェックイン</th><th style="width:90px">チェックアウト</th><th>ゲスト名</th><th class="ra" style="width:110px">金額</th></tr></thead><tbody>${drows}</tbody><tfoot><tr><td colspan="4" class="ra" style="background:#fafafa;font-weight:700;height:32px;vertical-align:middle">合計</td><td class="ra" style="background:#fafafa;font-weight:700;font-family:monospace;height:32px;vertical-align:middle">¥${tot.toLocaleString('ja-JP')}</td></tr></tfoot></table>`;})()}
   <script>window.onload=()=>{window.print();}<\/script></body></html>`;
+  return html;
+}
+
+// 印刷ウィンドウを開く
+function openInvWindow(html){
   const win=window.open('','_blank');win.document.write(html);win.document.close();
+}
+
+// 🖨️ 下書き印刷（履歴に残らない・番号も増えない）
+function printInv(){
+  openInvWindow(buildInvHTML());
+}
+
+// ✅ 発行する（スナップショット保存 → 印刷）
+function issueInv(){
+  const month=document.getElementById('invMonth').value||'';
+  if(!month){alert('対象月を選択してください');return;}
+  if(!confirm(`${month}分の請求書を発行します。\n発行履歴に保存され、請求書番号が次に進みます。\nよろしいですか？`))return;
+  const due=document.getElementById('invDue').value||'';
+  const note=document.getElementById('invNote').value||'';
+  const sub=invItems.reduce((s,it)=>s+(it._separator?0:(it.qty||0)*(it.unit||0)),0);
+  const tax=Math.round(sub*.1),tot=sub+tax;
+  const invNum=`INV-${String(cfg.nextInv).padStart(10,'0')}`;
+  const today=new Date().toISOString().split('T')[0];
+  const snap={
+    id:Date.now()+'-'+invNum,
+    issuedAt:new Date().toISOString(),
+    issuedDate:today,
+    month, invNum, due, note,
+    items:JSON.parse(JSON.stringify(invItems)),
+    cfg:{recip:cfg.recip,reg:cfg.reg,issuer:cfg.issuer,addr:cfg.addr,tel:cfg.tel,bank:cfg.bank},
+    total:tot
+  };
+  const hist=S.get(INV_HISTORY_KEY)||[];
+  hist.push(snap);
+  S.set(INV_HISTORY_KEY,hist);
+  if(fbReady)fbWrite('invHistory',hist);
   cfg.nextInv++;saveCfg();
+  openInvWindow(buildInvHTML(snap));
+}
+
+// 📚 発行履歴の表示
+function showInvHistory(){
+  const hist=S.get(INV_HISTORY_KEY)||[];
+  const overlay=document.createElement('div');
+  overlay.id='invHistOverlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.onclick=(e)=>{if(e.target===overlay)closeInvHistory();};
+  const sortedHist=[...hist].sort((a,b)=>b.issuedAt.localeCompare(a.issuedAt));
+  const rows=sortedHist.length?sortedHist.map(h=>`
+    <tr style="border-bottom:1px solid #eee">
+      <td style="padding:10px">${h.issuedDate||h.issuedAt.slice(0,10)}</td>
+      <td style="padding:10px">${h.month}</td>
+      <td style="padding:10px;font-family:ui-monospace,monospace;font-size:.85em">${h.invNum}</td>
+      <td style="padding:10px;text-align:right;font-family:ui-monospace,monospace">${fmtF(h.total)}</td>
+      <td style="padding:10px;text-align:center;white-space:nowrap">
+        <button onclick="reprintInvHistory('${h.id}')" style="background:#5C6BC0;color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.82em">🖨️ 再印刷</button>
+      </td>
+    </tr>`).join(''):`<tr><td colspan="5" style="padding:30px;text-align:center;color:#999">まだ発行履歴がありません</td></tr>`;
+  overlay.innerHTML=`
+    <div style="background:#fff;border-radius:12px;max-width:800px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.3)">
+      <div style="padding:18px 22px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">
+        <h2 style="margin:0;font-size:1.1em">📚 発行履歴 <span style="color:#888;font-size:.7em;font-weight:normal">(${hist.length}件)</span></h2>
+        <button onclick="closeInvHistory()" style="border:none;background:transparent;font-size:1.4em;cursor:pointer;color:#888">✕</button>
+      </div>
+      <div style="overflow-y:auto;flex:1">
+        <table style="width:100%;border-collapse:collapse;font-size:.9em">
+          <thead style="background:#fafafa;position:sticky;top:0">
+            <tr>
+              <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd">発行日</th>
+              <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd">対象月</th>
+              <th style="padding:10px;text-align:left;border-bottom:2px solid #ddd">請求書番号</th>
+              <th style="padding:10px;text-align:right;border-bottom:2px solid #ddd">金額</th>
+              <th style="padding:10px;text-align:center;border-bottom:2px solid #ddd">操作</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="padding:12px 22px;border-top:1px solid #eee;font-size:.78em;color:#888">
+        💡 履歴は読み取り専用です。修正したい場合は対象月を選択して通常編集してください。
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+function closeInvHistory(){
+  const o=document.getElementById('invHistOverlay');if(o)o.remove();
+}
+function reprintInvHistory(id){
+  const hist=S.get(INV_HISTORY_KEY)||[];
+  const snap=hist.find(h=>h.id===id);
+  if(!snap){alert('履歴が見つかりません');return;}
+  openInvWindow(buildInvHTML(snap));
 }
 
 // ════════════════════════════════════════════
@@ -4071,6 +4195,10 @@ function initFirebase(){
     fbDB.ref('invEdits').on('value', snap => {
       const val = snap.val();
       if(val) S.set(INV_EDITS_KEY, val);
+    });
+    fbDB.ref('invHistory').on('value', snap => {
+      const val = snap.val();
+      if(val) S.set(INV_HISTORY_KEY, val);
     });
     fbDB.ref('diffReport').on('value', snap => {
       const val = snap.val();
