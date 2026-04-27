@@ -3583,6 +3583,10 @@ function loadCSVs(){
         const chgs=[];
         if(prevB.ci!==newB.ci||prevB.co!==newB.co)chgs.push({type:'日程',from:`${prevB.ci}〜${prevB.co}`,to:`${newB.ci}〜${newB.co}`});
         if((prevB.n||1)!==(newB.n||1))chgs.push({type:'人数',from:`${prevB.n||1}名`,to:`${newB.n||1}名`});
+        if(prevB.net!=null&&newB.net!=null&&prevB.net!==newB.net){
+          const df=newB.net-prevB.net,sg=df>=0?'+':'';
+          chgs.push({type:'金額',from:`¥${(prevB.net||0).toLocaleString()}`,to:`¥${(newB.net||0).toLocaleString()} (${sg}¥${df.toLocaleString()})`});
+        }
         if(chgs.length>0)_diffChanged.push({...newB,chgs});
       });
       _diffNew.sort((a,b)=>a.ci.localeCompare(b.ci));
@@ -3681,6 +3685,10 @@ function computeDiff(prevSnap,newSnap){
     const chgs=[];
     if(prevB.ci!==newB.ci||prevB.co!==newB.co)chgs.push({type:'日程',from:`${prevB.ci}〜${prevB.co}`,to:`${newB.ci}〜${newB.co}`});
     if((prevB.n||1)!==(newB.n||1))chgs.push({type:'人数',from:`${prevB.n||1}名`,to:`${newB.n||1}名`});
+    if(prevB.net!=null&&newB.net!=null&&prevB.net!==newB.net){
+      const df=newB.net-prevB.net,sg=df>=0?'+':'';
+      chgs.push({type:'金額',from:`¥${(prevB.net||0).toLocaleString()}`,to:`¥${(newB.net||0).toLocaleString()} (${sg}¥${df.toLocaleString()})`});
+    }
     if(chgs.length>0)dCh.push({...newB,id,chgs});
   });
   dN.sort((a,b)=>a.ci.localeCompare(b.ci));
