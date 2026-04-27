@@ -635,7 +635,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
     <div class="sec">
       <h2>明細（部屋単位）</h2>
       <table class="inv-tbl">
-        <thead><tr><th style="width:24px"></th><th style="width:340px">摘要</th><th class="ra" style="width:70px">数量</th><th class="ra" style="width:90px">単価</th><th class="ra" style="width:100px">金額</th><th style="width:30px"></th></tr></thead>
+        <thead><tr><th style="width:24px"></th><th style="width:320px">摘要</th><th class="ra" style="width:60px">数量</th><th class="ra" style="width:80px">単価</th><th class="ra" style="width:65px">税率</th><th class="ra" style="width:100px">金額</th><th style="width:30px"></th></tr></thead>
         <tbody id="invBody"></tbody>
       </table>
       <button class="inv-add" onclick="addInvItem()">＋ 行を追加</button>
@@ -3159,7 +3159,7 @@ function buildInvFromCSV(){
   Object.entries(propGroups).forEach(([prop,tags])=>{
     tags.sort().forEach(tag=>{
       // Agency fee per room
-      invItems.push({desc:`代行費用（${tag}）`,qty:1,unit:cfg.fee});
+      invItems.push({desc:`代行費用（${tag}）`,qty:1,unit:cfg.fee,tax:10});
       // Cleaning: count CI-based bookings with cleaning fee
       let cleanCnt=0,cleanTotal=0,cleanDetails=[];
       (BK[tag]||[]).forEach(bk=>{
@@ -3169,7 +3169,7 @@ function buildInvFromCSV(){
         }
       });
       if(cleanCnt>0){
-        invItems.push({desc:`清掃費用（${tag}）${cleanCnt}件分`,qty:1,unit:cleanTotal,_cleanDetails:cleanDetails});
+        invItems.push({desc:`清掃費用（${tag}）${cleanCnt}件分`,qty:1,unit:cleanTotal,tax:10,_cleanDetails:cleanDetails});
       }
     });
   });
@@ -3180,15 +3180,21 @@ function renderInvItems(){
   const handleHTML=`<td class="inv-drag" style="cursor:grab;text-align:center;color:#bbb;font-size:14px;user-select:none;line-height:1;padding:0 2px" title="ドラッグで並び替え">⋮⋮</td>`;
   document.getElementById('invBody').innerHTML=invItems.map((it,i)=>{
     if(it._separator){
-      return `<tr data-idx="${i}">${handleHTML}<td colspan="4" style="height:12px;border-top:2px solid #ccc;padding:0;background:#f5f5f5;position:relative"><button onclick="invItems.splice(${i},1);renderInvItems();saveInv()" style="position:absolute;right:6px;top:-3px;border:none;background:transparent;color:#999;cursor:pointer;font-size:13px;line-height:1">✕</button></td><td></td></tr>`;
+      return `<tr data-idx="${i}">${handleHTML}<td colspan="5" style="height:12px;border-top:2px solid #ccc;padding:0;background:#f5f5f5;position:relative"><button onclick="invItems.splice(${i},1);renderInvItems();saveInv()" style="position:absolute;right:6px;top:-3px;border:none;background:transparent;color:#999;cursor:pointer;font-size:13px;line-height:1">✕</button></td><td></td></tr>`;
     }
     const isAutoSep=it.desc.startsWith('代行費用')&&i>0&&!invItems[i-1]._separator;
-    const sep=isAutoSep?`<tr class="auto-sep"><td colspan="6" style="height:10px;border-top:2px solid #ccc;padding:0;background:#f5f5f5"></td></tr>`:'';
+    const sep=isAutoSep?`<tr class="auto-sep"><td colspan="7" style="height:10px;border-top:2px solid #ccc;padding:0;background:#f5f5f5"></td></tr>`:'';
+    const taxRate=it.tax??10;
     return sep+`<tr data-idx="${i}">
       ${handleHTML}
       <td><input class="inv-inp" style="padding:5px 8px;font-size:.92em" value="${it.desc}" onchange="invItems[${i}].desc=this.value;renderInvTotal()"></td>
       <td class="ra"><input class="inv-inp" type="number" style="width:58px;padding:5px 6px;text-align:right;font-size:.92em;font-family:ui-monospace,monospace" value="${it.qty}" onchange="invItems[${i}].qty=parseInt(this.value)||0;renderInvItems()"></td>
-      <td class="ra"><input class="inv-inp" type="number" style="width:85px;padding:5px 6px;text-align:right;font-size:.92em;font-family:ui-monospace,monospace" value="${it.unit}" onchange="invItems[${i}].unit=parseInt(this.value)||0;renderInvItems()"></td>
+      <td class="ra"><input class="inv-inp" type="number" style="width:75px;padding:5px 6px;text-align:right;font-size:.92em;font-family:ui-monospace,monospace" value="${it.unit}" onchange="invItems[${i}].unit=parseInt(this.value)||0;renderInvItems()"></td>
+      <td class="ra"><select class="inv-inp" style="padding:5px 4px;font-size:.85em;width:60px" onchange="invItems[${i}].tax=parseInt(this.value);renderInvItems()">
+        <option value="10"${taxRate===10?' selected':''}>10%</option>
+        <option value="8"${taxRate===8?' selected':''}>8%</option>
+        <option value="0"${taxRate===0?' selected':''}>0%</option>
+      </select></td>
       <td class="ra" style="font-family:ui-monospace,monospace;font-size:.95em">${fmtF(it.qty*it.unit)}</td>
       <td><button class="inv-del" onclick="invItems.splice(${i},1);renderInvItems();saveInv()">✕</button></td>
     </tr>`;
@@ -3216,15 +3222,45 @@ function initInvSortable(){
     }
   });
 }
-function addInvItem(){invItems.push({desc:'',qty:1,unit:0});renderInvItems();}
+function addInvItem(){invItems.push({desc:'',qty:1,unit:0,tax:10});renderInvItems();}
 function addInvSep(){invItems.push({_separator:true});renderInvItems();}
+
+// 税率別の集計を計算（複数税率対応）
+function calcInvTotals(items){
+  const groups={10:0,8:0,0:0};
+  items.forEach(it=>{
+    if(it._separator)return;
+    const rate=it.tax??10;
+    if(!(rate in groups))groups[rate]=0;
+    groups[rate]+=(it.qty||0)*(it.unit||0);
+  });
+  const sub10=groups[10]||0,sub8=groups[8]||0,sub0=groups[0]||0;
+  const sub=sub10+sub8+sub0;
+  const tax10=Math.round(sub10*.1),tax8=Math.round(sub8*.08);
+  const tax=tax10+tax8;
+  const tot=sub+tax;
+  return{sub,sub10,sub8,sub0,tax,tax10,tax8,tot};
+}
+
 function renderInvTotal(){
-  const sub=invItems.reduce((s,it)=>s+(it._separator?0:(it.qty||0)*(it.unit||0)),0);
-  const tax=Math.round(sub*.1),tot=sub+tax;
+  const t=calcInvTotals(invItems);
+  // 0より大きい税率区分のみ表示
+  const subLines=[];
+  if(t.sub10>0)subLines.push(`<div class="inv-trow" style="font-size:.85em;color:#666;padding-left:14px"><span>うち10%対象</span><span style="font-family:ui-monospace,monospace">${fmtF(t.sub10)}</span></div>`);
+  if(t.sub8>0)subLines.push(`<div class="inv-trow" style="font-size:.85em;color:#666;padding-left:14px"><span>うち8%対象</span><span style="font-family:ui-monospace,monospace">${fmtF(t.sub8)}</span></div>`);
+  if(t.sub0>0)subLines.push(`<div class="inv-trow" style="font-size:.85em;color:#666;padding-left:14px"><span>うち0%対象</span><span style="font-family:ui-monospace,monospace">${fmtF(t.sub0)}</span></div>`);
+  const taxLines=[];
+  if(t.tax10>0)taxLines.push(`<div class="inv-trow" style="font-size:.85em;color:#666;padding-left:14px"><span>10%消費税</span><span style="font-family:ui-monospace,monospace">${fmtF(t.tax10)}</span></div>`);
+  if(t.tax8>0)taxLines.push(`<div class="inv-trow" style="font-size:.85em;color:#666;padding-left:14px"><span>8%消費税</span><span style="font-family:ui-monospace,monospace">${fmtF(t.tax8)}</span></div>`);
+  // 単一税率なら詳細を省略
+  const showSubBreakdown=subLines.length>=2;
+  const showTaxBreakdown=taxLines.length>=2;
   document.getElementById('invTotal').innerHTML=`
-    <div class="inv-trow"><span>小計（税抜）</span><span style="font-family:ui-monospace,monospace">${fmtF(sub)}</span></div>
-    <div class="inv-trow"><span>消費税（10%）</span><span style="font-family:ui-monospace,monospace">${fmtF(tax)}</span></div>
-    <div class="inv-trow big"><span>請求金額</span><span>${fmtF(tot)}</span></div>`;
+    <div class="inv-trow"><span>小計（税抜）</span><span style="font-family:ui-monospace,monospace">${fmtF(t.sub)}</span></div>
+    ${showSubBreakdown?subLines.join(''):''}
+    <div class="inv-trow"><span>消費税</span><span style="font-family:ui-monospace,monospace">${fmtF(t.tax)}</span></div>
+    ${showTaxBreakdown?taxLines.join(''):''}
+    <div class="inv-trow big"><span>請求金額</span><span>${fmtF(t.tot)}</span></div>`;
   saveInv();
 }
 
@@ -3235,18 +3271,19 @@ function buildInvHTML(snapshot){
   const due=isSnap?snapshot.due:(document.getElementById('invDue').value||'');
   const note=isSnap?snapshot.note:(document.getElementById('invNote').value||'');
   const items=isSnap?snapshot.items:invItems;
-  const sub=items.reduce((s,it)=>s+(it._separator?0:(it.qty||0)*(it.unit||0)),0);
-  const tax=Math.round(sub*.1),tot=sub+tax;
+  const t=calcInvTotals(items);
+  const sub=t.sub,tax=t.tax,tot=t.tot;
   const invNum=isSnap?snapshot.invNum:`INV-${String(cfg.nextInv).padStart(10,'0')}`;
   const today=isSnap?snapshot.issuedDate:new Date().toISOString().split('T')[0];
   const c=isSnap?snapshot.cfg:{recip:cfg.recip,reg:cfg.reg,issuer:cfg.issuer,addr:cfg.addr,tel:cfg.tel,bank:cfg.bank};
   const rows=items.map((it,idx)=>{
     if(it._separator){
-      return `<tr><td colspan="4" style="height:6px;border:none;border-top:1.5px solid #888;padding:0"></td></tr>`;
+      return `<tr><td colspan="5" style="height:6px;border:none;border-top:1.5px solid #888;padding:0"></td></tr>`;
     }
     const isAutoSep=it.desc.startsWith('代行費用')&&idx>0&&!items[idx-1]._separator;
-    const sep=isAutoSep?`<tr><td colspan="4" style="height:8px;border:none;border-top:1.5px solid #888;padding:0"></td></tr>`:'';
-    return sep+`<tr><td>${it.desc}</td><td class="ra">${it.qty} 件</td><td class="ra">${it.unit.toLocaleString('ja-JP')}</td><td class="ra">${(it.qty*it.unit).toLocaleString('ja-JP')}</td></tr>`;
+    const sep=isAutoSep?`<tr><td colspan="5" style="height:8px;border:none;border-top:1.5px solid #888;padding:0"></td></tr>`:'';
+    const taxRate=it.tax??10;
+    return sep+`<tr><td>${it.desc}</td><td class="ra">${it.qty} 件</td><td class="ra">${it.unit.toLocaleString('ja-JP')}</td><td class="ra">${taxRate}%</td><td class="ra">${(it.qty*it.unit).toLocaleString('ja-JP')}</td></tr>`;
   }).join('');
   const sealSVG=`<svg xmlns="http://www.w3.org/2000/svg" width="74" height="74" viewBox="0 0 100 100" style="opacity:0.5"><rect x="3" y="3" width="94" height="94" fill="none" stroke="#c41e3a" stroke-width="3.5"/><rect x="9" y="9" width="82" height="82" fill="none" stroke="#c41e3a" stroke-width="0.8"/><g fill="#c41e3a" font-size="14" font-weight="700" font-family="serif" text-anchor="middle"><text x="78" y="28">株</text><text x="78" y="46">式</text><text x="78" y="64">会</text><text x="78" y="82">社</text><text x="59" y="28">シ</text><text x="59" y="46">ザ</text><text x="59" y="64">ー</text><text x="59" y="82">ス</text><text x="40" y="28">エ</text><text x="40" y="46">ス</text><text x="40" y="64">テ</text><text x="40" y="82">ー</text><text x="22" y="28">ト</text><text x="22" y="46">之</text><text x="22" y="64">印</text></g></svg>`;
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>請求書 ${invNum}</title>
@@ -3281,8 +3318,8 @@ function buildInvHTML(snapshot){
   <tr><td>${fmtF(sub)}</td><td>${fmtF(tax)}</td><td><span class="bigamt">${fmtF(tot)}</span></td></tr></table></div>
   <div class="bank"><table><tr><th>入金期日</th><th>振込先</th></tr>
   <tr><td>${due||'　'}</td><td>${c.bank.replace(/\n/g,'<br>')}</td></tr></table></div>
-  <table class="dtbl"><thead><tr><th>摘要</th><th class="ra">数量</th><th class="ra">単価</th><th class="ra">明細金額</th></tr></thead><tbody>${rows}</tbody></table>
-  <div class="stot"><div class="sr"><span>内訳 10%対象（税抜）</span><span>${fmtF(sub)}</span></div><div class="sr"><span>10%消費税</span><span>${fmtF(tax)}</span></div></div>
+  <table class="dtbl"><thead><tr><th>摘要</th><th class="ra">数量</th><th class="ra">単価</th><th class="ra">税率</th><th class="ra">明細金額</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="stot">${(()=>{const lines=[];if(t.sub10>0){lines.push(`<div class="sr"><span>内訳 10%対象（税抜）</span><span>${fmtF(t.sub10)}</span></div>`);lines.push(`<div class="sr"><span>10%消費税</span><span>${fmtF(t.tax10)}</span></div>`);}if(t.sub8>0){lines.push(`<div class="sr"><span>内訳 8%対象（税抜）</span><span>${fmtF(t.sub8)}</span></div>`);lines.push(`<div class="sr"><span>8%消費税</span><span>${fmtF(t.tax8)}</span></div>`);}if(t.sub0>0){lines.push(`<div class="sr"><span>内訳 0%対象（税抜）</span><span>${fmtF(t.sub0)}</span></div>`);}return lines.join('');})()}</div>
   <div class="memo"><b>備考</b><br>${note.replace(/\n/g,'<br>')}</div>
   ${(()=>{const cd=[];items.forEach(it=>{if(it._cleanDetails)cd.push(...it._cleanDetails);});if(!cd.length)return '';cd.sort((a,b)=>(a.tag+a.ci).localeCompare(b.tag+b.ci));const tot=cd.reduce((s,d)=>s+d.fee,0);const drows=cd.map(d=>`<tr><td style="height:32px;vertical-align:middle">${d.tag}</td><td style="height:32px;vertical-align:middle">${d.ci.slice(5).replace('-','/')}</td><td style="height:32px;vertical-align:middle">${d.co.slice(5).replace('-','/')}</td><td style="height:32px;vertical-align:middle">${d.g}</td><td class="ra" style="height:32px;vertical-align:middle;font-family:monospace">¥${d.fee.toLocaleString('ja-JP')}</td></tr>`).join('');return `<div style="page-break-before:always"></div><h1 style="margin-top:0">清 掃 費 用 明 細</h1><div style="text-align:right;font-size:12px;margin-bottom:10px">対象月：${month}</div><table class="dtbl"><thead><tr><th style="width:110px">部屋</th><th style="width:90px">チェックイン</th><th style="width:90px">チェックアウト</th><th>ゲスト名</th><th class="ra" style="width:110px">金額</th></tr></thead><tbody>${drows}</tbody><tfoot><tr><td colspan="4" class="ra" style="background:#fafafa;font-weight:700;height:32px;vertical-align:middle">合計</td><td class="ra" style="background:#fafafa;font-weight:700;font-family:monospace;height:32px;vertical-align:middle">¥${tot.toLocaleString('ja-JP')}</td></tr></tfoot></table>`;})()}
   <script>window.onload=()=>{window.print();}<\/script></body></html>`;
