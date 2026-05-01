@@ -1329,6 +1329,19 @@ function cleanupOrphanRooms(){
 }
 
 function parseCleaning(){
+  // 過去の清掃履歴を保護：今日より前の日付の記録は残す
+  // （清掃CSVは未来分のみが含まれることが多く、上書きすると過去履歴が消えるため）
+  const _today=new Date();
+  const _todayStr=`${_today.getFullYear()}/${String(_today.getMonth()+1).padStart(2,'0')}/${String(_today.getDate()).padStart(2,'0')}`;
+  const _pastCH={};
+  Object.keys(CH).forEach(tag=>{
+    (CH[tag]||[]).forEach(c=>{
+      if(c.d&&c.d<_todayStr){
+        if(!_pastCH[tag])_pastCH[tag]=[];
+        _pastCH[tag].push(c);
+      }
+    });
+  });
   CH={};CM={};
   window._cleanCanonical={};  // {物件名: Set<canonical tag>} - ゴースト部屋検出用
   parseCSV(_clText).forEach(r=>{
@@ -1372,6 +1385,14 @@ function parseCleaning(){
       cot:(r['チェックアウト時間']||'').trim()||'—',cm:cm2,cd:raw.replace(/-/g,'/')};
   });
   Object.keys(CH).forEach(t=>CH[t].sort((a,b)=>a.d.localeCompare(b.d)));
+  // 過去の清掃履歴をマージ（新CSVに無い過去日付のみ復元）
+  Object.keys(_pastCH).forEach(tag=>{
+    if(!CH[tag])CH[tag]=[];
+    _pastCH[tag].forEach(c=>{
+      if(!CH[tag].some(c2=>c2.d===c.d))CH[tag].push(c);
+    });
+    CH[tag].sort((a,b)=>a.d.localeCompare(b.d));
+  });
 }
 
 // ════════════════════════════════════════════
