@@ -4008,14 +4008,65 @@ function saveSnap(){S.set(SNAP_KEY,{timestamp:new Date().toISOString(),data:MS})
 function clearSnap(){if(confirm('削除しますか？')){S.set(SNAP_KEY,null);closeModal('snapModal');renderOps();}}
 
 // 自動スナップ: 毎日0時以降の初回起動時に自動保存
+// （Firebaseの各データが非同期で届くため、家賃が来る前にスナップ保存されると
+//   ms.exp.tot=0で固定されてしまう不具合があった。
+//   → 既存スナップが「壊れている」場合は、売上等は朝の値を保持したまま
+//     exp.tot だけ現在の値で修復する）
 function checkAutoSnap(){
   const now=new Date();
   // UTC基準だと日本時間深夜〜午前9時に日付がズレるためローカル日付を使用
   const todayStr=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
-  const lastDate=S.get(AUTO_SNAP_KEY)||'';
-  if(lastDate===todayStr) return; // 今日は既に実行済み
   // MSが初期化済みか確認
   if(!MS||!Object.keys(MS).length) return;
+  // 現在のMSに有効な exp.tot が入っているかチェック（家賃等のデータがロード済みか）
+  const currentValid=Object.keys(MS).some(mk=>MS[mk]&&MS[mk].exp&&(MS[mk].exp.tot||0)>0);
+  if(!currentValid) return; // データ未ロード → 後続のリスナーから再呼出される
+  const lastDate=S.get(AUTO_SNAP_KEY)||'';
+  const existing=S.get(SNAP_KEY);
+  if(lastDate===todayStr && existing && existing.data){
+    // 今日のスナップが既にある → 壊れていないかチェック
+    const exValid=Object.keys(existing.data).some(mk=>{
+      const m=existing.data[mk];
+      return m&&m.exp&&(m.exp.tot||0)>0;
+    });
+    if(exValid) return; // 既存OK → スキップ
+    // 壊れている → 売上は保持したまま家賃関連だけ現在のMSの値で修復
+    let repaired=false;
+    Object.keys(existing.data).forEach(mk=>{
+      const ms=existing.data[mk];
+      if(!ms||!ms.exp)return;
+      if((ms.exp.tot||0)>0)return; // この月は壊れていない
+      const cur=MS[mk];
+      if(!cur||!cur.exp||(cur.exp.tot||0)<=0)return; // 現在のデータも未ロード
+      // 月単位の費用合計を移植
+      ms.exp.rent=cur.exp.rent||0;
+      ms.exp.util=cur.exp.util||0;
+      ms.exp.officeRent=cur.exp.officeRent||0;
+      ms.exp.officeUtil=cur.exp.officeUtil||0;
+      ms.exp.serviceFee=cur.exp.serviceFee||0;
+      ms.exp.emptyDRent=cur.exp.emptyDRent||0;
+      ms.exp.emptySRent=cur.exp.emptySRent||0;
+      ms.exp.tot=cur.exp.tot||0;
+      // 部屋単位の家賃と粗利も修復（売上は朝の値を保持）
+      if(ms.rooms&&cur.rooms){
+        Object.keys(ms.rooms).forEach(tag=>{
+          const rm=ms.rooms[tag];
+          const cm=cur.rooms[tag];
+          if(!cm)return;
+          rm.rent=cm.rent||0;
+          rm.util=cm.util||0;
+          rm.grossProfit=(rm.sales||0)-(rm.rent||0)-(rm.util||0);
+        });
+      }
+      repaired=true;
+    });
+    if(repaired){
+      S.set(SNAP_KEY,existing);
+      console.log('🔧 朝のスナップの家賃データを現在の値で修復しました');
+    }
+    return;
+  }
+  // 新規保存
   S.set(SNAP_KEY,{timestamp:now.toISOString(),data:MS,auto:true});
   _origSset(AUTO_SNAP_KEY, todayStr);
   if(fbReady) fbWrite('auto_snap_date', todayStr);
@@ -4593,6 +4644,9 @@ function initFirebase(){
         computeMS();renderOps();
         if(document.getElementById('roomMgmtPane')&&document.getElementById('roomMgmtPane').classList.contains('on'))renderRoomMgmt();
       }
+      // 家賃データが届いたタイミングでも自動スナップを試みる
+      // （家賃読込前に保存された壊れた朝スナップがある場合、ここで再保存される）
+      try{ checkAutoSnap(); }catch(e){}
     });
     fbDB.ref('snapshot').on('value', snap => {
       const val = snap.val();
@@ -4613,6 +4667,7 @@ function initFirebase(){
         computeMS();renderOps();
         if(document.getElementById('roomMgmtPane')&&document.getElementById('roomMgmtPane').classList.contains('on'))renderRoomMgmt();
       }
+      try{ checkAutoSnap(); }catch(e){}
     });
     fbDB.ref('bb_notes').on('value', snap => {
       const val = snap.val();
