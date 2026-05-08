@@ -653,6 +653,14 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
         <span style="font-size:.75em;color:var(--t3)">〜</span>
         <input id="srchPayTo" type="date" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.76em;outline:none" onchange="renderPayTab()">
       </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--b2)">
+        <span style="font-size:.75em;color:var(--t2);font-weight:600">お支払い番号：</span>
+        <input id="srchPayout" type="text" placeholder="例: 015024173587" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.78em;outline:none;width:180px;font-family:ui-monospace,monospace" oninput="renderPayTab()">
+        <span style="font-size:.75em;color:var(--t2);font-weight:600;margin-left:14px">並び順：</span>
+        <button id="paySortCi" class="pay-sort-btn on" onclick="setPaySortMode('ci')" style="background:var(--p);color:#fff;border:1.5px solid var(--p);padding:4px 11px;border-radius:6px;cursor:pointer;font-size:.75em;font-weight:600">IN日順</button>
+        <button id="paySortPayout" class="pay-sort-btn" onclick="setPaySortMode('payout')" style="background:transparent;border:1.5px solid var(--b);color:var(--t2);padding:4px 11px;border-radius:6px;cursor:pointer;font-size:.75em;font-weight:600">Payout別</button>
+        <span style="font-size:.7em;color:var(--t3);margin-left:8px">※ Payout別はBooking.comの支払い明細PDFと突合する用</span>
+      </div>
     </div>
     <div id="payImportBanner" style="display:none;background:#e8f5e9;border:1.5px solid #a5d6a7;border-radius:8px;padding:8px 14px;margin-bottom:8px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
       <span style="font-size:.82em;color:#2e7d32;font-weight:600">📄 取込結果を表示中</span>
@@ -2757,6 +2765,7 @@ function renderPayTab(){
   const srchRoom=g('srchRoom'),srchOTA=g('srchOTA'),srchStatus=g('srchStatus');
   const srchCiFrom=g('srchCiFrom'),srchCiTo=g('srchCiTo');
   const srchPayFrom=g('srchPayFrom'),srchPayTo=g('srchPayTo');
+  const srchPayout=g('srchPayout').trim();
   if(srchRoom)filteredBks=filteredBks.filter(b=>b.tag.includes(srchRoom)||b.g.toLowerCase().includes(srchRoom.toLowerCase()));
   if(srchOTA)filteredBks=filteredBks.filter(b=>b.s===srchOTA);
   if(srchStatus==='paid')filteredBks=filteredBks.filter(b=>pays[b.id]&&pays[b.id].status==='1');
@@ -2765,8 +2774,9 @@ function renderPayTab(){
   if(srchCiTo)filteredBks=filteredBks.filter(b=>b.ci<=srchCiTo);
   if(srchPayFrom)filteredBks=filteredBks.filter(b=>{const pd=pays[b.id]||{};return pd.payDate&&pd.payDate>=srchPayFrom;});
   if(srchPayTo)filteredBks=filteredBks.filter(b=>{const pd=pays[b.id]||{};return pd.payDate&&pd.payDate<=srchPayTo;});
+  if(srchPayout)filteredBks=filteredBks.filter(b=>{const pd=pays[b.id]||{};return (pd.payoutId||'').toLowerCase().includes(srchPayout.toLowerCase());});
   // サマリー：何かフィルターが掛かっているときだけ表示
-  const hasFilter=!!(_payImportIds&&_payImportIds.size>0)||!!(srchRoom||srchOTA||srchStatus||srchCiFrom||srchCiTo||srchPayFrom||srchPayTo);
+  const hasFilter=!!(_payImportIds&&_payImportIds.size>0)||!!(srchRoom||srchOTA||srchStatus||srchCiFrom||srchCiTo||srchPayFrom||srchPayTo||srchPayout);
   const sumEl=document.getElementById('paySum');
   if(hasFilter){
     const paid=filteredBks.filter(b=>pays[b.id]&&pays[b.id].status==='1');
@@ -2781,7 +2791,8 @@ function renderPayTab(){
     sumEl.innerHTML='';
   }
 
-  document.getElementById('payBody').innerHTML=filteredBks.map(bk=>{
+  // 行のレンダラー（IN日順／Payout別の両モードで共通使用）
+  const renderRow=bk=>{
     const pd=pays[bk.id]||{};const ip=pd.status==='1';
     const payDate=pd.payDate||'';
     const isLocked=pd.locked==='1';
@@ -2805,7 +2816,49 @@ function renderPayTab(){
       <td>${bk.g}${bk.cancel?'<span style="margin-left:5px;font-size:.68em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px">キャンセル料</span>':''}</td>
       <td style="text-align:center"><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em;padding:2px">${isLocked?'🔒':'🔓'}</button></td>
     </tr>`;
-  }).join('')||'<tr><td colspan="9" style="text-align:center;color:#999;padding:16px">予約がありません</td></tr>';
+  };
+
+  let bodyHtml='';
+  if(_paySortMode==='payout'){
+    // Payoutごとにグループ化（PDFと突合しやすいよう、ヘッダ行で件数・合計を表示）
+    const groups={};
+    filteredBks.forEach(b=>{
+      const pd=pays[b.id]||{};
+      const pid=pd.payoutId||'__nopayout__';
+      if(!groups[pid])groups[pid]=[];
+      groups[pid].push(b);
+    });
+    // グループキーの並び順：Payoutありは「お支払い日が新しい順」、未紐付は最後
+    const groupIds=Object.keys(groups).sort((a,b)=>{
+      if(a==='__nopayout__')return 1;
+      if(b==='__nopayout__')return -1;
+      const repDate=arr=>arr.reduce((m,bk)=>{const pd=pays[bk.id]||{};const d=pd.payProcDate||pd.payDate||'';return d>m?d:m;},'');
+      const aD=repDate(groups[a]),bD=repDate(groups[b]);
+      if(aD!==bD)return bD.localeCompare(aD);
+      return String(a).localeCompare(String(b));
+    });
+    bodyHtml=groupIds.map(pid=>{
+      const bks=groups[pid].slice().sort((a,b)=>a.ci.localeCompare(b.ci));
+      // 合計：customAmt があればそれを使用、無ければ rawNet または net*1.1（行表示と同じロジック）
+      const total=bks.reduce((s,b)=>{
+        const pd=pays[b.id]||{};
+        const csvAmt=Math.round(parseFloat(b.rawNet||b.net*1.1));
+        const dispAmt=pd.customAmt!=null?pd.customAmt:csvAmt;
+        return s+dispAmt;
+      },0);
+      // ヘッダ用代表お支払い日（先頭の予約から取得）
+      let headerProcDate='';
+      for(const b of bks){const pd=pays[b.id]||{};if(pd.payProcDate){headerProcDate=pd.payProcDate;break;}}
+      const headerHtml=pid==='__nopayout__'
+        ?`<tr style="background:#f5f5f5"><td colspan="9" style="padding:9px 14px;color:#666;font-size:.82em;font-weight:600;border-top:2px solid #ddd">📂 Payout番号 未紐付　／　${bks.length}件　／　合計: ¥${total.toLocaleString('ja-JP')}　<span style="font-weight:400;color:#999">（Booking.com の支払いCSVが未取込の予約や、Airbnb等の他OTA分）</span></td></tr>`
+        :`<tr style="background:#e3f2fd"><td colspan="9" style="padding:9px 14px;color:#1565c0;font-size:.83em;font-weight:600;border-top:2px solid #90caf9">📦 お支払い番号: <span style="font-family:ui-monospace,monospace">${pid}</span>　／　お支払い日: ${headerProcDate||'－'}　／　${bks.length}件　／　合計: ¥${total.toLocaleString('ja-JP')}</td></tr>`;
+      return headerHtml+bks.map(renderRow).join('');
+    }).join('');
+  } else {
+    // 既定：IN日順（filteredBks は既に ci でソート済み）
+    bodyHtml=filteredBks.map(renderRow).join('');
+  }
+  document.getElementById('payBody').innerHTML=bodyHtml||'<tr><td colspan="9" style="text-align:center;color:#999;padding:16px">予約がありません</td></tr>';
   _payFilteredBks=[...filteredBks];
 }
 
@@ -2854,7 +2907,7 @@ function togLock(id,val){
 }
 
 function clearPaySearch(){
-  ['srchRoom','srchOTA','srchStatus','srchCiFrom','srchCiTo','srchPayFrom','srchPayTo'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['srchRoom','srchOTA','srchStatus','srchCiFrom','srchCiTo','srchPayFrom','srchPayTo','srchPayout'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   renderPayTab();
 }
 
@@ -2946,7 +2999,24 @@ function showToast(msg,color='var(--p)'){
 let _payHighlight=new Set();
 let _payImportIds=null;
 let _payFilteredBks=[];
+let _paySortMode='ci'; // 'ci'=IN日順 / 'payout'=Payout別
 function clearPayImportFilter(){_payImportIds=null;_payHighlight=new Set();renderPayTab();}
+function setPaySortMode(mode){
+  _paySortMode=(mode==='payout')?'payout':'ci';
+  // ボタンのトグル表示
+  const ci=document.getElementById('paySortCi');
+  const po=document.getElementById('paySortPayout');
+  if(ci&&po){
+    if(_paySortMode==='ci'){
+      ci.style.background='var(--p)';ci.style.color='#fff';ci.style.borderColor='var(--p)';
+      po.style.background='transparent';po.style.color='var(--t2)';po.style.borderColor='var(--b)';
+    } else {
+      po.style.background='var(--p)';po.style.color='#fff';po.style.borderColor='var(--p)';
+      ci.style.background='transparent';ci.style.color='var(--t2)';ci.style.borderColor='var(--b)';
+    }
+  }
+  renderPayTab();
+}
 
 // ════════════════════════════════════════════
 //  🏷️ 割引・セール管理
@@ -3257,7 +3327,8 @@ function handlePayCSV(files){
                 pays[bk.id].status='1';
                 if(payDate&&!pays[bk.id].payDate){pays[bk.id].payDate=payDate;pays[bk.id].locked='1';}
                 if(!isNaN(netAmt)&&netAmt>0&&pays[bk.id].customAmt==null)pays[bk.id].customAmt=netAmt;
-                if(payoutId)pays[bk.id].payoutId=payoutId;  // 調整額の逆引き用
+                if(payoutId)pays[bk.id].payoutId=payoutId;  // 調整額の逆引き／Payout別表示用
+                if(payDate)pays[bk.id].payProcDate=payDate;  // Booking.com処理日（Payout別ヘッダ表示用・参考値）
                 matched++;allMatchedIds.push(bk.id);
               }
             });
