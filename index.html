@@ -406,6 +406,76 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .office-row input:focus{border-color:var(--p)}
 .office-del{background:none;border:none;cursor:pointer;color:var(--red);font-size:1em;padding:2px 6px}
 .add-office-btn{background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em;margin-top:4px}
+
+/* ════════ Step2: ユーザー権限による「閲覧のみ」モード ════════ */
+/* タブ自体は表示するが、編集系のボタン・入力欄を非表示／無効化する */
+
+/* 入金管理（payment）— view */
+body.view-payment #payPane button[onclick*="handlePayCSV"],
+body.view-payment #payPane label[for*="payCsv"],
+body.view-payment #payPane input[type="file"],
+body.view-payment #payPane button[onclick*="bulkUpdatePayDate"],
+body.view-payment #payPane button[onclick*="paySelectSamePayoutId"],
+body.view-payment #payPane button[onclick*="bulkLockPaid"],
+body.view-payment #payPane button[onclick*="togPayWithConfirm"],
+body.view-payment #payPane button[onclick*="togLock"]{display:none !important}
+body.view-payment #payPane input.date-edit,
+body.view-payment #payPane input.pay-sel-chk{pointer-events:none;opacity:.5;background:#f5f5f5 !important}
+
+/* 請求書（invoice）— view */
+body.view-invoice #invPane button[onclick*="addInv"],
+body.view-invoice #invPane button[onclick*="editInv"],
+body.view-invoice #invPane button[onclick*="delInv"],
+body.view-invoice #invPane button[onclick*="saveInv"]{display:none !important}
+body.view-invoice #invPane input:not([readonly]),
+body.view-invoice #invPane textarea:not([readonly]){pointer-events:none;opacity:.6;background:#f5f5f5 !important}
+
+/* 会計（accounting）— view */
+body.view-accounting #accPane button[onclick*="addAccRow"],
+body.view-accounting #accPane button[onclick*="updateAccRow"],
+body.view-accounting #accPane button[onclick*="_accEditRow"]{display:none !important}
+body.view-accounting #accPane input{pointer-events:none;opacity:.6;background:#f5f5f5 !important}
+
+/* 部屋管理（roomMgmt）— view */
+body.view-roomMgmt #roomMgmtPane button[onclick*="addRoom"],
+body.view-roomMgmt #roomMgmtPane button[onclick*="editRoom"],
+body.view-roomMgmt #roomMgmtPane button[onclick*="delRoom"],
+body.view-roomMgmt #roomMgmtPane button[onclick*="saveRoomRent"],
+body.view-roomMgmt #roomMgmtPane button[onclick*="updateRoomRent"]{display:none !important}
+body.view-roomMgmt #roomMgmtPane input{pointer-events:none;opacity:.6;background:#f5f5f5 !important}
+
+/* ユーザー管理（userMgmt）— view */
+body.view-userMgmt #usersPane button[onclick*="addNewUser"],
+body.view-userMgmt #usersPane button[onclick*="editUser"],
+body.view-userMgmt #usersPane button[onclick*="changePw"],
+body.view-userMgmt #usersPane button[onclick*="toggleUserActive"]{display:none !important}
+
+/* 掲示板（bbs）— view */
+body.view-bbs #bbPane form,
+body.view-bbs #bbPane button[onclick*="postBb"],
+body.view-bbs #bbPane button[onclick*="delBb"],
+body.view-bbs #bbPane textarea{display:none !important}
+
+/* 清掃（cleaning）— view（チェックボックスを操作不可に） */
+body.view-cleaning #cleanPane input[type="checkbox"]{pointer-events:none;opacity:.5}
+body.view-cleaning #cleanPane button[onclick*="updateClean"],
+body.view-cleaning #cleanPane button[onclick*="editComment"]{display:none !important}
+
+/* 割引管理（discount）— view */
+body.view-discount #discPane button[onclick*="addDisc"],
+body.view-discount #discPane button[onclick*="saveDiscs"],
+body.view-discount #discPane button[onclick*="delDisc"]{display:none !important}
+body.view-discount #discPane input{pointer-events:none;opacity:.6;background:#f5f5f5 !important}
+
+/* 予約変動（bookchg）— view */
+body.view-bookchg #diffPane button[onclick*="acknowledge"],
+body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !important}
+
+/* 運営（operating）— view（基本的に閲覧用のため特に隠すものは少ない） */
+/* 必要に応じて Step3 で追加 */
+
+/* 月次明細（acct）— view（既に閲覧主体のため特に隠すものは少ない） */
+/* 必要に応じて Step3 で追加 */
 </style>
 </head>
 <body>
@@ -454,17 +524,17 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
   <div class="hdr">
     <div><h1>🏠 民泊運営アプリ</h1><div class="hdr-meta" id="meta">データ未読込</div></div>
     <div class="hbtns">
-      <button class="hbtn" onclick="openModal('csvModal')">📂 CSV更新</button>
-      <button class="hbtn" onclick="openSnap()">📸 スナップ</button>
-      <button class="hbtn" onclick="openSettings()">⚙️ 設定</button>
+      <button class="hbtn" id="btnCsvUpdate" onclick="openModal('csvModal')">📂 CSV更新</button>
+      <button class="hbtn" id="btnSnap" onclick="openSnap()">📸 スナップ</button>
+      <button class="hbtn" id="btnSettings" onclick="openSettings()">⚙️ 設定</button>
       <button class="hbtn" onclick="logout()" style="background:rgba(245,87,108,.25);border-color:rgba(245,87,108,.6)">🚪 ログアウト</button>
     </div>
   </div>
   <div class="tabs">
-    <button class="tab on" onclick="swTab('ops',this)">📊 運営</button>
+    <button class="tab on" id="tabOper" onclick="swTab('ops',this)">📊 運営</button>
     <button class="tab" id="tabDisc" onclick="swTab('disc',this)">🏷️ 割引管理</button>
     <button class="tab" id="tabCal" onclick="swTab('cal',this)">📅 カレンダー</button>
-    <button class="tab" onclick="swTab('clean',this)">🧹 清掃</button>
+    <button class="tab" id="tabClean" onclick="swTab('clean',this)">🧹 清掃</button>
     <button class="tab" id="tabBb" onclick="swTab('bb',this)">📋 掲示板</button>
     <button class="tab" id="tabDiff" onclick="swTab('diff',this);renderDiffTab()">🔔 予約変動</button>
     <button class="tab" id="tabPay" onclick="swTab('pay',this)">💰 入金管理</button>
@@ -945,7 +1015,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6',BK_HIST_KEY='mp_bkhist6',MS_HIST_KEY='mp_mshist6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6',BK_HIST_KEY='mp_bkhist6',MS_HIST_KEY='mp_mshist6',ADJ_KEY='mp_adj6';
 const HIST_MAX=30; // 履歴の最大保持件数（CSV取込ごとに追加）
 const OFFICES=['両国事務所','亀有事務所','SC事務所','梅島事務所','青戸事務所'];
 const SERVICES=['AirHost'];
@@ -984,6 +1054,81 @@ let USERS=[
 ];
 let currentUser=null;
 
+// ════════════════════════════════════════════
+// ユーザー権限（Step1：定義とデフォルト値のみ／実際の制約はStep2で）
+// ════════════════════════════════════════════
+const TAB_PERMS=[
+  {key:'operating', label:'🏢 運営'},
+  {key:'discount',  label:'🎟 割引管理'},
+  {key:'calendar',  label:'📅 カレンダー'},
+  {key:'cleaning',  label:'🧹 清掃'},
+  {key:'bbs',       label:'📌 掲示板'},
+  {key:'bookchg',   label:'🔔 予約変動'},
+  {key:'payment',   label:'💰 入金管理'},
+  {key:'invoice',   label:'📄 請求書'},
+  {key:'accounting',label:'📒 会計'},
+  {key:'acct',      label:'📊 月次明細'},
+  {key:'roomMgmt',  label:'🏠 部屋管理'},
+  {key:'userMgmt',  label:'👥 ユーザー管理'},
+  {key:'settings',  label:'⚙️ 設定（CSV更新・スナップ）'}
+];
+function getDefaultPerms(role){
+  const all=v=>Object.fromEntries(TAB_PERMS.map(t=>[t.key,v]));
+  if(role==='admin') return all('full');
+  if(role==='office')return all('full');
+  if(role==='staff'){const p=all('none');p.cleaning='view';return p;}
+  return all('none');
+}
+// perms が未定義のユーザーには role からデフォルト権限を補完（メモリ上のみ／自動保存なし）
+// → admin が編集して保存した時点で localStorage + Firebase に反映される
+function ensureUserPerms(){
+  USERS.forEach(u=>{ if(!u.perms) u.perms=getDefaultPerms(u.role); });
+}
+
+// 各タブ／設定ボタンと perm キーの対応（Step2）
+const PERM_TARGETS={
+  operating: {tabId:'tabOper'},
+  discount:  {tabId:'tabDisc'},
+  calendar:  {tabId:'tabCal'},
+  cleaning:  {tabId:'tabClean'},
+  bbs:       {tabId:'tabBb'},
+  bookchg:   {tabId:'tabDiff'},
+  payment:   {tabId:'tabPay'},
+  invoice:   {tabId:'tabInv'},
+  accounting:{tabId:'tabAcc'},
+  acct:      {tabId:'tabAcct'},
+  roomMgmt:  {tabId:'tabRoomMgmt'},
+  userMgmt:  {tabId:'tabUsers'},
+  settings:  {btnIds:['btnCsvUpdate','btnSnap','btnSettings']}
+};
+
+// 現在のログインユーザーの権限を画面に反映する（Step2）
+// - 'none'  : タブ・ボタンを非表示
+// - 'view'  : 表示するが、body にクラスを付けてCSSで編集UIを隠す
+// - 'full'  : 制限なし
+function applyUserPerms(){
+  if(!currentUser) return;
+  const perms=currentUser.perms||getDefaultPerms(currentUser.role);
+  Object.keys(PERM_TARGETS).forEach(key=>{
+    const p=perms[key]||'none';
+    const tg=PERM_TARGETS[key];
+    if(tg.tabId){
+      const tab=document.getElementById(tg.tabId);
+      if(tab) tab.style.display=(p==='none')?'none':'';
+    }
+    if(tg.btnIds){
+      tg.btnIds.forEach(id=>{
+        const b=document.getElementById(id);
+        if(b) b.style.display=(p==='full')?'':'none'; // 設定系ボタンは view も操作系なので隠す
+      });
+    }
+    // body に view-* クラスをつけてCSSで編集系UIを制御
+    document.body.classList.toggle('view-'+key, p==='view');
+  });
+  // currentUser がどのタブにも入れない場合は仕方なく運営タブを表示しておく安全策
+  // （ここでは特に何もしない）
+}
+
 const S={
   get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
@@ -991,6 +1136,7 @@ const S={
 function loadCfg(){
   const s=S.get(CONF_KEY);if(s)Object.assign(cfg,s);
   const u=S.get('mp_users6');if(u&&u.length)USERS=u;
+  ensureUserPerms();
 }
 function saveCfg(){S.set(CONF_KEY,cfg);}
 
@@ -1083,14 +1229,11 @@ function enterApp(){
   document.getElementById('pwScreen').style.display='none';
   document.getElementById('mainApp').style.display='flex';
   document.getElementById('mainApp').style.flexDirection='column';
-  const isStaff=currentUser.role==='staff';
-  ['tabPay','tabInv','tabAcc','tabBb','tabDiff'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=isStaff?'none':'';});
   // 差分バッジ復元
   const _tabDiff=document.getElementById('tabDiff');
   if(_tabDiff)_tabDiff.textContent='🔔 予約変動';
-  const isAdmin=currentUser&&(currentUser.role==='admin'||currentUser.role==='office');
-  const tabUsers=document.getElementById('tabUsers');
-  if(tabUsers)tabUsers.style.display=isAdmin?'':'none';
+  // ユーザー権限を反映（タブの表示／非表示、view-only モード等）
+  applyUserPerms();
   initApp();
 }
 
@@ -3061,7 +3204,7 @@ function handlePayCSV(files){
       const rows=parseCSV(text);
       if(!rows.length){done++;return;}
       const pays=S.get(PAY_KEY)||{};
-      let matched=0;
+      let matched=0,adjMatched=0;
       // フォーマット判定
       // Airbnb: '確認コード' 列あり
       // Booking.com 英語: 'Reference number' 列あり
@@ -3087,11 +3230,26 @@ function handlePayCSV(files){
         });
       } else if(isBkJa){
         // Booking.com 日本語フォーマット（照会番号・お支払い日・純収益）
+        const adj=S.get(ADJ_KEY)||{};
         rows.forEach(row=>{
           const refNum=(row['照会番号']||'').trim();
+          const type=(row['タイプ']||'').trim();
           if(!refNum)return;
           const payDate=normDate(row['お支払い日']||'');
           const netAmt=parseInt((row['純収益']||'').replace(/[^0-9-]/g,''));
+          const payoutId=(row['お支払い番号']||'').trim();
+          // コミッション調整額：予約に紐づかない調整行（同Payoutの予約から着金日・施設名を逆引きする）
+          if(type==='コミッション調整額'){
+            if(isNaN(netAmt))return;
+            adj[refNum]={
+              payoutId,amount:netAmt,payProcDate:payDate,
+              type:'コミッション調整額',ota:'Booking.com',
+              importedAt:new Date().toISOString().slice(0,10)
+            };
+            adjMatched++;
+            return;
+          }
+          // 通常の予約行
           Object.keys(BK).forEach(tag=>{
             BK[tag].forEach(bk=>{
               if(bk.id===refNum){
@@ -3099,11 +3257,13 @@ function handlePayCSV(files){
                 pays[bk.id].status='1';
                 if(payDate&&!pays[bk.id].payDate){pays[bk.id].payDate=payDate;pays[bk.id].locked='1';}
                 if(!isNaN(netAmt)&&netAmt>0&&pays[bk.id].customAmt==null)pays[bk.id].customAmt=netAmt;
+                if(payoutId)pays[bk.id].payoutId=payoutId;  // 調整額の逆引き用
                 matched++;allMatchedIds.push(bk.id);
               }
             });
           });
         });
+        if(adjMatched>0)S.set(ADJ_KEY,adj);
       } else {
         // Booking.com 英語フォーマット（Reference number・Payout date）
         rows.forEach(row=>{
@@ -3125,7 +3285,8 @@ function handlePayCSV(files){
       S.set(PAY_KEY,pays);
       done++;
       const fmt=isAirbnb?'Airbnb':isBkJa?'Booking.com（日本語）':'Booking.com（英語）';
-      showToast(`✅ ${fmt}: ${matched}件を消込しました`,'#2e7d32');
+      const adjMsg=adjMatched>0?` ／ コミッション調整額 ${adjMatched}件を取込`:'';
+      showToast(`✅ ${fmt}: ${matched}件を消込しました${adjMsg}`,'#2e7d32');
       // 全ファイル処理完了後に取込結果フィルター表示
       if(done===fileArr.length){
         _payHighlight=new Set(allMatchedIds);
@@ -4379,6 +4540,40 @@ function initFirebase(){
       const val = snap.val();
       if(val) S.set(PAY_KEY, val);
     });
+    fbDB.ref('adjustments').on('value', snap => {
+      const val = snap.val();
+      if(val) S.set(ADJ_KEY, val);
+    });
+    fbDB.ref('users').on('value', snap => {
+      let val = snap.val();
+      // Firebaseは配列を{0:.., 1:..}形式で返すことがある→配列に正規化
+      if(val && !Array.isArray(val) && typeof val === 'object'){
+        val = Object.values(val);
+      }
+      if(val && Array.isArray(val) && val.length){
+        // メモリ上のUSERSをFirebaseの内容で更新
+        USERS.length = 0;
+        USERS.push(...val);
+        ensureUserPerms();
+        // localStorageに直接書く（fbWriteの誘発を避けるため S.set は使わない）
+        try{ localStorage.setItem('mp_users6', JSON.stringify(USERS)); }catch(e){}
+        // ログイン中の自分が更新されていたら currentUser を差し替えて権限を再適用
+        if(currentUser){
+          const me=USERS.find(u=>u.id===currentUser.id);
+          if(me){
+            currentUser=me;
+            try{ if(typeof applyUserPerms === 'function') applyUserPerms(); }catch(e){}
+          }
+        }
+        // ログインドロップダウン・ユーザー管理画面が表示中なら再描画
+        try{ if(typeof populateLoginUsers === 'function') populateLoginUsers(); }catch(e){}
+        try{ if(typeof renderUserMgmt === 'function' && document.getElementById('userMgmtBody')) renderUserMgmt(); }catch(e){}
+      } else {
+        // Firebase側にデータが無い → ローカルにあればシード（このPCのデータが正となる）
+        const local = S.get('mp_users6');
+        if(local && local.length) fbWrite('users', local);
+      }
+    });
     fbDB.ref('expenses').on('value', snap => {
       const val = snap.val();
       if(val) S.set(EXP_KEY, val);
@@ -4515,6 +4710,8 @@ S.set = function(k, v){
   if(k === SNAP_KEY)     fbWrite('snapshot', v);
   if(k === ROOM_OPEN_KEY) fbWrite('room_open', v);
   if(k === BB_KEY)       fbWrite('bb_notes', v);
+  if(k === ADJ_KEY)      fbWrite('adjustments', v);
+  if(k === 'mp_users6')  fbWrite('users', v);
 };
 
 // ⑬ User management functions
@@ -4782,6 +4979,34 @@ function renderAcc(){
       else bookingRows.push(row);
     });
   });
+  // Booking.com コミッション調整額：同じPayoutの予約から着金日・施設名を逆引き
+  const adj=S.get(ADJ_KEY)||{};
+  Object.keys(adj).forEach(refNum=>{
+    const a=adj[refNum];
+    if(!a||!a.payoutId)return;
+    // 同じPayout番号の予約を1件探す（着金日と施設名を取得するため）
+    let related=null,relatedTag=null;
+    for(const tag of Object.keys(BK)){
+      for(const bk of BK[tag]){
+        const pd=pays[bk.id]||{};
+        if(pd.payoutId===a.payoutId&&pd.payDate){related=pd;relatedTag=tag;break;}
+      }
+      if(related)break;
+    }
+    if(!related)return; // 紐付く予約がまだ見つからない（着金日未設定など）→次回表示
+    if(!(related.payDate||'').startsWith(month))return; // 月で絞込
+    bookingRows.push({
+      date:related.payDate,
+      facility:relatedTag,
+      guest:'（コミッション調整額）',
+      amount:a.amount,           // -862 など、純収益そのまま
+      stay:0,                    // 宿泊料金は 0
+      comm:-a.amount,            // 入金額 + 手数料 = 宿泊料金 になるよう符号反転
+      ota:'Booking.com',
+      isAdjustment:true,
+      desc:'コミッション調整額'
+    });
+  });
   airbnbRows.sort((a,b)=>a.date.localeCompare(b.date));
   bookingRows.sort((a,b)=>a.date.localeCompare(b.date));
 
@@ -4790,14 +5015,17 @@ function renderAcc(){
   const tdStyle='padding:6px 8px;border-bottom:1px solid var(--b2)';
   const hdr=`<tr><th style="${thStyle} var(--b)">入金日</th><th style="${thStyle} var(--b)">摘要</th><th style="${thStyle} var(--b)">施設名</th><th style="${thStyle} var(--b);text-align:right">入金額</th><th style="${thStyle} var(--b);text-align:right">宿泊料金</th><th style="${thStyle} var(--b);text-align:right">手数料</th></tr>`;
 
-  const renderRows=(rows,bg)=>rows.map(r=>`<tr style="background:${bg}">
+  const renderRows=(rows,bg)=>rows.map(r=>{
+    const rowBg=r.isAdjustment?'#fff3cd':bg;  // 調整額はクリーム色で目立たせる
+    const desc=r.desc||(r.ota.includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM');
+    return `<tr style="background:${rowBg}">
     <td style="${tdStyle}">${r.date}</td>
-    <td style="${tdStyle}">${r.ota.includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM'}</td>
+    <td style="${tdStyle}">${desc}</td>
     <td style="${tdStyle}">${r.facility}</td>
     <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace">${fmtF(r.amount)}</td>
     <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace">${fmtF(r.stay)}</td>
     <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(r.comm)}</td>
-  </tr>`).join('');
+  </tr>`;}).join('');
 
   const airbnbTotal=airbnbRows.reduce((s,r)=>s+r.comm,0);
   const bookingTotal=bookingRows.reduce((s,r)=>s+r.comm,0);
@@ -4919,6 +5147,23 @@ function dlAccExcel(){
       csv+=(pd.payDate||'')+','+desc+','+tag+','+netTax+','+(netTax+commTax)+','+commTax+'\n';
     });
   });
+  // Booking.com コミッション調整額（同Payoutの予約から着金日・施設名を逆引き）
+  const adj=S.get(ADJ_KEY)||{};
+  Object.keys(adj).forEach(refNum=>{
+    const a=adj[refNum];
+    if(!a||!a.payoutId)return;
+    let related=null,relatedTag=null;
+    for(const tag of Object.keys(BK)){
+      for(const bk of BK[tag]){
+        const pd=pays[bk.id]||{};
+        if(pd.payoutId===a.payoutId&&pd.payDate){related=pd;relatedTag=tag;break;}
+      }
+      if(related)break;
+    }
+    if(!related)return;
+    if(!(related.payDate||'').startsWith(month))return;
+    csv+=related.payDate+',コミッション調整額,'+relatedTag+','+a.amount+',0,'+(-a.amount)+'\n';
+  });
   (savedAcc[month+'_manual']||[]).forEach(function(r){
     csv+=(r.date||'')+','+(r.desc||'')+','+(r.facility||'')+','+(r.amount||0)+','+(r.stay||0)+','+(r.comm||0)+'\n';
   });
@@ -4933,7 +5178,11 @@ function populateAcctMonths(){
   const months=Object.keys(MS).sort().reverse();
   const cur=sel.value;
   sel.innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('');
+  // 当月（YYYY-MM）。データが存在すれば優先的にデフォルトにする
+  const _now=new Date();
+  const _curMonth=`${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}`;
   if(cur&&months.includes(cur))sel.value=cur;
+  else if(months.includes(_curMonth))sel.value=_curMonth;
   else if(months.length)sel.value=months[0];
 }
 
@@ -5143,19 +5392,107 @@ function addNewUser(){
   const pw=prompt('初期パスワードを入力してください');
   if(!pw)return;
   const role=prompt('権限を入力してください（admin / office / staff）')||'staff';
-  USERS.push({id,name,pw,role,active:true});
+  USERS.push({id,name,pw,role,active:true,perms:getDefaultPerms(role)});
   S.set('mp_users6',USERS);
   renderUserMgmt();populateLoginUsers();
-  alert('✅ ユーザーを追加しました');
+  alert('✅ ユーザーを追加しました\n細かい権限は「編集」ボタンから設定できます（管理者のみ）');
 }
 
 function editUser(i){
-  const u=USERS[i];
-  const name=prompt('表示名',u.name);if(name===null)return;
-  const id=prompt('ユーザーID',u.id);if(id===null)return;
-  const role=prompt('権限（admin / office / staff）',u.role);if(role===null)return;
-  USERS[i]={...u,name,id,role};
-  S.set('mp_users6',USERS);renderUserMgmt();populateLoginUsers();
+  const u=USERS[i];if(!u)return;
+  if(!u.perms)u.perms=getDefaultPerms(u.role);
+  const isAdmin=currentUser&&currentUser.role==='admin';
+  // 既存モーダルがあれば消す
+  const old=document.getElementById('userEditModal');if(old)old.remove();
+  const modal=document.createElement('div');
+  modal.id='userEditModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const permsRows=TAB_PERMS.map(t=>{
+    const cur=u.perms[t.key]||'none';
+    return `<tr>
+      <td style="padding:6px 6px;font-size:.85em">${t.label}</td>
+      <td style="padding:6px 6px;width:130px">
+        <select data-perm-key="${t.key}" ${isAdmin?'':'disabled'} style="border:1.5px solid var(--b);border-radius:5px;padding:4px 7px;font-size:.78em;outline:none;width:100%;background:${isAdmin?'#fff':'#f5f5f5'}">
+          <option value="full" ${cur==='full'?'selected':''}>全機能</option>
+          <option value="view" ${cur==='view'?'selected':''}>閲覧のみ</option>
+          <option value="none" ${cur==='none'?'selected':''}>なし</option>
+        </select>
+      </td>
+    </tr>`;
+  }).join('');
+  const card=document.createElement('div');
+  card.style.cssText='background:#fff;width:100%;max-width:520px;border-radius:12px;padding:24px;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.3)';
+  card.innerHTML=`
+    <h2 style="font-size:1.05em;margin-bottom:14px;color:var(--p)">👤 ユーザー編集</h2>
+    <div style="display:flex;flex-direction:column;gap:9px;margin-bottom:14px">
+      <label style="font-size:.78em;color:var(--t2)">表示名
+        <input id="ueName" value="${(u.name||'').replace(/"/g,'&quot;')}" style="width:100%;border:1.5px solid var(--b);border-radius:5px;padding:5px 8px;font-size:.85em;outline:none;margin-top:2px">
+      </label>
+      <label style="font-size:.78em;color:var(--t2)">ユーザーID
+        <input id="ueId" value="${(u.id||'').replace(/"/g,'&quot;')}" style="width:100%;border:1.5px solid var(--b);border-radius:5px;padding:5px 8px;font-size:.85em;outline:none;margin-top:2px">
+      </label>
+      <label style="font-size:.78em;color:var(--t2)">ロール
+        <select id="ueRole" style="width:100%;border:1.5px solid var(--b);border-radius:5px;padding:5px 8px;font-size:.85em;outline:none;margin-top:2px">
+          <option value="admin" ${u.role==='admin'?'selected':''}>管理者</option>
+          <option value="office" ${u.role==='office'?'selected':''}>事務経理</option>
+          <option value="staff" ${u.role==='staff'?'selected':''}>スタッフ</option>
+        </select>
+      </label>
+    </div>
+    <div style="border-top:1px solid var(--b2);padding-top:14px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+        <h3 style="font-size:.92em;color:var(--p);margin:0">🔑 権限設定</h3>
+        ${isAdmin?`<button onclick="applyRoleDefaultsInModal()" style="background:transparent;border:1.5px solid var(--p);color:var(--p);padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.72em">ロールのデフォルトを適用</button>`:`<span style="font-size:.7em;color:var(--t3)">※ 管理者のみ編集可</span>`}
+      </div>
+      <div style="font-size:.7em;color:var(--t3);margin-bottom:6px">※ 「なし」=タブ非表示／「閲覧のみ」=表示のみ・編集ボタン非表示／「全機能」=制限なし</div>
+      <table style="width:100%;border-collapse:collapse">${permsRows}</table>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeUserEditModal()" style="background:#eee;color:#333;border:none;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:.85em">キャンセル</button>
+      <button onclick="saveUserEditModal(${i})" style="background:var(--p);color:#fff;border:none;padding:7px 18px;border-radius:6px;cursor:pointer;font-size:.85em;font-weight:600">保存</button>
+    </div>
+  `;
+  modal.appendChild(card);
+  document.body.appendChild(modal);
+  // 背景クリックで閉じる
+  modal.addEventListener('click',e=>{if(e.target===modal)closeUserEditModal();});
+}
+
+function closeUserEditModal(){
+  const m=document.getElementById('userEditModal');if(m)m.remove();
+}
+
+function applyRoleDefaultsInModal(){
+  const roleEl=document.getElementById('ueRole');if(!roleEl)return;
+  const role=roleEl.value;
+  const defaults=getDefaultPerms(role);
+  document.querySelectorAll('#userEditModal select[data-perm-key]').forEach(sel=>{
+    sel.value=defaults[sel.dataset.permKey]||'none';
+  });
+}
+
+function saveUserEditModal(i){
+  const u=USERS[i];if(!u)return;
+  const name=document.getElementById('ueName').value.trim();
+  const id=document.getElementById('ueId').value.trim();
+  const role=document.getElementById('ueRole').value;
+  if(!name||!id){alert('表示名とユーザーIDは必須です');return;}
+  const isAdmin=currentUser&&currentUser.role==='admin';
+  const perms={...(u.perms||getDefaultPerms(u.role))};
+  if(isAdmin){
+    document.querySelectorAll('#userEditModal select[data-perm-key]').forEach(sel=>{
+      perms[sel.dataset.permKey]=sel.value;
+    });
+  }
+  USERS[i]={...u,name,id,role,perms};
+  S.set('mp_users6',USERS);
+  renderUserMgmt();populateLoginUsers();
+  // 編集対象が「いまログイン中の自分」だった場合は currentUser も差し替えて即時反映
+  if(currentUser&&currentUser.id===u.id){
+    currentUser=USERS[i];
+    applyUserPerms();
+  }
+  closeUserEditModal();
   alert('✅ 更新しました');
 }
 
