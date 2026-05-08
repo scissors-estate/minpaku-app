@@ -1,0 +1,7 @@
+# 全部無視（デフォルト）
+*
+
+# ただし以下はGitHubに公開する
+!.gitignore
+!index.html
+!README.md
