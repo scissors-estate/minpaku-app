@@ -601,14 +601,14 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
         <div class="frow"><span class="flbl">物件：</span><div id="propBar" style="display:flex;gap:4px;flex-wrap:wrap"></div></div>
         <div class="frow">
           <span class="flbl">状態：</span>
-          <button class="mfb on" data-sf="all" onclick="toggleState('all')">全て</button>
-          <button class="mfb" data-sf="ci_wait" onclick="toggleState('ci_wait')" style="border-color:#c62828;color:#c62828">🔴 当日IN・🧹未</button>
+          <button class="mfb" data-sf="all" onclick="toggleState('all')">全て</button>
+          <button class="mfb on" data-sf="ci_wait" onclick="toggleState('ci_wait')" style="border-color:#c62828;color:#c62828">🔴 当日IN・🧹未</button>
           <button class="mfb" data-sf="ci_done" onclick="toggleState('ci_done')" style="border-color:#2e7d32;color:#2e7d32">✅ 当日IN・🧹済</button>
           <button class="mfb" data-sf="st" onclick="toggleState('st')" style="border-color:#212121;color:#212121">⬛ 滞在中</button>
-          <button class="mfb" data-sf="co_wait" onclick="toggleState('co_wait')" style="border-color:#c62828;color:#c62828">🔴 🧹のみ・未</button>
+          <button class="mfb on" data-sf="co_wait" onclick="toggleState('co_wait')" style="border-color:#c62828;color:#c62828">🔴 🧹のみ・未</button>
           <button class="mfb" data-sf="co_done" onclick="toggleState('co_done')" style="border-color:#2e7d32;color:#2e7d32">✅ 🧹のみ・済</button>
           <button class="mfb" data-sf="vc_done" onclick="toggleState('vc_done')" style="border-color:#0288d1;color:#0288d1">✅ 空室・🧹済</button>
-          <button class="mfb" data-sf="vc_wait" onclick="toggleState('vc_wait')" style="border-color:#c62828;color:#c62828">🔴 空室・🧹未</button>
+          <button class="mfb on" data-sf="vc_wait" onclick="toggleState('vc_wait')" style="border-color:#c62828;color:#c62828">🔴 空室・🧹未</button>
           <button class="mfb" data-sf="cp" onclick="toggleState('cp')" style="border-color:#e65100;color:#e65100">⬜ OUT済・清掃待ち</button>
         </div>
         <div class="frow" id="clRow">
@@ -1241,7 +1241,7 @@ function checkPw(){
 //  DATA
 // ════════════════════════════════════════════
 let ROOMS={},BK={},CH={},CM={},MS={};
-let curM=null,payM=null,opsFilt='all',cF={props:new Set(['all']),states:new Set(['all']),cleaners:new Set(['all'])};
+let curM=null,payM=null,opsFilt='all',cF={props:new Set(['all']),states:new Set(['ci_wait','co_wait','vc_wait']),cleaners:new Set(['all'])};
 let _opsPrevSel='__manual__'; // 運営タブの「前回基準」選択値（デフォルト='__manual__'=朝のスナップ／手動スナップ。'__latest__'=履歴の最新, ISO時刻=その時点）
 let invItems=[];
 let _bkTexts=[],_clText='',_bkReady=false,_cancelledIds=new Set();
@@ -2488,6 +2488,16 @@ function getRoomSt(tag,ds){
 }
 function getClr(tag,ds){const cm=CM[ds+'_'+tag];if(cm)return cm.cl;const ce=(CH[tag]||[]).find(e=>e.d===ds.replace(/-/g,'/'));return ce?ce.c:null;}
 function isChk(ds,tag){try{const c=S.get(CHK_KEY)||{};return c[ds+'_'+tag]==='1';}catch(e){return false;}}
+// 「当日チェック」または「CMで紐付いた清掃日のチェック」のいずれかが付いていれば「済」とみなす
+// 例：亀有1110 の 5/15 チェックインの清掃が 5/5 に完了済みなら、5/15 表示でも「済」になる
+function isCleanDoneSmart(ds,tag,cm){
+  if(isChk(ds,tag))return true;
+  if(cm&&cm.cd){
+    const cdNorm=cm.cd.replace(/\//g,'-');
+    if(cdNorm!==ds&&isChk(cdNorm,tag))return true;
+  }
+  return false;
+}
 function getPhotoUrl(ds,tag){try{const p=S.get(PHOTO_KEY)||{};return p[ds+'_'+tag]||'';}catch(e){return'';}}
 function savePhotoUrl(ds,tag,url){
   try{const p=S.get(PHOTO_KEY)||{};p[ds+'_'+tag]=url;S.set(PHOTO_KEY,p);}catch(e){}
@@ -2572,7 +2582,8 @@ const fd2=s=>{if(!s)return'—';const d=new Date(s.replace(/\//g,'-'));return(d.
 const diffD=(a,b)=>Math.round((new Date(b)-new Date(a))/86400000);
 
 function buildCard(tag,r,ds){
-  const chk=isChk(ds,tag);
+  // CMで紐付いた清掃日が完了していれば「済」と判定（AirHostと同じ「当日タスクのみ」表示にする）
+  const chk=isCleanDoneSmart(ds,tag,r.cm);
   // ③ Determine status line color and label
   function getStatusLine(){
     const type=r.type;
@@ -2687,7 +2698,7 @@ function renderClean(){
   document.getElementById('clRow').style.display=cS.size>2?'flex':'none';
   let cnt={t:tags.length,ci_wait:0,ci_done:0,st:0,co_wait:0,co_done:0,vc_done:0,vc_wait:0,cp:0,wn:0,dg:0};
   tags.forEach(t=>{
-    const r=getRoomSt(t,ds);const chkT=isChk(ds,t);
+    const r=getRoomSt(t,ds);const chkT=isCleanDoneSmart(ds,t,r.cm);
     if(['checkin','warn','unassigned','danger'].includes(r.type)){chkT?cnt.ci_done++:cnt.ci_wait++;}
     if(r.type==='staying')cnt.st++;
     if(r.type==='cleanonly'){chkT?cnt.co_done++:cnt.co_wait++;}
@@ -2712,7 +2723,7 @@ function renderClean(){
   tags.forEach(tag=>{
     if(!cF.props.has('all')&&!cF.props.has(ROOMS[tag]))return;
     const r=getRoomSt(tag,ds);
-    const chkF=isChk(ds,tag);
+    const chkF=isCleanDoneSmart(ds,tag,r.cm);
     // ③ New state classification
     let stateKey;
     if(['checkin','warn','unassigned','danger'].includes(r.type)){
