@@ -2625,7 +2625,11 @@ function buildCard(tag,r,ds){
     top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span></div><div class="rdates">IN:${fd2(r.b.ci)} → OUT:${fd2(r.b.co)}</div>`; // ⑧⑰
     const cm=r.cm;
     const prevCleanCd=cm&&cm.cd?cm.cd.replace(/\//g,'-'):'';
-    const prevCleanBadge=(!chk&&prevCleanCd&&prevCleanCd<ds)?`<div style="font-size:.72em;background:#fff3e0;color:#e65100;border-radius:4px;padding:2px 8px;margin-bottom:5px;display:inline-block">🧹 清掃: ${fd2(prevCleanCd)}（前日）確認待ち</div>`:'';
+    // 「前回の清掃」が完了マークされているかをチェック（完了なら注意喚起不要）
+    const prevCleanDone=prevCleanCd?isChk(prevCleanCd,tag):false;
+    // 当日からの経過日数を計算（ハードコードの「前日」を実際の日数に）
+    const prevCleanGap=prevCleanCd&&prevCleanCd<ds?diffD(prevCleanCd,ds):0;
+    const prevCleanBadge=(!chk&&prevCleanCd&&prevCleanCd<ds&&!prevCleanDone)?`<div style="font-size:.72em;background:#fff3e0;color:#e65100;border-radius:4px;padding:2px 8px;margin-bottom:5px;display:inline-block">🧹 ${fd2(prevCleanCd)}（${prevCleanGap}日前）の清掃が未確認</div>`:'';
     bot=`<div class="rclr"><div class="rcname"><div class="rcico">クリーナー</div>${cm?cm.cl:'タスクなし'}</div>${cm?`<span class="rct">OUT ${cm.cot}/IN ${cm.cit}</span>`:''}</div>${cm&&cm.cm?`<div class="rcmt">${cm.cm}</div>`:''}${prevCleanBadge}${chkBox}`;
   } else if(r.type==='staying'){
     const dl=diffD(ds,r.b.co);
