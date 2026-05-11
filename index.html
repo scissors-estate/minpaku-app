@@ -2519,8 +2519,10 @@ function togChk(ds,tag,val,chkEl){
           const dStr=cur.toISOString().split('T')[0];
           // 次の清掃タスク予定日に達したら伝播をストップ（その日はまだ未完了）
           if(chDates.has(dStr))break;
+          // 次のチェックイン日に達したら伝播をストップ（その日は別の清掃が必要なので未完了のまま）
+          if(limit&&cur>=limit)break;
           c[dStr+'_'+tag]='1';safety++;
-          if(limit&&cur>=limit)break;if(!limit)break;
+          if(!limit)break;
           cur.setDate(cur.getDate()+1);
         }
       }
@@ -2533,6 +2535,38 @@ function resetChks(){
   const ds=document.getElementById('cleanDate').value;
   try{const c=S.get(CHK_KEY)||{};Object.keys(ROOMS).forEach(t=>{delete c[ds+'_'+t];});S.set(CHK_KEY,c);}catch(e){}
   renderClean();
+}
+
+// 過去のバグ（伝播がチェックイン日まで1日オーバーランしていた）で
+// 誤って「完了」マークがついてしまった未来チェックインの清掃を自動修復する。
+// 一度実行したらフラグを立てて以降スキップ。
+function cleanupOverpropagatedChks(){
+  const flagKey='mp_chks_propbug_cleaned_v1';
+  if(S.get(flagKey))return;
+  if(!BK||!Object.keys(BK).length)return; // BK未ロード→後で再呼出
+  const c=S.get(CHK_KEY)||{};
+  if(!Object.keys(c).length){S.set(flagKey,true);return;} // チェックデータなし→何もせず終了
+  const today=new Date().toISOString().split('T')[0];
+  const cleaned=[];
+  Object.keys(BK).forEach(tag=>{
+    (BK[tag]||[]).forEach(bk=>{
+      const ci=bk.ci;
+      if(!ci||ci<=today)return; // 過去や今日のCIは対象外（手動で済ませた可能性あり）
+      const key=ci+'_'+tag;
+      if(c[key]==='1'){
+        delete c[key];
+        cleaned.push(`${ci} ${tag} (${bk.g||''})`);
+      }
+    });
+  });
+  if(cleaned.length>0){
+    S.set(CHK_KEY,c);
+    console.log('🧹 清掃伝播バグの誤マーク修復:',cleaned);
+    setTimeout(()=>{
+      alert(`✅ 清掃の誤チェック ${cleaned.length} 件を自動修復しました\n\n${cleaned.slice(0,8).join('\n')}${cleaned.length>8?'\n…他 '+(cleaned.length-8)+' 件':''}`);
+    },500);
+  }
+  S.set(flagKey,true);
 }
 const fd2=s=>{if(!s)return'—';const d=new Date(s.replace(/\//g,'-'));return(d.getMonth()+1)+'/'+(d.getDate());};
 const diffD=(a,b)=>Math.round((new Date(b)-new Date(a))/86400000);
@@ -4625,11 +4659,15 @@ function initFirebase(){
         try{populateAccMonths();}catch(e){}
         if(stored.meta) document.getElementById('meta').textContent = stored.meta;
         checkAutoSnap();
+        // 過去の伝播バグで誤マークされた清掃チェックを自動修復（1回だけ）
+        try{ cleanupOverpropagatedChks(); }catch(e){}
       }
     });
     fbDB.ref('checks').on('value', snap => {
       const val = snap.val();
       if(val) S.set(CHK_KEY, val);
+      // チェックデータ取得後にも修復を試みる（BKが先に来た場合のため）
+      try{ cleanupOverpropagatedChks(); }catch(e){}
     });
     fbDB.ref('payments').on('value', snap => {
       const val = snap.val();
