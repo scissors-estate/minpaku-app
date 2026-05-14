@@ -2730,7 +2730,13 @@ function buildCard(tag,r,ds){
 
 function renderClean(){
   const ds=document.getElementById('cleanDate').value;if(!ds)return;
-  const tags=Object.keys(ROOMS);
+  // 開業月フィルタ：表示日の月より開業月が未来の部屋は除外
+  const openData=S.get(ROOM_OPEN_KEY)||{};
+  const dsMonth=ds.slice(0,7); // "2026-04"
+  const tags=Object.keys(ROOMS).filter(t=>{
+    const openFrom=openData[t];
+    return !(openFrom&&openFrom>dsMonth);
+  });
   if(!tags.length){document.getElementById('cleanMain').innerHTML='<div class="nd">CSVを読み込んでください</div>';return;}
   // ② Multi-select props
   const propSet=['all',...new Set(Object.values(ROOMS))];
