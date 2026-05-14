@@ -2496,6 +2496,19 @@ function isCleanDoneSmart(ds,tag,cm){
     const cdNorm=cm.cd.replace(/\//g,'-');
     if(cdNorm!==ds&&isChk(cdNorm,tag))return true;
   }
+  // 過去日：CSV更新で清掃日がズレてもチェックを救済（前後3日以内にチェックがあれば「済」）
+  const today=new Date().toISOString().split('T')[0];
+  if(ds<today){
+    try{
+      const c=S.get(CHK_KEY)||{};
+      for(let i=-3;i<=3;i++){
+        if(i===0)continue;
+        const d=new Date(ds);d.setDate(d.getDate()+i);
+        const dStr=d.toISOString().split('T')[0];
+        if(c[dStr+'_'+tag]==='1')return true;
+      }
+    }catch(e){}
+  }
   return false;
 }
 function getPhotoUrl(ds,tag){try{const p=S.get(PHOTO_KEY)||{};return p[ds+'_'+tag]||'';}catch(e){return'';}}
