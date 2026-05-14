@@ -3956,7 +3956,7 @@ function loadCSVs(){
     _bkHist.push(_bkHistEntry);
     while(_bkHist.length>HIST_MAX)_bkHist.shift();
     S.set(BK_HIST_KEY,_bkHist);
-    if(fbReady)fbWrite('bkHistory',_bkHist);
+    if(fbReady)fbMergeHistory('bkHistory',_bkHistEntry,HIST_MAX);
 
     computeMS();
     const _d=new Date();
@@ -3972,7 +3972,7 @@ function loadCSVs(){
     _msHist.push(_msHistEntry);
     while(_msHist.length>HIST_MAX)_msHist.shift();
     S.set(MS_HIST_KEY,_msHist);
-    if(fbReady)fbWrite('msHistory',_msHist);
+    if(fbReady)fbMergeHistory('msHistory',_msHistEntry,HIST_MAX);
 
     saveBookingsToFb();
     renderOpsTabs();
@@ -4895,6 +4895,21 @@ function initFirebase(){
 function fbWrite(path, data){
   if(!fbReady || !fbDB) return;
   try { fbDB.ref(path).set(data); } catch(e) { console.warn('fbWrite error:', e); }
+}
+// 履歴配列を別端末の同時更新と競合せずマージして書き込む（isoTs で重複排除）
+function fbMergeHistory(path, newEntry, max){
+  if(!fbReady || !fbDB) return;
+  try {
+    fbDB.ref(path).transaction((current) => {
+      const fbArr = (Array.isArray(current) ? current : Object.values(current || {})).filter(h => h && h.isoTs);
+      const byIso = new Map();
+      fbArr.forEach(h => byIso.set(h.isoTs, h));
+      byIso.set(newEntry.isoTs, newEntry);
+      let merged = Array.from(byIso.values()).sort((a, b) => a.isoTs.localeCompare(b.isoTs));
+      if (max && merged.length > max) merged = merged.slice(merged.length - max);
+      return merged;
+    });
+  } catch(e) { console.warn('fbMergeHistory error:', e); }
 }
 function fbUpdate(path, data){
   if(!fbReady || !fbDB) return;
