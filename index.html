@@ -5325,6 +5325,28 @@ function dlAccExcel(){
 // ════════════════════════════════════════════
 //  月次明細（会計士向け）
 // ════════════════════════════════════════════
+
+// 月跨ぎ予約の当月分を按分して返す（前月CI・翌月CO両対応）
+function calcMonthPortion(b, month){
+  const totalDays=b.days||Math.round((new Date(b.co)-new Date(b.ci))/86400000);
+  if(totalDays<=0)return{daysInMonth:0,incl:0,excl:0,isPartial:false,isCarryIn:false,isCarryOut:false,totalDays:0};
+  const [y,m]=month.split('-').map(Number);
+  const firstDay=new Date(y,m-1,1);   // 当月1日
+  const firstDayNext=new Date(y,m,1); // 翌月1日
+  const ci=new Date(b.ci);
+  const co=new Date(b.co);
+  const effectiveCi=ci<firstDay?firstDay:ci;       // max(CI, 当月1日)
+  const effectiveCo=co>firstDayNext?firstDayNext:co; // min(CO, 翌月1日)
+  const daysInMonth=Math.round((effectiveCo-effectiveCi)/86400000);
+  const isCarryIn=ci<firstDay;   // 前月チェックイン
+  const isCarryOut=co>firstDayNext; // 翌月チェックアウト
+  const isPartial=isCarryIn||isCarryOut;
+  const fullIncl=Math.round(parseFloat(b.rawNet||(b.net||0)*1.1));
+  const fullExcl=b.net||0;
+  const incl=isPartial?Math.round(fullIncl*daysInMonth/totalDays):fullIncl;
+  const excl=isPartial?Math.round(fullExcl*daysInMonth/totalDays):fullExcl;
+  return{daysInMonth,incl,excl,isPartial,isCarryIn,isCarryOut,totalDays};
+}
 function populateAcctMonths(){
   const sel=document.getElementById('acctMonth');if(!sel)return;
   const months=Object.keys(MS).sort().reverse();
@@ -5344,19 +5366,26 @@ function buildAcctData(month){
   const result={};
   Object.keys(BK).forEach(tag=>{
     if(officeTags.has(tag))return;
-    const monthBks=(BK[tag]||[]).filter(b=>b.ci&&b.ci.startsWith(month));
+    const [_y,_m]=month.split('-').map(Number);
+    const _firstDay=new Date(_y,_m-1,1);
+    const _firstDayNext=new Date(_y,_m,1);
+    const monthBks=(BK[tag]||[]).filter(b=>{
+      if(!b.ci||!b.co)return false;
+      const ci=new Date(b.ci),co=new Date(b.co);
+      return ci<_firstDayNext&&co>_firstDay; // 当月に1泊でも重なる予約
+    });
     if(monthBks.length===0)return;
     const prop=ROOMS[tag]||tag;
     const bks=monthBks.map(b=>{
       const pd=pays[b.id]||{};
       const otaShort=(b.s||'').includes('Airbnb')?'AB':(b.s||'').includes('Booking')?'BK':(b.s||'その他');
-      const incl=Math.round(parseFloat(b.rawNet||(b.net||0)*1.1));
-      return{...b,otaShort,payDate:pd.payDate||'',isPaid:pd.status==='1',incl};
+      const portion=calcMonthPortion(b,month);
+      return{...b,otaShort,payDate:pd.payDate||'',isPaid:pd.status==='1',incl:portion.incl,exclProrated:portion.excl,daysInMonth:portion.daysInMonth,isPartial:portion.isPartial,isCarryIn:portion.isCarryIn,isCarryOut:portion.isCarryOut,totalDays:portion.totalDays};
     });
     bks.sort((a,b)=>a.ci.localeCompare(b.ci));
     let air=0,bk=0,other=0,sumIncl=0,sumExcl=0,days=0,guests=0;
     bks.forEach(b=>{
-      sumIncl+=b.incl;sumExcl+=(b.net||0);days+=(b.days||0);guests+=(b.n||1);
+      sumIncl+=b.incl;sumExcl+=b.exclProrated;days+=b.daysInMonth;guests+=(b.n||1);
       if(b.otaShort==='AB')air+=b.incl;
       else if(b.otaShort==='BK')bk+=b.incl;
       else other+=b.incl;
@@ -5405,10 +5434,13 @@ function renderAcctTab(){
       const otaCol=b.otaShort==='AB'?'#ff5a5f':b.otaShort==='BK'?'#003580':'#888';
       const otaLabel=b.otaShort==='AB'?'Airbnb':b.otaShort==='BK'?'Booking':(b.s||'その他');
       const payBg=b.isPaid?'background:#fff59d;font-weight:600;color:#000':'background:transparent;color:#bbb';
-      return `<div style="min-width:130px;background:#fffde7;border-right:1px solid #d0d0d0;display:flex;flex-direction:column">
+      const partialNote=b.isCarryIn&&b.isCarryOut?`<div style="background:#7b1fa2;color:#fff;padding:2px 6px;border-radius:3px;font-size:.72em;font-weight:700;margin-top:3px;display:inline-block">↙↗ ${b.daysInMonth}/${b.totalDays}泊</div>`:b.isCarryIn?`<div style="background:#1976d2;color:#fff;padding:2px 6px;border-radius:3px;font-size:.72em;font-weight:700;margin-top:3px;display:inline-block">↙前月 ${b.daysInMonth}/${b.totalDays}泊</div>`:b.isCarryOut?`<div style="background:#f57c00;color:#fff;padding:2px 6px;border-radius:3px;font-size:.72em;font-weight:700;margin-top:3px;display:inline-block">翌月↗ ${b.daysInMonth}/${b.totalDays}泊</div>`:'';
+      const dateLabel=b.isPartial?`${ciD}〜${coD}<br>${partialNote}`:`${ciD}〜${coD}`;
+      const cardBg=b.isCarryIn&&b.isCarryOut?'#f3e5f5':b.isCarryIn?'#bbdefb':b.isCarryOut?'#ffe0b2':'#fffde7';
+      return `<div style="min-width:130px;background:${cardBg};border-right:1px solid #d0d0d0;display:flex;flex-direction:column">
         <div style="background:${otaCol};color:#fff;padding:5px 8px;text-align:center;font-size:.75em;font-weight:700">${otaLabel}</div>
-        <div style="padding:7px 8px;border-bottom:1px solid #e8e3a8;text-align:center;font-size:.85em">${ciD}〜${coD}</div>
-        <div style="padding:7px 8px;border-bottom:1px solid #e8e3a8;text-align:right;font-family:ui-monospace,monospace;font-size:.88em;font-weight:600">¥${b.incl.toLocaleString('ja-JP')}</div>
+        <div style="padding:7px 8px;border-bottom:1px solid #e8e3a8;text-align:center;font-size:.85em;min-height:52px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px">${dateLabel}</div>
+        <div style="padding:7px 8px;border-bottom:1px solid #e8e3a8;text-align:center;font-family:ui-monospace,monospace;font-size:.88em;font-weight:600">¥${b.incl.toLocaleString('ja-JP')}</div>
         <div style="padding:7px 8px;text-align:center;font-size:.85em;${payBg}">${payDateD||'－'}</div>
       </div>`;
     }).join('');
