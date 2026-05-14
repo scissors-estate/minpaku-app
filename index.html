@@ -2596,7 +2596,23 @@ const diffD=(a,b)=>Math.round((new Date(b)-new Date(a))/86400000);
 
 function buildCard(tag,r,ds){
   // CMで紐付いた清掃日が完了していれば「済」と判定（AirHostと同じ「当日タスクのみ」表示にする）
-  const chk=isCleanDoneSmart(ds,tag,r.cm);
+  let chk=isCleanDoneSmart(ds,tag,r.cm);
+  // 過去日：直前の清掃タスク（r.lc）が完了していれば「済」として継承
+  // （CSV更新で清掃日がズレても、最後の清掃が完了済みなら空室期間中は「済」のまま）
+  if(!chk&&r.lc&&r.lc.d){
+    const today=new Date().toISOString().split('T')[0];
+    if(ds<today){
+      try{
+        const lcDate=r.lc.d.replace(/\//g,'-');
+        const c=S.get(CHK_KEY)||{};
+        for(let i=-3;i<=3;i++){
+          const d=new Date(lcDate);d.setDate(d.getDate()+i);
+          const dStr=d.toISOString().split('T')[0];
+          if(c[dStr+'_'+tag]==='1'){chk=true;break;}
+        }
+      }catch(e){}
+    }
+  }
   // ③ Determine status line color and label
   function getStatusLine(){
     const type=r.type;
