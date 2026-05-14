@@ -3381,7 +3381,7 @@ function handlePayCSV(files){
               if(bk.id===code||(bk.id&&code&&bk.id.includes(code))){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
-                if(payDate){pays[bk.id].payDate=payDate;pays[bk.id].locked='1';}
+                if(payDate)pays[bk.id].payDate=payDate;
                 matched++;allMatchedIds.push(bk.id);
               }
             });
@@ -3414,7 +3414,7 @@ function handlePayCSV(files){
               if(bk.id===refNum){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
-                if(payDate&&!pays[bk.id].payDate){pays[bk.id].payDate=payDate;pays[bk.id].locked='1';}
+                if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate;
                 if(!isNaN(netAmt)&&netAmt>0&&pays[bk.id].customAmt==null)pays[bk.id].customAmt=netAmt;
                 if(payoutId)pays[bk.id].payoutId=payoutId;  // 調整額の逆引き／Payout別表示用
                 if(payDate)pays[bk.id].payProcDate=payDate;  // Booking.com処理日（Payout別ヘッダ表示用・参考値）
@@ -3435,7 +3435,7 @@ function handlePayCSV(files){
               if(bk.id===refNum){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
-                if(payDate&&!pays[bk.id].payDate){pays[bk.id].payDate=payDate;pays[bk.id].locked='1';}
+                if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate;
                 matched++;allMatchedIds.push(bk.id);
               }
             });
