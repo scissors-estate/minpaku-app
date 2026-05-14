@@ -5341,8 +5341,8 @@ function calcMonthPortion(b, month){
   const isCarryIn=ci<firstDay;   // 前月チェックイン
   const isCarryOut=co>firstDayNext; // 翌月チェックアウト
   const isPartial=isCarryIn||isCarryOut;
-  const fullIncl=Math.round(parseFloat(b.rawNet||(b.net||0)*1.1));
-  const fullExcl=b.net||0;
+  const fullIncl=Math.round(parseFloat(b.rawNet||(b.sales||b.net||0)*1.1));
+  const fullExcl=b.sales||b.net||0;
   const incl=isPartial?Math.round(fullIncl*daysInMonth/totalDays):fullIncl;
   const excl=isPartial?Math.round(fullExcl*daysInMonth/totalDays):fullExcl;
   return{daysInMonth,incl,excl,isPartial,isCarryIn,isCarryOut,totalDays};
