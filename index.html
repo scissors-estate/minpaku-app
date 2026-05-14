@@ -2492,12 +2492,24 @@ function isChk(ds,tag){try{const c=S.get(CHK_KEY)||{};return c[ds+'_'+tag]==='1'
 // 例：亀有1110 の 5/15 チェックインの清掃が 5/5 に完了済みなら、5/15 表示でも「済」になる
 function isCleanDoneSmart(ds,tag,cm){
   if(isChk(ds,tag))return true;
+  const today=new Date().toISOString().split('T')[0];
   if(cm&&cm.cd){
     const cdNorm=cm.cd.replace(/\//g,'-');
     if(cdNorm!==ds&&isChk(cdNorm,tag))return true;
+    // 過去日：清掃日(cm.cd)の前後3日にチェックがあれば「済」（CSV更新でズレた場合の救済）
+    if(cdNorm<today){
+      try{
+        const c=S.get(CHK_KEY)||{};
+        for(let i=-3;i<=3;i++){
+          if(i===0)continue;
+          const d=new Date(cdNorm);d.setDate(d.getDate()+i);
+          const dStr=d.toISOString().split('T')[0];
+          if(c[dStr+'_'+tag]==='1')return true;
+        }
+      }catch(e){}
+    }
   }
-  // 過去日：CSV更新で清掃日がズレてもチェックを救済（前後3日以内にチェックがあれば「済」）
-  const today=new Date().toISOString().split('T')[0];
+  // 過去日：表示日(ds)の前後3日にチェックがあれば「済」（CSV更新でズレた場合の救済）
   if(ds<today){
     try{
       const c=S.get(CHK_KEY)||{};
@@ -2530,6 +2542,15 @@ function togChk(ds,tag,val,chkEl){
     try{
       const c=S.get(CHK_KEY)||{};
       c[ds+'_'+tag]=val?'1':'0';
+      if(!val){
+        // 解除時：±3日以内の'1'もクリア（fallback救済で残った古いチェックを除去）
+        for(let i=-3;i<=3;i++){
+          if(i===0)continue;
+          const d=new Date(ds);d.setDate(d.getDate()+i);
+          const dStr=d.toISOString().split('T')[0];
+          if(c[dStr+'_'+tag]==='1') delete c[dStr+'_'+tag];
+        }
+      }
       if(val){
         const bks=BK[tag]||[];
         const nextCI=bks.map(b=>b.ci).filter(ci=>ci>ds).sort()[0];
