@@ -4006,25 +4006,35 @@ function resetAllBookings(){
   alert('リセットしました。全期間のCSVをアップロードしてください。');
 }
 // 履歴セレクターを構築
-function populateDiffSelects(){
+function populateDiffSelects(forceReset){
   const hist=(S.get(BK_HIST_KEY)||[]).filter(h=>h&&h.isoTs).slice().sort((a,b)=>a.isoTs.localeCompare(b.isoTs));
   const baseSel=document.getElementById('diffBaseSel');
   const compSel=document.getElementById('diffCompSel');
   if(!baseSel||!compSel)return;
+  // 現在の選択を保存（ドロップダウン再生成で消えるため）
+  const prevBase=baseSel.value;
+  const prevComp=compSel.value;
   // 「現在のBK」（取込済みの最新ライブデータ）も選択肢に含める
   const liveOpt=`<option value="__live__">現在</option>`;
   const histOpts=hist.slice().reverse().map((h,i)=>`<option value="${h.isoTs}">${h.ts}</option>`).join('');
   baseSel.innerHTML=histOpts+liveOpt;
   compSel.innerHTML=liveOpt+histOpts;
-  // デフォルト：基準=直前（最新の1つ前）、比較=現在
-  if(hist.length>=2){
+  // forceReset=false かつ既存選択が有効ならそれを維持、なければデフォルト
+  const validVals=new Set(['__live__',...hist.map(h=>h.isoTs)]);
+  if(!forceReset&&prevBase&&validVals.has(prevBase)){
+    baseSel.value=prevBase;
+  }else if(hist.length>=2){
     baseSel.value=hist[hist.length-2].isoTs; // 最新の1つ前
   }else if(hist.length===1){
     baseSel.value=hist[0].isoTs;
   }
-  compSel.value='__live__';
+  if(!forceReset&&prevComp&&validVals.has(prevComp)){
+    compSel.value=prevComp;
+  }else{
+    compSel.value='__live__';
+  }
 }
-function resetDiffSel(){populateDiffSelects();renderDiffTab();}
+function resetDiffSel(){populateDiffSelects(true);renderDiffTab();}
 
 // 2つのスナップショットから差分を計算
 function computeDiff(prevSnap,newSnap){
