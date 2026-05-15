@@ -4084,9 +4084,7 @@ function renderDiffTab(){
       return;
     }
     if(tsEl)tsEl.textContent='取込日時：'+saved.ts;
-    showDiffModal(saved.n||[],saved.c||[],saved.ch||[]);
-    const tmp=document.getElementById('diffModalBody');
-    if(bodyEl&&tmp)bodyEl.innerHTML=tmp.innerHTML;
+    if(bodyEl)bodyEl.innerHTML=buildDiffHtml(saved.n||[],saved.c||[],saved.ch||[])||'<div style="text-align:center;color:var(--t3);padding:40px 0;font-size:.88em">変動はありません。</div>';
     return;
   }
 
@@ -4097,11 +4095,9 @@ function renderDiffTab(){
   const compLabel=compVal==='__live__'?'現在':(hist.find(h=>h.isoTs===compVal)?.ts||compVal);
   const diff=computeDiff(getSnap(baseVal),getSnap(compVal));
   if(tsEl)tsEl.textContent=`比較：${baseLabel} → ${compLabel}`;
-  showDiffModal(diff.n,diff.c,diff.ch);
-  const tmp=document.getElementById('diffModalBody');
-  if(bodyEl&&tmp)bodyEl.innerHTML=tmp.innerHTML;
+  if(bodyEl)bodyEl.innerHTML=buildDiffHtml(diff.n,diff.c,diff.ch)||'<div style="text-align:center;color:var(--t3);padding:40px 0;font-size:.88em">この期間の変動はありません。</div>';
 }
-function showDiffModal(newBks,cancelledBks,changedBks){
+function buildDiffHtml(newBks,cancelledBks,changedBks){
   changedBks=changedBks||[];
   const fmtD=d=>d?d.replace(/^(\d{4})-(\d{2})-(\d{2})$/,'$2/$3'):'';
   const siteTag=(s,type)=>{
@@ -4150,6 +4146,10 @@ function showDiffModal(newBks,cancelledBks,changedBks){
     });
     html+='</div></div>';
   }
+  return html;
+}
+function showDiffModal(newBks,cancelledBks,changedBks){
+  const html=buildDiffHtml(newBks,cancelledBks,changedBks);
   if(!html)return;
   document.getElementById('diffModalBody').innerHTML=html;
   openModal('diffModal');
