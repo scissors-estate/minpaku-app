@@ -997,7 +997,10 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
 const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6',BK_HIST_KEY='mp_bkhist6',MS_HIST_KEY='mp_mshist6',ADJ_KEY='mp_adj6';
-const HIST_MAX=30; // 履歴の最大保持件数（CSV取込ごとに追加）
+const HIST_MAX=14; // 履歴の最大保持件数（肥大化防止のため30→14に削減）
+// 予約スナップに含める下限日：チェックアウトが「今日−35日」以降の予約だけ保存。
+// 現在宿泊中の延泊も拾える／泊まり終わった予約を誤キャンセル検知しない／サイズ激減。
+function snapCutoff(){ return new Date(Date.now()-35*864e5).toISOString().slice(0,10); }
 const OFFICES=['両国事務所','亀有事務所','SC事務所','梅島事務所','青戸事務所'];
 const SERVICES=['AirHost'];
 
@@ -3925,11 +3928,14 @@ function loadCSVs(){
     if(_prevBkSnap){
       const prevIdMap=new Map(Object.entries(_prevBkSnap));
       const newIdMap=new Map();
-      Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id)newIdMap.set(b.id,{...b,tag});}));
+      // 前回スナップ(_prevBkSnap)と同じ絞り込み(co≥今日-35日)を適用。
+      // フルBKと比較すると過去予約が誤って「新規」になるため必須。
+      const _dcut=snapCutoff();
+      Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id&&b.co&&b.co>=_dcut)newIdMap.set(b.id,{...b,tag});}));
       // 新規：今回あって前回ない
       newIdMap.forEach((b,id)=>{if(!prevIdMap.has(id))_diffNew.push(b);});
       // キャンセル：前回あって今回ない
-      prevIdMap.forEach((b,id)=>{if(!newIdMap.has(id))_diffCancelled.push(b);});
+      prevIdMap.forEach((b,id)=>{if(!newIdMap.has(id)&&b&&b.co&&b.co>=_dcut)_diffCancelled.push(b);});
       // 変更：同IDで日程・人数が変わった
       prevIdMap.forEach((prevB,id)=>{
         const newB=newIdMap.get(id);
@@ -3949,7 +3955,8 @@ function loadCSVs(){
     }
     // 今回のBK状態をlocalStorageに保存（次回取込時の比較ベースになる）
     const _newBkSnap={};
-    Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id)_newBkSnap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag,net:b.net||0,s:b.s};}));
+    const _snapCut=snapCutoff();
+    Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id&&b.co&&b.co>=_snapCut)_newBkSnap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag,net:b.net||0,s:b.s};}));
     S.set(PREV_BK_SNAP_KEY,_newBkSnap);
 
     // 予約履歴に追加（最大HIST_MAX件・古いものから自動削除）
@@ -4041,8 +4048,11 @@ function computeDiff(prevSnap,newSnap){
   const prevIdMap=new Map(Object.entries(prevSnap||{}));
   const newIdMap=new Map(Object.entries(newSnap||{}));
   const dN=[],dC=[],dCh=[];
+  // 完了して35日以上たった予約は、スナップ絞り込みで自然に消えるだけ。
+  // 本当のキャンセルではないので「キャンセル」には出さない（誤検知防止）。
+  const _ccut=snapCutoff();
   newIdMap.forEach((b,id)=>{if(!prevIdMap.has(id))dN.push({...b,id});});
-  prevIdMap.forEach((b,id)=>{if(!newIdMap.has(id))dC.push({...b,id});});
+  prevIdMap.forEach((b,id)=>{if(!newIdMap.has(id)&&b&&b.co&&b.co>=_ccut)dC.push({...b,id});});
   prevIdMap.forEach((prevB,id)=>{
     const newB=newIdMap.get(id);if(!newB)return;
     const chgs=[];
@@ -4063,7 +4073,8 @@ function computeDiff(prevSnap,newSnap){
 // 現在のライブBK状態をスナップ形式に変換
 function getLiveBkSnap(){
   const snap={};
-  Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id)snap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag,net:b.net||0,s:b.s};}));
+  const _cut=snapCutoff();
+  Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id&&b.co&&b.co>=_cut)snap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag,net:b.net||0,s:b.s};}));
   return snap;
 }
 
