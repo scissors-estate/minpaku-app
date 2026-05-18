@@ -3959,13 +3959,19 @@ function loadCSVs(){
     Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id&&b.co&&b.co>=_snapCut)_newBkSnap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag,net:b.net||0,s:b.s};}));
     S.set(PREV_BK_SNAP_KEY,_newBkSnap);
 
+    // 変動が無いとき（同じCSVの取込み直し等）は履歴を作らない＝無駄な重複を防ぐ。
+    // ただし初回（比較対象がまだ無い）は比較の土台として必ず1件作る。
+    const _saveHist = (!_prevBkSnap) || _diffNew.length>0 || _diffCancelled.length>0 || _diffChanged.length>0;
+
     // 予約履歴に追加（最大HIST_MAX件・古いものから自動削除）
-    const _bkHistEntry={isoTs:new Date().toISOString(),ts:fmtHistTs(new Date()),snap:_newBkSnap};
-    const _bkHist=(S.get(BK_HIST_KEY)||[]).filter(h=>h&&h.isoTs);
-    _bkHist.push(_bkHistEntry);
-    while(_bkHist.length>HIST_MAX)_bkHist.shift();
-    S.set(BK_HIST_KEY,_bkHist);
-    if(fbReady)fbMergeHistory('bkHistory',_bkHistEntry,HIST_MAX);
+    if(_saveHist){
+      const _bkHistEntry={isoTs:new Date().toISOString(),ts:fmtHistTs(new Date()),snap:_newBkSnap};
+      const _bkHist=(S.get(BK_HIST_KEY)||[]).filter(h=>h&&h.isoTs);
+      _bkHist.push(_bkHistEntry);
+      while(_bkHist.length>HIST_MAX)_bkHist.shift();
+      S.set(BK_HIST_KEY,_bkHist);
+      if(fbReady)fbMergeHistory('bkHistory',_bkHistEntry,HIST_MAX);
+    }
 
     computeMS();
     const _d=new Date();
@@ -3975,13 +3981,15 @@ function loadCSVs(){
     Object.keys(MS).forEach(mk=>{const ms=MS[mk];if(ms&&ms.tot)prevSnap[mk]={sales:ms.tot.sales,net:ms.tot.net,occ:ms.occ.t,cnt:ms.tot.cnt};});
     S.set(PREV_KEY,prevSnap);
 
-    // 運営履歴（MS全体）に追加（最大HIST_MAX件）
-    const _msHistEntry={isoTs:new Date().toISOString(),ts:fmtHistTs(new Date()),ms:JSON.parse(JSON.stringify(MS))};
-    const _msHist=(S.get(MS_HIST_KEY)||[]).filter(h=>h&&h.isoTs);
-    _msHist.push(_msHistEntry);
-    while(_msHist.length>HIST_MAX)_msHist.shift();
-    S.set(MS_HIST_KEY,_msHist);
-    if(fbReady)fbMergeHistory('msHistory',_msHistEntry,HIST_MAX);
+    // 運営履歴（MS全体）に追加（最大HIST_MAX件）。変動0件なら作らない（_saveHistと同条件）。
+    if(_saveHist){
+      const _msHistEntry={isoTs:new Date().toISOString(),ts:fmtHistTs(new Date()),ms:JSON.parse(JSON.stringify(MS))};
+      const _msHist=(S.get(MS_HIST_KEY)||[]).filter(h=>h&&h.isoTs);
+      _msHist.push(_msHistEntry);
+      while(_msHist.length>HIST_MAX)_msHist.shift();
+      S.set(MS_HIST_KEY,_msHist);
+      if(fbReady)fbMergeHistory('msHistory',_msHistEntry,HIST_MAX);
+    }
 
     saveBookingsToFb();
     renderOpsTabs();
