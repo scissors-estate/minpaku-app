@@ -5516,17 +5516,22 @@ function buildAcctData(month){
       const pd=pays[b.id]||{};
       const otaShort=(b.s||'').includes('Airbnb')?'AB':(b.s||'').includes('Booking')?'BK':(b.s||'その他');
       const portion=calcMonthPortion(b,month);
-      return{...b,otaShort,payDate:pd.payDate||'',isPaid:pd.status==='1',incl:portion.incl,exclProrated:portion.excl,daysInMonth:portion.daysInMonth,isPartial:portion.isPartial,isCarryIn:portion.isCarryIn,isCarryOut:portion.isCarryOut,totalDays:portion.totalDays};
+      // コミッション(OTAサービス料)・清掃費(クリーニング代)を売上と同じ日数按分＋税込で算出
+      const _ratio=portion.totalDays>0?portion.daysInMonth/portion.totalDays:0;
+      const commIncl=Math.round((b.commission||0)*_ratio*1.1);
+      const cleanIncl=Math.round((b.cleaning||0)*_ratio*1.1);
+      return{...b,otaShort,payDate:pd.payDate||'',isPaid:pd.status==='1',incl:portion.incl,exclProrated:portion.excl,commIncl,cleanIncl,daysInMonth:portion.daysInMonth,isPartial:portion.isPartial,isCarryIn:portion.isCarryIn,isCarryOut:portion.isCarryOut,totalDays:portion.totalDays};
     });
     bks.sort((a,b)=>a.ci.localeCompare(b.ci));
-    let air=0,bk=0,other=0,sumIncl=0,sumExcl=0,days=0,guests=0;
+    let air=0,bk=0,other=0,sumIncl=0,sumExcl=0,days=0,guests=0,comm=0,clean=0;
     bks.forEach(b=>{
       sumIncl+=b.incl;sumExcl+=b.exclProrated;days+=b.daysInMonth;guests+=(b.n||1);
+      comm+=b.commIncl;clean+=b.cleanIncl;
       if(b.otaShort==='AB')air+=b.incl;
       else if(b.otaShort==='BK')bk+=b.incl;
       else other+=b.incl;
     });
-    result[tag]={prop,tag,bks,totals:{air,bk,other,sumIncl,sumExcl},days,guests};
+    result[tag]={prop,tag,bks,totals:{air,bk,other,sumIncl,sumExcl,comm,clean},days,guests};
   });
   return result;
 }
@@ -5541,10 +5546,10 @@ function renderAcctTab(){
   const ms=MS[month];
   const data=buildAcctData(month);
   const tags=Object.keys(data).sort((a,b)=>data[a].prop.localeCompare(data[b].prop,'ja'));
-  let totIncl=0,totPaidIncl=0,totUnpaidIncl=0,totPaidCnt=0,totUnpaidCnt=0;
+  let totIncl=0,totPaidIncl=0,totUnpaidIncl=0,totPaidCnt=0,totUnpaidCnt=0,totComm=0,totClean=0;
   tags.forEach(t=>{
     data[t].bks.forEach(b=>{
-      totIncl+=b.incl;
+      totIncl+=b.incl;totComm+=b.commIncl;totClean+=b.cleanIncl;
       if(b.isPaid){totPaidIncl+=b.incl;totPaidCnt++;}
       else{totUnpaidIncl+=b.incl;totUnpaidCnt++;}
     });
@@ -5558,6 +5563,8 @@ function renderAcctTab(){
         <div><div style="color:#888;font-size:.85em">宿泊費（税込）</div><div style="font-weight:700;font-size:1.15em;color:#1976d2">${fmtF(totIncl)}</div></div>
         <div><div style="color:#888;font-size:.85em">入金済</div><div style="font-weight:700;font-size:1.15em;color:#2e7d32">${fmtF(totPaidIncl)} <span style="font-size:.7em;color:#666">(${totPaidCnt}件)</span></div></div>
         <div><div style="color:#888;font-size:.85em">未入金</div><div style="font-weight:700;font-size:1.15em;color:#c62828">${fmtF(totUnpaidIncl)} <span style="font-size:.7em;color:#666">(${totUnpaidCnt}件)</span></div></div>
+        <div><div style="color:#888;font-size:.85em">コミッション計(税込)</div><div style="font-weight:700;font-size:1.15em;color:#ef6c00">${fmtF(totComm)}</div></div>
+        <div><div style="color:#888;font-size:.85em">清掃費計(税込)</div><div style="font-weight:700;font-size:1.15em;color:#ef6c00">${fmtF(totClean)}</div></div>
       </div>
     </div>`;
   // スプレッドシート風レイアウト：左に部屋名(赤)、中央にカード横並び(黄)、右に集計(青)
@@ -5577,6 +5584,7 @@ function renderAcctTab(){
         <div style="background:${otaCol};color:#fff;padding:5px 8px;text-align:center;font-size:.75em;font-weight:700">${otaLabel}</div>
         <div style="padding:7px 8px;border-bottom:1px solid #e8e3a8;text-align:center;font-size:.85em;min-height:52px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px">${dateLabel}</div>
         <div style="padding:7px 8px;border-bottom:1px solid #e8e3a8;text-align:center;font-family:ui-monospace,monospace;font-size:.88em;font-weight:600">¥${b.incl.toLocaleString('ja-JP')}</div>
+        <div style="padding:4px 8px;border-bottom:1px solid #e8e3a8;text-align:center;font-size:.66em;color:#7a7a7a;line-height:1.35">コミ ¥${b.commIncl.toLocaleString('ja-JP')}<br>清掃 ¥${b.cleanIncl.toLocaleString('ja-JP')}</div>
         <div style="padding:7px 8px;text-align:center;font-size:.85em;${payBg}">${payDateD||'－'}</div>
       </div>`;
     }).join('');
@@ -5586,6 +5594,8 @@ function renderAcctTab(){
         <div style="display:flex;justify-content:space-between"><span style="color:#555">A 売上(税込)</span><span style="font-family:ui-monospace,monospace;font-weight:600">¥${r.totals.air.toLocaleString('ja-JP')}</span></div>
         <div style="display:flex;justify-content:space-between"><span style="color:#555">B 売上(税込)</span><span style="font-family:ui-monospace,monospace;font-weight:600">¥${r.totals.bk.toLocaleString('ja-JP')}</span></div>
         <div style="display:flex;justify-content:space-between;border-top:1px solid #b0d4f1;padding-top:4px"><span style="color:#555">小計(税込)</span><span style="font-family:ui-monospace,monospace;font-weight:700;color:#1565c0">¥${totSubIncl.toLocaleString('ja-JP')}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#777">コミッション(税込)</span><span style="font-family:ui-monospace,monospace;color:#ef6c00">¥${r.totals.comm.toLocaleString('ja-JP')}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#777">清掃費(税込)</span><span style="font-family:ui-monospace,monospace;color:#ef6c00">¥${r.totals.clean.toLocaleString('ja-JP')}</span></div>
         <div style="display:flex;justify-content:space-between"><span style="color:#555">合計(税抜)</span><span style="font-family:ui-monospace,monospace;font-weight:700">¥${r.totals.sumExcl.toLocaleString('ja-JP')}</span></div>
       </div>`;
     const labelHTML=`
@@ -5609,8 +5619,8 @@ function printAcctTab(){
   const ms=MS[month];
   const data=buildAcctData(month);
   const tags=Object.keys(data).sort((a,b)=>data[a].prop.localeCompare(data[b].prop,'ja'));
-  let totIncl=0,totPaidIncl=0,totUnpaidIncl=0,totPaidCnt=0,totUnpaidCnt=0;
-  tags.forEach(t=>data[t].bks.forEach(b=>{totIncl+=b.incl;if(b.isPaid){totPaidIncl+=b.incl;totPaidCnt++;}else{totUnpaidIncl+=b.incl;totUnpaidCnt++;}}));
+  let totIncl=0,totPaidIncl=0,totUnpaidIncl=0,totPaidCnt=0,totUnpaidCnt=0,totComm=0,totClean=0;
+  tags.forEach(t=>data[t].bks.forEach(b=>{totIncl+=b.incl;totComm+=b.commIncl;totClean+=b.cleanIncl;if(b.isPaid){totPaidIncl+=b.incl;totPaidCnt++;}else{totUnpaidIncl+=b.incl;totUnpaidCnt++;}}));
   const maxCards=Math.max(1,...tags.map(t=>data[t].bks.length));
   const roomRows=tags.map(tag=>{
     const r=data[tag];
@@ -5620,16 +5630,16 @@ function printAcctTab(){
       const otaCol=b.otaShort==='AB'?'#ff5a5f':b.otaShort==='BK'?'#003580':'#888';
       const otaLabel=b.otaShort==='AB'?'Airbnb':b.otaShort==='BK'?'Booking':(b.s||'その他');
       const payClass=b.isPaid?'paid':'';
-      return `<td class="card"><div class="ota" style="background:${otaCol}">${otaLabel}</div><div class="dt">${ciD}〜${coD}</div><div class="amt">¥${b.incl.toLocaleString('ja-JP')}</div><div class="pay ${payClass}">${payDateD}</div></td>`;
+      return `<td class="card"><div class="ota" style="background:${otaCol}">${otaLabel}</div><div class="dt">${ciD}〜${coD}</div><div class="amt">¥${b.incl.toLocaleString('ja-JP')}</div><div class="cc">コミ¥${b.commIncl.toLocaleString('ja-JP')}<br>清掃¥${b.cleanIncl.toLocaleString('ja-JP')}</div><div class="pay ${payClass}">${payDateD}</div></td>`;
     }).join('');
     const cellsHtml=cards?cards+'<td class="card pad"></td>'.repeat(maxCards-r.bks.length):`<td colspan="${maxCards}" style="color:#999;padding:10px;text-align:center">予約なし</td>`;
     const subIncl=r.totals.air+r.totals.bk+r.totals.other;
-    return `<tr><td class="rlbl"><b>${r.tag}</b></td><td class="cwrap"><table class="ctbl"><tr>${cellsHtml}</tr></table></td><td class="rtot"><div><span>A税込</span><span>¥${r.totals.air.toLocaleString('ja-JP')}</span></div><div><span>B税込</span><span>¥${r.totals.bk.toLocaleString('ja-JP')}</span></div><div class="sub"><span>小計税込</span><span>¥${subIncl.toLocaleString('ja-JP')}</span></div><div><span>合計税抜</span><span>¥${r.totals.sumExcl.toLocaleString('ja-JP')}</span></div></td></tr>`;
+    return `<tr><td class="rlbl"><b>${r.tag}</b></td><td class="cwrap"><table class="ctbl"><tr>${cellsHtml}</tr></table></td><td class="rtot"><div><span>A税込</span><span>¥${r.totals.air.toLocaleString('ja-JP')}</span></div><div><span>B税込</span><span>¥${r.totals.bk.toLocaleString('ja-JP')}</span></div><div class="sub"><span>小計税込</span><span>¥${subIncl.toLocaleString('ja-JP')}</span></div><div class="cm"><span>コミ税込</span><span>¥${r.totals.comm.toLocaleString('ja-JP')}</span></div><div class="cm"><span>清掃税込</span><span>¥${r.totals.clean.toLocaleString('ja-JP')}</span></div><div><span>合計税抜</span><span>¥${r.totals.sumExcl.toLocaleString('ja-JP')}</span></div></td></tr>`;
   }).join('');
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>月次明細 ${month}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;padding:14px;font-size:10px;color:#222}
   h1{font-size:15px;text-align:center;margin-bottom:12px;letter-spacing:1px}
-  .sum{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px;background:#f5f7fb;padding:8px;border-radius:5px}
+  .sum{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:12px;background:#f5f7fb;padding:8px;border-radius:5px}
   .sum .lbl{font-size:8px;color:#666}.sum .val{font-size:11px;font-weight:700}
   table.main{width:100%;border-collapse:collapse;table-layout:fixed}
   table.main td{vertical-align:middle;border:1px solid #aaa;padding:0}
@@ -5638,12 +5648,14 @@ function printAcctTab(){
   td.rtot{width:130px;background:#e3f2fd;font-size:9px;padding:4px 7px;border-left:2px solid #90caf9}
   td.rtot div{display:flex;justify-content:space-between;padding:2px 0}
   td.rtot div.sub{border-top:1px solid #b0d4f1;padding-top:3px;margin-top:1px;font-weight:700;color:#1565c0}
+  td.rtot div.cm{color:#ef6c00}
   table.ctbl{width:100%;border-collapse:collapse;table-layout:fixed}
   table.ctbl td.card{background:#fffde7;border-right:1px solid #ddd;padding:0;vertical-align:top}
   table.ctbl td.card.pad{background:#fafafa}
   td.card .ota{color:#fff;text-align:center;padding:3px;font-size:8.5px;font-weight:700}
   td.card .dt{padding:4px 5px;text-align:center;font-size:9px;border-bottom:1px solid #e8e3a8}
   td.card .amt{padding:4px 5px;text-align:right;font-size:9.5px;font-weight:700;border-bottom:1px solid #e8e3a8;font-family:monospace}
+  td.card .cc{padding:3px 5px;text-align:center;font-size:8px;color:#777;border-bottom:1px solid #e8e3a8;line-height:1.3}
   td.card .pay{padding:4px 5px;text-align:center;font-size:9px;color:#bbb}
   td.card .pay.paid{background:#fff59d;color:#000;font-weight:700}
   tr{page-break-inside:avoid}
@@ -5655,6 +5667,8 @@ function printAcctTab(){
     <div><div class="lbl">宿泊費（税込）</div><div class="val">¥${totIncl.toLocaleString('ja-JP')}</div></div>
     <div><div class="lbl">入金済</div><div class="val" style="color:#2e7d32">¥${totPaidIncl.toLocaleString('ja-JP')} (${totPaidCnt}件)</div></div>
     <div><div class="lbl">未入金</div><div class="val" style="color:#c62828">¥${totUnpaidIncl.toLocaleString('ja-JP')} (${totUnpaidCnt}件)</div></div>
+    <div><div class="lbl">コミッション計(税込)</div><div class="val" style="color:#ef6c00">¥${totComm.toLocaleString('ja-JP')}</div></div>
+    <div><div class="lbl">清掃費計(税込)</div><div class="val" style="color:#ef6c00">¥${totClean.toLocaleString('ja-JP')}</div></div>
   </div>
   <table class="main"><tbody>${roomRows}</tbody></table>
   <div style="margin-top:10px;font-size:8px;color:#888;text-align:right">出力日時：${new Date().toLocaleString('ja-JP')}　／　民泊運営アプリ</div>
@@ -5667,16 +5681,16 @@ function dlAcctExcel(){
   const month=sel.value;if(!month)return;
   const data=buildAcctData(month);
   const tags=Object.keys(data).sort((a,b)=>data[a].prop.localeCompare(data[b].prop,'ja'));
-  let csv='物件,OTA,チェックイン,チェックアウト,日数,人数,ゲスト名,宿泊費(Airbnb),宿泊費(Booking.com),宿泊費(その他),入金日,入金状態\n';
+  let csv='物件,OTA,チェックイン,チェックアウト,日数,人数,ゲスト名,宿泊費(Airbnb),宿泊費(Booking.com),宿泊費(その他),入金日,入金状態,コミッション(税込),清掃費(税込)\n';
   tags.forEach(tag=>{
     const r=data[tag];
     r.bks.forEach(b=>{
       const air=b.otaShort==='AB'?b.incl:'';
       const bk=b.otaShort==='BK'?b.incl:'';
       const oth=(b.otaShort!=='AB'&&b.otaShort!=='BK')?b.incl:'';
-      csv+=`"${r.prop}","${b.s||''}","${b.ci}","${b.co}",${b.days||0},${b.n||1},"${(b.g||'').replace(/"/g,'""')}",${air},${bk},${oth},${b.payDate||''},${b.isPaid?'入金済':'未入金'}\n`;
+      csv+=`"${r.prop}","${b.s||''}","${b.ci}","${b.co}",${b.days||0},${b.n||1},"${(b.g||'').replace(/"/g,'""')}",${air},${bk},${oth},${b.payDate||''},${b.isPaid?'入金済':'未入金'},${b.commIncl},${b.cleanIncl}\n`;
     });
-    csv+=`"${r.prop} 小計",,,,${r.days},${r.guests},,${r.totals.air},${r.totals.bk},${r.totals.other},,${r.totals.sumIncl}\n`;
+    csv+=`"${r.prop} 小計",,,,${r.days},${r.guests},,${r.totals.air},${r.totals.bk},${r.totals.other},,${r.totals.sumIncl},${r.totals.comm},${r.totals.clean}\n`;
   });
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='月次明細_'+month+'.csv';a.click();
