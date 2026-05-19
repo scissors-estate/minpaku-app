@@ -1425,14 +1425,11 @@ function cleanupOrphanRooms(){
     if(!canonicalSet||!canonicalSet.size)return;  // 物件が清掃CSVにない→対象外
     if(canonicalSet.has(tag))return;  // 正規タグ→残す
     const hasData=(BK[tag]||[]).length>0||(CH[tag]||[]).length>0;
-    if(hasData){
-      // データあり：正規タグが1つだけならそこにマージ可能
-      if(canonicalSet.size===1){
-        orphans.push({tag,canonical:[...canonicalSet][0]});
-      }
-      return;  // 複数正規タグ→マージ先不明で残す
-    }
-    orphans.push({tag,canonical:null});  // データなし→単純削除
+    // 予約 or 清掃データがある＝実在する部屋。清掃CSVは「直近の清掃予定」だけで
+    // 部屋マスタではないため、ここに載っていなくても絶対に統合・削除しない。
+    // （以前は canonicalSet.size===1 のとき実在部屋を1つに統合する重大不具合があった）
+    if(hasData)return;
+    orphans.push({tag,canonical:null});  // データが一切無い真のゴーストのみ削除
   });
   orphans.forEach(({tag,canonical})=>{
     if(canonical){
