@@ -2541,6 +2541,20 @@ function isCleanDoneSmart(ds,tag,cm){
   }
   return false;
 }
+// 清掃 済/未 の統一判定。件数タイル・絞り込み分類・カード表示の3か所で共用し不整合を防ぐ。
+// 空室（次の清掃予定なし）は直前清掃(r.lc)が完了済みなら当日・未来でも「済」を継承。
+function cleanChk(ds,tag,r){
+  let chk=isCleanDoneSmart(ds,tag,r.cm)||isCleanDoneByLastClean(ds,tag,r.lc);
+  if(!chk && r.type==='vacant' && r.lc && r.lc.d){
+    const lcd=r.lc.d.replace(/\//g,'-');
+    const c=S.get(CHK_KEY)||{};
+    for(let i=-3;i<=3;i++){
+      const dd=new Date(lcd);dd.setDate(dd.getDate()+i);
+      if(c[dd.toISOString().split('T')[0]+'_'+tag]==='1'){chk=true;break;}
+    }
+  }
+  return chk;
+}
 function getPhotoUrl(ds,tag){try{const p=S.get(PHOTO_KEY)||{};return p[ds+'_'+tag]||'';}catch(e){return'';}}
 function savePhotoUrl(ds,tag,url){
   try{const p=S.get(PHOTO_KEY)||{};p[ds+'_'+tag]=url;S.set(PHOTO_KEY,p);}catch(e){}
@@ -2637,17 +2651,7 @@ function buildCard(tag,r,ds){
   // CMで紐付いた清掃日が完了していれば「済」と判定（AirHostと同じ「当日タスクのみ」表示にする）
   // 過去日：直前の清掃タスク（r.lc）が完了していれば「済」として継承
   // （CSV更新で清掃日がズレても、最後の清掃が完了済みなら空室期間中は「済」のまま）
-  let chk=isCleanDoneSmart(ds,tag,r.cm)||isCleanDoneByLastClean(ds,tag,r.lc);
-  // 空室（次の清掃予定なし）は、直前の清掃(r.lc)が完了済みなら当日・未来でも「済」のまま継承する
-  // （isCleanDoneByLastClean/Smart の救済は過去日限定のため、今日以降に誤って「未」へ反転するのを防ぐ）
-  if(!chk && r.type==='vacant' && r.lc && r.lc.d){
-    const lcd=r.lc.d.replace(/\//g,'-');
-    const c=S.get(CHK_KEY)||{};
-    for(let i=-3;i<=3;i++){
-      const dd=new Date(lcd);dd.setDate(dd.getDate()+i);
-      if(c[dd.toISOString().split('T')[0]+'_'+tag]==='1'){chk=true;break;}
-    }
-  }
+  const chk=cleanChk(ds,tag,r);
   // ③ Determine status line color and label
   function getStatusLine(){
     const type=r.type;
@@ -2777,7 +2781,7 @@ function renderClean(){
   document.getElementById('clRow').style.display=cS.size>2?'flex':'none';
   let cnt={t:tags.length,ci_wait:0,ci_done:0,st:0,co_wait:0,co_done:0,vc_done:0,vc_wait:0,cp:0,wn:0,dg:0};
   tags.forEach(t=>{
-    const r=getRoomSt(t,ds);const chkT=isCleanDoneSmart(ds,t,r.cm)||isCleanDoneByLastClean(ds,t,r.lc);
+    const r=getRoomSt(t,ds);const chkT=cleanChk(ds,t,r);
     if(['checkin','warn','unassigned','danger'].includes(r.type)){chkT?cnt.ci_done++:cnt.ci_wait++;}
     if(r.type==='staying')cnt.st++;
     if(r.type==='cleanonly'){chkT?cnt.co_done++:cnt.co_wait++;}
@@ -2802,7 +2806,7 @@ function renderClean(){
   tags.forEach(tag=>{
     if(!cF.props.has('all')&&!cF.props.has(ROOMS[tag]))return;
     const r=getRoomSt(tag,ds);
-    const chkF=isCleanDoneSmart(ds,tag,r.cm)||isCleanDoneByLastClean(ds,tag,r.lc);
+    const chkF=cleanChk(ds,tag,r);
     // ③ New state classification
     let stateKey;
     if(['checkin','warn','unassigned','danger'].includes(r.type)){
