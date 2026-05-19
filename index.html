@@ -5519,20 +5519,22 @@ function buildAcctData(month){
       // コミッション(OTAサービス料)・清掃費(クリーニング代)を売上と同じ日数按分＋税込で算出
       const _ratio=portion.totalDays>0?portion.daysInMonth/portion.totalDays:0;
       const commIncl=Math.round((b.commission||0)*_ratio*1.1);
+      const commExcl=Math.round((b.commission||0)*_ratio);
       const cleanIncl=Math.round((b.cleaning||0)*_ratio*1.1);
-      return{...b,otaShort,payDate:pd.payDate||'',isPaid:pd.status==='1',incl:portion.incl,exclProrated:portion.excl,commIncl,cleanIncl,daysInMonth:portion.daysInMonth,isPartial:portion.isPartial,isCarryIn:portion.isCarryIn,isCarryOut:portion.isCarryOut,totalDays:portion.totalDays};
+      return{...b,otaShort,payDate:pd.payDate||'',isPaid:pd.status==='1',incl:portion.incl,exclProrated:portion.excl,commIncl,commExcl,cleanIncl,daysInMonth:portion.daysInMonth,isPartial:portion.isPartial,isCarryIn:portion.isCarryIn,isCarryOut:portion.isCarryOut,totalDays:portion.totalDays};
     });
     bks.sort((a,b)=>a.ci.localeCompare(b.ci));
     let air=0,bk=0,other=0,sumIncl=0,sumExcl=0,days=0,guests=0,comm=0,clean=0;
     let commAir=0,commBk=0,commOther=0,cleanAir=0,cleanBk=0,cleanOther=0,exclAir=0,exclBk=0,exclOther=0;
+    let commEx=0,commExAir=0,commExBk=0,commExOther=0;
     bks.forEach(b=>{
       sumIncl+=b.incl;sumExcl+=b.exclProrated;days+=b.daysInMonth;guests+=(b.n||1);
-      comm+=b.commIncl;clean+=b.cleanIncl;
-      if(b.otaShort==='AB'){air+=b.incl;commAir+=b.commIncl;cleanAir+=b.cleanIncl;exclAir+=b.exclProrated;}
-      else if(b.otaShort==='BK'){bk+=b.incl;commBk+=b.commIncl;cleanBk+=b.cleanIncl;exclBk+=b.exclProrated;}
-      else{other+=b.incl;commOther+=b.commIncl;cleanOther+=b.cleanIncl;exclOther+=b.exclProrated;}
+      comm+=b.commIncl;clean+=b.cleanIncl;commEx+=b.commExcl;
+      if(b.otaShort==='AB'){air+=b.incl;commAir+=b.commIncl;commExAir+=b.commExcl;cleanAir+=b.cleanIncl;exclAir+=b.exclProrated;}
+      else if(b.otaShort==='BK'){bk+=b.incl;commBk+=b.commIncl;commExBk+=b.commExcl;cleanBk+=b.cleanIncl;exclBk+=b.exclProrated;}
+      else{other+=b.incl;commOther+=b.commIncl;commExOther+=b.commExcl;cleanOther+=b.cleanIncl;exclOther+=b.exclProrated;}
     });
-    result[tag]={prop,tag,bks,totals:{air,bk,other,sumIncl,sumExcl,comm,clean,commAir,commBk,commOther,cleanAir,cleanBk,cleanOther,exclAir,exclBk,exclOther},days,guests};
+    result[tag]={prop,tag,bks,totals:{air,bk,other,sumIncl,sumExcl,comm,clean,commAir,commBk,commOther,commEx,commExAir,commExBk,commExOther,cleanAir,cleanBk,cleanOther,exclAir,exclBk,exclOther},days,guests};
   });
   return result;
 }
@@ -5591,26 +5593,29 @@ function renderAcctTab(){
     }).join('');
     const T=r.totals;
     const _yen=n=>'¥'+(n||0).toLocaleString('ja-JP');
-    const _hasOther=(T.other||T.commOther||T.cleanOther||T.exclOther)!==0;
+    const _hasOther=(T.other||T.commOther||T.exclOther)!==0;
     const _td='padding:2px 5px;text-align:right;font-family:ui-monospace,monospace';
-    const _lb='padding:2px 5px;text-align:left;font-family:sans-serif;color:#555;white-space:nowrap';
+    const _lb='padding:2px 5px 2px 14px;text-align:left;font-family:sans-serif;color:#555;white-space:nowrap';
+    const _sec='padding:5px 5px 2px;text-align:left;font-family:sans-serif;font-weight:700;color:#1565c0';
     const totalsHTML=`
       <div style="background:#e3f2fd;min-width:250px;flex-shrink:0;padding:8px 10px;border-left:2px solid #90caf9;font-size:.76em;display:flex;flex-direction:column;justify-content:center">
         <table style="width:100%;border-collapse:collapse">
           <thead><tr>
-            <th style="${_lb};font-weight:600"></th>
+            <th style="${_td};text-align:left;font-weight:600"></th>
             <th style="${_td};font-weight:700;color:#ff5a5f">Airbnb</th>
             <th style="${_td};font-weight:700;color:#003580">Booking</th>
             <th style="${_td};font-weight:700;color:#1565c0">合計</th>
           </tr></thead>
           <tbody>
-            <tr><td style="${_lb}">売上(税込)</td><td style="${_td}">${_yen(T.air)}</td><td style="${_td}">${_yen(T.bk)}</td><td style="${_td};font-weight:700;color:#1565c0">${_yen(T.air+T.bk+T.other)}</td></tr>
+            <tr><td colspan="4" style="${_sec}">■ 税込</td></tr>
+            <tr><td style="${_lb}">売上</td><td style="${_td}">${_yen(T.air)}</td><td style="${_td}">${_yen(T.bk)}</td><td style="${_td};font-weight:700;color:#1565c0">${_yen(T.air+T.bk+T.other)}</td></tr>
             <tr><td style="${_lb};color:#777">コミッション</td><td style="${_td};color:#ef6c00">${_yen(T.commAir)}</td><td style="${_td};color:#ef6c00">${_yen(T.commBk)}</td><td style="${_td};color:#ef6c00;font-weight:700">${_yen(T.comm)}</td></tr>
-            <tr><td style="${_lb};color:#777">清掃費</td><td style="${_td};color:#ef6c00">${_yen(T.cleanAir)}</td><td style="${_td};color:#ef6c00">${_yen(T.cleanBk)}</td><td style="${_td};color:#ef6c00;font-weight:700">${_yen(T.clean)}</td></tr>
-            <tr style="border-top:1px solid #b0d4f1"><td style="${_lb}">売上(税抜)</td><td style="${_td};padding-top:4px">${_yen(T.exclAir)}</td><td style="${_td};padding-top:4px">${_yen(T.exclBk)}</td><td style="${_td};padding-top:4px;font-weight:700">${_yen(T.sumExcl)}</td></tr>
+            <tr><td colspan="4" style="${_sec};border-top:1px solid #b0d4f1">■ 税抜</td></tr>
+            <tr><td style="${_lb}">売上</td><td style="${_td}">${_yen(T.exclAir)}</td><td style="${_td}">${_yen(T.exclBk)}</td><td style="${_td};font-weight:700">${_yen(T.sumExcl)}</td></tr>
+            <tr><td style="${_lb};color:#777">コミッション</td><td style="${_td};color:#ef6c00">${_yen(T.commExAir)}</td><td style="${_td};color:#ef6c00">${_yen(T.commExBk)}</td><td style="${_td};color:#ef6c00;font-weight:700">${_yen(T.commEx)}</td></tr>
           </tbody>
         </table>
-        ${_hasOther?`<div style="font-size:.86em;color:#888;margin-top:5px;text-align:right;line-height:1.3">※その他OTA 売上${_yen(T.other)}／コミ${_yen(T.commOther)}／清掃${_yen(T.cleanOther)} を合計に含む</div>`:''}
+        ${_hasOther?`<div style="font-size:.86em;color:#888;margin-top:5px;text-align:right;line-height:1.3">※その他OTA 売上(税込)${_yen(T.other)}／コミ(税込)${_yen(T.commOther)} を合計に含む</div>`:''}
       </div>`;
     const labelHTML=`
       <div style="background:#ffebee;min-width:140px;width:140px;flex-shrink:0;padding:10px 12px;border-right:2px solid #ef9a9a;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
@@ -5649,7 +5654,7 @@ function printAcctTab(){
     const cellsHtml=cards?cards+'<td class="card pad"></td>'.repeat(maxCards-r.bks.length):`<td colspan="${maxCards}" style="color:#999;padding:10px;text-align:center">予約なし</td>`;
     const T=r.totals;
     const _yen=n=>'¥'+(n||0).toLocaleString('ja-JP');
-    return `<tr><td class="rlbl"><b>${r.tag}</b></td><td class="cwrap"><table class="ctbl"><tr>${cellsHtml}</tr></table></td><td class="rtot"><table class="rtt"><tr><th></th><th class="ab">Airbnb</th><th class="bk">Booking</th><th class="tt">合計</th></tr><tr><td>売上(税込)</td><td>${_yen(T.air)}</td><td>${_yen(T.bk)}</td><td class="tt">${_yen(T.air+T.bk+T.other)}</td></tr><tr><td>コミッション</td><td class="cm">${_yen(T.commAir)}</td><td class="cm">${_yen(T.commBk)}</td><td class="cm tt">${_yen(T.comm)}</td></tr><tr><td>清掃費</td><td class="cm">${_yen(T.cleanAir)}</td><td class="cm">${_yen(T.cleanBk)}</td><td class="cm tt">${_yen(T.clean)}</td></tr><tr class="bt"><td>売上(税抜)</td><td>${_yen(T.exclAir)}</td><td>${_yen(T.exclBk)}</td><td class="tt">${_yen(T.sumExcl)}</td></tr></table></td></tr>`;
+    return `<tr><td class="rlbl"><b>${r.tag}</b></td><td class="cwrap"><table class="ctbl"><tr>${cellsHtml}</tr></table></td><td class="rtot"><table class="rtt"><tr><th></th><th class="ab">Airbnb</th><th class="bk">Booking</th><th class="tt">合計</th></tr><tr class="sec"><td colspan="4">■ 税込</td></tr><tr><td>売上</td><td>${_yen(T.air)}</td><td>${_yen(T.bk)}</td><td class="tt">${_yen(T.air+T.bk+T.other)}</td></tr><tr><td>コミッション</td><td class="cm">${_yen(T.commAir)}</td><td class="cm">${_yen(T.commBk)}</td><td class="cm tt">${_yen(T.comm)}</td></tr><tr class="sec bt"><td colspan="4">■ 税抜</td></tr><tr><td>売上</td><td>${_yen(T.exclAir)}</td><td>${_yen(T.exclBk)}</td><td class="tt">${_yen(T.sumExcl)}</td></tr><tr><td>コミッション</td><td class="cm">${_yen(T.commExAir)}</td><td class="cm">${_yen(T.commExBk)}</td><td class="cm tt">${_yen(T.commEx)}</td></tr></table></td></tr>`;
   }).join('');
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>月次明細 ${month}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;padding:14px;font-size:10px;color:#222}
@@ -5667,6 +5672,7 @@ function printAcctTab(){
   table.rtt th.ab{color:#ff5a5f}table.rtt th.bk{color:#003580}table.rtt th.tt{color:#1565c0}
   table.rtt td{text-align:right;padding:1px 3px;font-family:monospace}
   table.rtt td:first-child{text-align:left;font-family:sans-serif;color:#555;white-space:nowrap}
+  table.rtt tr.sec td{text-align:left;font-weight:700;color:#1565c0;font-family:sans-serif;padding:3px 3px 1px}
   table.rtt td.cm{color:#ef6c00}
   table.rtt td.tt{font-weight:700;color:#1565c0}
   table.rtt tr.bt td{border-top:1px solid #b0d4f1;padding-top:2px}
