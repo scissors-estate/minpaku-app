@@ -5708,16 +5708,16 @@ function dlAcctExcel(){
   const month=sel.value;if(!month)return;
   const data=buildAcctData(month);
   const tags=Object.keys(data).sort((a,b)=>data[a].prop.localeCompare(data[b].prop,'ja'));
-  let csv='物件,OTA,チェックイン,チェックアウト,日数,人数,ゲスト名,宿泊費(Airbnb),宿泊費(Booking.com),宿泊費(その他),入金日,入金状態,コミッション(税込),清掃費(税込)\n';
+  let csv='部屋名,OTA,チェックイン,チェックアウト,日数,人数,ゲスト名,宿泊費(Airbnb),宿泊費(Booking.com),宿泊費(その他),入金日,入金状態,コミッション(税込),清掃費(税込)\n';
   tags.forEach(tag=>{
     const r=data[tag];
     r.bks.forEach(b=>{
       const air=b.otaShort==='AB'?b.incl:'';
       const bk=b.otaShort==='BK'?b.incl:'';
       const oth=(b.otaShort!=='AB'&&b.otaShort!=='BK')?b.incl:'';
-      csv+=`"${r.prop}","${b.s||''}","${b.ci}","${b.co}",${b.days||0},${b.n||1},"${(b.g||'').replace(/"/g,'""')}",${air},${bk},${oth},${b.payDate||''},${b.isPaid?'入金済':'未入金'},${b.commIncl},${b.cleanIncl}\n`;
+      csv+=`"${r.tag}","${b.s||''}","${b.ci}","${b.co}",${b.days||0},${b.n||1},"${(b.g||'').replace(/"/g,'""')}",${air},${bk},${oth},${b.payDate||''},${b.isPaid?'入金済':'未入金'},${b.commIncl},${b.cleanIncl}\n`;
     });
-    csv+=`"${r.prop} 小計",,,,${r.days},${r.guests},,${r.totals.air},${r.totals.bk},${r.totals.other},,${r.totals.sumIncl},${r.totals.comm},${r.totals.clean}\n`;
+    csv+=`"${r.tag} 小計",,,,${r.days},${r.guests},,${r.totals.air},${r.totals.bk},${r.totals.other},,${r.totals.sumIncl},${r.totals.comm},${r.totals.clean}\n`;
   });
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='月次明細_'+month+'.csv';a.click();
