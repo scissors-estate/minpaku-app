@@ -3462,7 +3462,12 @@ function handlePayCSV(files){
       done++;
       const fmt=isAirbnb?'Airbnb':isBkJa?'Booking.com（日本語）':'Booking.com（英語）';
       const adjMsg=adjMatched>0?` ／ コミッション調整額 ${adjMatched}件を取込`:'';
-      showToast(`✅ ${fmt}: ${matched}件を消込しました${adjMsg}`,'#2e7d32');
+      if(matched>0||adjMatched>0){
+        showToast(`✅ ${fmt}: ${matched}件を消込しました${adjMsg}`,'#2e7d32');
+      }else{
+        // 1件もマッチしない＝CSVの形式変更(列名)やデータ不一致の可能性。緑の成功で見逃さないよう警告色で出す
+        showToast(`⚠️ ${fmt}: 0件でした。CSVの形式が変わった可能性があります（列名をご確認ください）`,'#e65100');
+      }
       // 全ファイル処理完了後に取込結果フィルター表示
       if(done===fileArr.length){
         _payHighlight=new Set(allMatchedIds);
