@@ -3383,9 +3383,9 @@ function handlePayCSV(files){
       // フォーマット判定
       // Airbnb: '確認コード' 列あり
       // Booking.com 英語: 'Reference number' 列あり
-      // Booking.com 日本語: '照会番号' 列あり
+      // Booking.com 日本語: '照会番号'（旧）または '予約番号'（新・2026-05〜仕様変更）列あり
       const isAirbnb=!!(rows[0]&&rows[0]['確認コード']!==undefined);
-      const isBkJa=!isAirbnb&&!!(rows[0]&&rows[0]['照会番号']!==undefined);
+      const isBkJa=!isAirbnb&&!!(rows[0]&&(rows[0]['照会番号']!==undefined||rows[0]['予約番号']!==undefined));
       if(isAirbnb){
         // Airbnb format
         rows.forEach(row=>{
@@ -3404,10 +3404,10 @@ function handlePayCSV(files){
           });
         });
       } else if(isBkJa){
-        // Booking.com 日本語フォーマット（照会番号・お支払い日・純収益）
+        // Booking.com 日本語フォーマット（予約番号[新]/照会番号[旧]・お支払い日・純収益）
         const adj=S.get(ADJ_KEY)||{};
         rows.forEach(row=>{
-          const refNum=(row['照会番号']||'').trim();
+          const refNum=String(row['予約番号']||row['照会番号']||'').trim();
           const type=(row['タイプ']||'').trim();
           if(!refNum)return;
           const payDate=normDate(row['お支払い日']||'');
