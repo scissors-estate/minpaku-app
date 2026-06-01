@@ -2427,8 +2427,9 @@ function bulkCompleteSelected(){
   if(!tags.length){alert('カードを選択してください');return;}
   if(!confirm(tags.length+'件を完了にしますか？')){selectAllCards(false);return;}
   const c=S.get(CHK_KEY)||{};
+  const upd={};
   tags.forEach(tag=>{
-    c[ds+'_'+tag]='1';
+    const mk=ds+'_'+tag; c[mk]='1'; upd[mk]='1';
     const bks=BK[tag]||[];
     const nextCI=bks.map(b=>b.ci).filter(ci=>ci>ds).sort()[0];
     let cur=new Date(ds);cur.setDate(cur.getDate()+1);
@@ -2436,12 +2437,12 @@ function bulkCompleteSelected(){
     let safety=0;
     while(safety<60){
       const dStr=cur.toISOString().split('T')[0];
-      c[dStr+'_'+tag]='1';safety++;
+      const k=dStr+'_'+tag; c[k]='1'; upd[k]='1'; safety++;
       if(limit&&cur>=limit)break;if(!limit)break;
       cur.setDate(cur.getDate()+1);
     }
   });
-  S.set(CHK_KEY,c);renderClean();
+  _origSset(CHK_KEY,c);fbCheckUpdate(upd);renderClean();
 }
 
 function chgDate(d){const inp=document.getElementById('cleanDate');const dt=new Date(inp.value);dt.setDate(dt.getDate()+d);inp.value=dt.toISOString().split('T')[0];renderClean();}
@@ -2573,14 +2574,17 @@ function togChk(ds,tag,val,chkEl){
     if(!ok){if(chkEl)chkEl.checked=!val;return;}
     try{
       const c=S.get(CHK_KEY)||{};
-      c[ds+'_'+tag]=val?'1':'0';
+      const upd={};                       // Firebaseへ差分書き込みする変更キー
+      const mainKey=ds+'_'+tag;
+      c[mainKey]=val?'1':'0'; upd[mainKey]=val?'1':'0';
       if(!val){
         // 解除時：±3日以内の'1'もクリア（fallback救済で残った古いチェックを除去）
         for(let i=-3;i<=3;i++){
           if(i===0)continue;
           const d=new Date(ds);d.setDate(d.getDate()+i);
           const dStr=d.toISOString().split('T')[0];
-          if(c[dStr+'_'+tag]==='1') delete c[dStr+'_'+tag];
+          const k=dStr+'_'+tag;
+          if(c[k]==='1'){ delete c[k]; upd[k]=null; }
         }
       }
       if(val){
@@ -2597,19 +2601,25 @@ function togChk(ds,tag,val,chkEl){
           if(chDates.has(dStr))break;
           // 次のチェックイン日に達したら伝播をストップ（その日は別の清掃が必要なので未完了のまま）
           if(limit&&cur>=limit)break;
-          c[dStr+'_'+tag]='1';safety++;
+          const k=dStr+'_'+tag;
+          c[k]='1'; upd[k]='1'; safety++;
           if(!limit)break;
           cur.setDate(cur.getDate()+1);
         }
       }
-      S.set(CHK_KEY,c);
+      _origSset(CHK_KEY,c);               // ローカル保存（全体echo書き込みは避ける）
+      fbCheckUpdate(upd);                 // Firebaseは変更キーだけ差分更新
     }catch(e){}
     renderClean();
   });
 }
 function resetChks(){
   const ds=document.getElementById('cleanDate').value;
-  try{const c=S.get(CHK_KEY)||{};Object.keys(ROOMS).forEach(t=>{delete c[ds+'_'+t];});S.set(CHK_KEY,c);}catch(e){}
+  try{
+    const c=S.get(CHK_KEY)||{};const upd={};
+    Object.keys(ROOMS).forEach(t=>{const k=ds+'_'+t;if(k in c){delete c[k];}upd[k]=null;});
+    _origSset(CHK_KEY,c);fbCheckUpdate(upd);
+  }catch(e){}
   renderClean();
 }
 
@@ -2624,6 +2634,7 @@ function cleanupOverpropagatedChks(){
   if(!Object.keys(c).length){S.set(flagKey,true);return;} // チェックデータなし→何もせず終了
   const today=new Date().toISOString().split('T')[0];
   const cleaned=[];
+  const upd={};
   Object.keys(BK).forEach(tag=>{
     (BK[tag]||[]).forEach(bk=>{
       const ci=bk.ci;
@@ -2631,12 +2642,13 @@ function cleanupOverpropagatedChks(){
       const key=ci+'_'+tag;
       if(c[key]==='1'){
         delete c[key];
+        upd[key]=null;
         cleaned.push(`${ci} ${tag} (${bk.g||''})`);
       }
     });
   });
   if(cleaned.length>0){
-    S.set(CHK_KEY,c);
+    _origSset(CHK_KEY,c);fbCheckUpdate(upd);
     console.log('🧹 清掃伝播バグの誤マーク修復:',cleaned);
     setTimeout(()=>{
       alert(`✅ 清掃の誤チェック ${cleaned.length} 件を自動修復しました\n\n${cleaned.slice(0,8).join('\n')}${cleaned.length>8?'\n…他 '+(cleaned.length-8)+' 件':''}`);
@@ -4794,7 +4806,7 @@ function initFirebase(){
     });
     fbDB.ref('checks').on('value', snap => {
       const val = snap.val();
-      if(val) S.set(CHK_KEY, val);
+      if(val) _origSset(CHK_KEY, val); // 受信はローカル反映のみ（全体echo書き込みしない）
       // チェックデータ取得後にも修復を試みる（BKが先に来た場合のため）
       try{ cleanupOverpropagatedChks(); }catch(e){}
     });
@@ -4974,6 +4986,14 @@ function fbUpdate(path, data){
   if(!fbReady || !fbDB) return;
   try { fbDB.ref(path).update(data); } catch(e) { console.warn('fbUpdate error:', e); }
 }
+// 清掃チェックは「変更したキーだけ」を差分で書き込む（ノード全体の .set 置換をやめ、
+// 別端末・古いタブが他人の最新チェックを丸ごと上書きして消すのを防ぐ）。
+// updates 例: { '2026-05-30_立石A':'1', '2026-05-31_梅島303':null }（null=そのキーを削除）
+function fbCheckUpdate(updates){
+  if(!fbReady || !fbDB) return;
+  if(!updates || !Object.keys(updates).length) return;
+  try { fbDB.ref('checks').update(sanitizeFbKeys(updates)); } catch(e) { console.warn('fbCheckUpdate error:', e); }
+}
 
 // CSVロード後にFirebaseへ保存
 function saveBookingsToFb(){
@@ -4994,7 +5014,7 @@ const _origSset = S.set.bind(S);
 S.set = function(k, v){
   _origSset(k, v);
   if(!fbReady) return;
-  if(k === CHK_KEY)      fbWrite('checks', v);
+  // 清掃チェック(CHK_KEY)は fbCheckUpdate による差分書き込みに一本化（全体置換を廃止）
   if(k === PAY_KEY)      fbWrite('payments', v);
   if(k === EXP_KEY)      fbWrite('expenses', v);
   if(k === UTIL_KEY)     fbWrite('utilities', v);
