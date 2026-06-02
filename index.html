@@ -3250,6 +3250,12 @@ function renderDisc(){
 
   const isArchived=_discView==='archived';
 
+  // 並び替え（ドラッグ）：閲覧専用ユーザーには出さない
+  const discReadOnly=document.body.classList.contains('view-discount');
+  const dragCol=discReadOnly?'':'<col style="width:26px">';
+  const dragTh=discReadOnly?'':'<th style="padding:8px 2px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8"></th>';
+  const hintHtml=discReadOnly?'':`<div style="font-size:.75em;color:#888;margin:0 0 6px">💡 行の左端「⋮⋮」をドラッグで並び替えできます</div>`;
+
   // ── カード表示（モバイル） ──
   const cardsHtml=`<div class="disc-show-card">
     ${discs.map(d=>{
@@ -3280,13 +3286,14 @@ function renderDisc(){
 
   // ── テーブル表示（デスクトップ） ──
   const sep='border-right:1px solid #e0e2f0';
-  const tableHtml=`<div class="disc-show-table disc-tbl-wrap">
+  const tableHtml=`<div class="disc-show-table disc-tbl-wrap">${hintHtml}
     <table style="width:100%;border-collapse:collapse;font-size:.87em;table-layout:fixed">
       <colgroup>
-        <col style="width:96px"><col style="width:76px"><col style="width:200px"><col style="width:82px"><col style="width:84px"><col><col style="width:112px">
+        ${dragCol}<col style="width:96px"><col style="width:76px"><col style="width:200px"><col style="width:82px"><col style="width:84px"><col><col style="width:112px">
       </colgroup>
       <thead>
         <tr style="background:#eaecf8">
+          ${dragTh}
           <th style="padding:8px 6px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">OTA</th>
           <th style="padding:8px 8px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:center">部屋</th>
           <th style="padding:8px 10px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8;color:#4a4f7a;font-weight:700;font-size:.76em;text-align:left">内容</th>
@@ -3301,7 +3308,8 @@ function renderDisc(){
           const even=i%2===0;
           const bg=isArchived?(even?'#f9f9f9':'#f3f3f3'):(even?'#fff':'#f7f8fd');
           const faded=isArchived?'opacity:.72':'';
-          return`<tr style="background:${bg};${faded}">
+          return`<tr data-did="${d.id}" style="background:${bg};${faded}">
+            ${discReadOnly?'':`<td class="disc-drag" style="cursor:grab;text-align:center;color:#bbb;font-size:14px;user-select:none;line-height:1;${sep};border-bottom:1px solid #e0e2f0" title="ドラッグで並び替え">⋮⋮</td>`}
             <td style="padding:8px 6px;border-bottom:1px solid #e0e2f0;${sep};text-align:center">${otaBadge(d.ota||'その他')}</td>
             <td style="padding:8px 8px;border-bottom:1px solid #e0e2f0;${sep};text-align:center;font-weight:600">${d.room||'—'}</td>
             <td style="padding:8px 10px;border-bottom:1px solid #e0e2f0;${sep};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(d.content||'').replace(/"/g,'&quot;')}">${d.content||'—'}</td>
@@ -3323,6 +3331,34 @@ function renderDisc(){
   </div>`;
 
   wrap.innerHTML=cardsHtml+tableHtml;
+  if(!discReadOnly)initDiscSortable();
+}
+
+let _discSortable=null;
+function initDiscSortable(){
+  if(typeof Sortable==='undefined')return;
+  const tbody=document.querySelector('#discTableWrap table tbody');
+  if(!tbody)return;
+  if(_discSortable){try{_discSortable.destroy();}catch(e){}}
+  _discSortable=Sortable.create(tbody,{
+    handle:'.disc-drag',
+    animation:150,
+    onEnd:function(){
+      const ids=[...tbody.querySelectorAll('tr[data-did]')].map(tr=>tr.dataset.did);
+      reorderDiscsByVisibleIds(ids);
+    }
+  });
+}
+// 表示中(フィルタ後)の行の新しい並び順を、全体配列に反映して保存。
+// 非表示(フィルタ除外)の行は元の位置のまま維持する。
+function reorderDiscsByVisibleIds(visibleIdsNewOrder){
+  const all=getDiscs();
+  const byId={};all.forEach(d=>{byId[d.id]=d;});
+  const visSet=new Set(visibleIdsNewOrder);
+  let vi=0;
+  const result=all.map(item=> visSet.has(item.id) ? byId[visibleIdsNewOrder[vi++]] : item );
+  saveDiscs(result);
+  renderDisc();
 }
 
 function openDiscModal(id){
