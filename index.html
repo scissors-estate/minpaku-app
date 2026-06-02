@@ -3254,7 +3254,6 @@ function renderDisc(){
   const discReadOnly=document.body.classList.contains('view-discount');
   const dragCol=discReadOnly?'':'<col style="width:26px">';
   const dragTh=discReadOnly?'':'<th style="padding:8px 2px;border-bottom:2px solid #b8bbdc;border-right:1px solid #c8cae8"></th>';
-  const hintHtml=discReadOnly?'':`<div style="font-size:.75em;color:#888;margin:0 0 6px">💡 行の左端「⋮⋮」をドラッグで並び替えできます</div>`;
 
   // ── カード表示（モバイル） ──
   const cardsHtml=`<div class="disc-show-card">
@@ -3286,7 +3285,7 @@ function renderDisc(){
 
   // ── テーブル表示（デスクトップ） ──
   const sep='border-right:1px solid #e0e2f0';
-  const tableHtml=`<div class="disc-show-table disc-tbl-wrap">${hintHtml}
+  const tableHtml=`<div class="disc-show-table disc-tbl-wrap">
     <table style="width:100%;border-collapse:collapse;font-size:.87em;table-layout:fixed">
       <colgroup>
         ${dragCol}<col style="width:96px"><col style="width:76px"><col style="width:200px"><col style="width:82px"><col style="width:84px"><col><col style="width:112px">
