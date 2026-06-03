@@ -5386,8 +5386,9 @@ function renderAcc(){
   </tr>`;}).join('');
 
   // お支払い番号（入金）ごとにグループ化して表示（見出しに入金日・件数・入金合計）。Booking.com/Airbnb共用。
-  const renderPayoutGrouped=(rows,bg)=>{
+  const renderPayoutGrouped=(rows,bg,theme)=>{
     if(!rows.length)return '';
+    theme=theme||{bg:'#e3f2fd',color:'#1565c0',border:'#90caf9'};
     const groups=new Map();
     rows.forEach(r=>{const key=r.payoutId||'__nopayout__';if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);});
     const keys=[...groups.keys()].sort((a,b)=>{
@@ -5403,8 +5404,8 @@ function renderAcc(){
       const label=key==='__nopayout__'
         ?`お支払い番号なし ／ ${grp.length}件`
         :`📦 お支払い番号 ${key} ／ 入金日 ${gDate} ／ ${grp.length}件`;
-      const hc='color:#1565c0;font-weight:600;border-top:2px solid #90caf9';
-      const head=`<tr style="background:#e3f2fd">`+
+      const hc=`color:${theme.color};font-weight:600;border-top:2px solid ${theme.border}`;
+      const head=`<tr style="background:${theme.bg}">`+
         `<td colspan="3" style="${tdStyle};${hc}">${label}</td>`+
         `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace">${fmtF(gAmt)}</td>`+
         `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace">${fmtF(gStay)}</td>`+
@@ -5447,11 +5448,11 @@ function renderAcc(){
 
   document.getElementById('accContent').innerHTML=`
     <div style="margin-bottom:6px"><span style="display:inline-block;background:#FF5A5F;color:#fff;font-size:.78em;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.02em">Airbnb</span></div>
-    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderPayoutGrouped(airbnbRows,'#fff5f5')}
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderPayoutGrouped(airbnbRows,'#fff5f5',{bg:'#ffe3ea',color:'#c2185b',border:'#f48fb1'})}
       <tr style="background:#ffe8e8;font-weight:700"><td colspan="5" style="${tdStyle}">Airbnb手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(airbnbTotal)}</td></tr>
     </tbody></table>
     <div style="margin:12px 0 6px"><span style="display:inline-block;background:#003580;color:#fff;font-size:.78em;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.02em">Booking.com</span></div>
-    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderPayoutGrouped(bookingRows,'#f0f4ff')}
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderPayoutGrouped(bookingRows,'#f0f4ff',{bg:'#e3f2fd',color:'#1565c0',border:'#90caf9'})}
       <tr style="background:#dce6f5;font-weight:700"><td colspan="5" style="${tdStyle}">Booking.com手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(bookingTotal)}</td></tr>
     </tbody></table>
     <div style="font-size:.9em;font-weight:700;color:#4CAF50;margin:12px 0 6px">その他（手動入力）</div>
