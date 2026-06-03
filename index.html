@@ -740,7 +740,9 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
       <select id="accMonth" style="border:1.5px solid var(--b);border-radius:6px;padding:6px 9px;font-size:.85em;outline:none;width:160px" onchange="renderAcc()"></select>
       <button onclick="dlAccExcel()" style="background:var(--green);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">📥 CSVダウンロード</button>
       <button onclick="printAcc()" style="background:#607D8B;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">🖨️ 印刷／PDF保存</button>
+      <label style="background:#1565c0;color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600;position:relative;overflow:hidden;display:inline-block">📄 銀行明細で照合<input type="file" accept=".csv" onchange="handleBankRecon(this.files);this.value=''" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"></label>
     </div>
+    <div id="reconResult"></div>
     <div class="sec"><h2>📒 民泊手数料まとめ（税込）</h2>
       <div id="accContent"><div class="nd">CSVを読み込んでください</div></div>
       <button onclick="addAccRow()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em;margin-top:10px">＋ 手動入力行を追加（スクエア等）</button>
@@ -5478,6 +5480,111 @@ function renderAcc(){
     <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${manualHtml}
       <tr style="background:#f0f0f0;font-weight:700"><td colspan="5" style="${tdStyle}">その他合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(manualTotal)}</td></tr>
     </tbody></table>`;
+}
+
+// ════════ 銀行明細との照合（会計タブ ⇔ 銀行入出金明細CSV）════════
+// 会計タブの「入金単位」を作る：Booking/Airbnbはお支払い番号グループ、その他(手動)は行単位。
+function getAccPayments(month){
+  const pays=S.get(PAY_KEY)||{};
+  const groups={};
+  Object.keys(BK).forEach(tag=>BK[tag].forEach(bk=>{
+    const pd=pays[bk.id]||{};
+    if(pd.status!=='1')return;
+    if(!(pd.payDate||'').startsWith(month))return;
+    const netTaxInc=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
+    const recv=pd.customAmt!=null?pd.customAmt:netTaxInc;
+    const ota=(bk.s||'').includes('Airbnb')?'Airbnb':'Booking';
+    const pid=pd.payoutId||('単'+bk.id);
+    const key=ota+'|'+pid;
+    if(!groups[key])groups[key]={amount:0,date:pd.payDate||'',ota,payoutId:pd.payoutId||'',rooms:[]};
+    groups[key].amount+=recv; groups[key].rooms.push(tag);
+  }));
+  const adj=S.get(ADJ_KEY)||{};
+  Object.keys(adj).forEach(rn=>{const a=adj[rn];if(!a||!a.payoutId)return;const k='Booking|'+a.payoutId;if(groups[k])groups[k].amount+=a.amount;});
+  const list=Object.values(groups).map(g=>({amount:Math.round(g.amount),date:g.date,otaType:g.ota,label:(g.payoutId?('📦 '+g.payoutId):(g.ota+'（番号なし）'))+'｜'+[...new Set(g.rooms)].join('・')}));
+  const savedAcc=S.get(ACC_KEY)||{};
+  (savedAcc[month+'_manual']||[]).forEach(r=>{
+    if(!r.amount)return;
+    const d=(r.desc||'');
+    const ota=(d.includes('スクエア')||d.includes('ｽｸｴｱ')||/square/i.test(d))?'Square':'その他';
+    list.push({amount:Math.round(r.amount),date:r.date||'',otaType:ota,label:'その他（'+(r.desc||'手動')+'）｜'+(r.facility||'')});
+  });
+  return list;
+}
+function _bankCol(row,names){for(const n of names){if(row[n]!==undefined&&row[n]!=='')return row[n];}return '';}
+function _bankDate(s){
+  s=String(s||'');
+  let m=s.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  m=s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if(m)return `${m[1]}-${m[2]}-${m[3]}`;
+  return '';
+}
+function _bankOta(t){
+  t=String(t||'');
+  if(/BOOKING/i.test(t))return 'Booking';
+  if(t.indexOf('ﾍﾟｲｵﾆｱ')>=0||t.indexOf('ペイオニア')>=0||/payoneer/i.test(t))return 'Airbnb';
+  if(t.indexOf('ｽｸｴｱ')>=0||t.indexOf('スクエア')>=0||/square/i.test(t))return 'Square';
+  return null;
+}
+function _otaMatch(accType,bankType){
+  if(accType===bankType)return true;
+  if(bankType==='Square'&&(accType==='Square'||accType==='その他'))return true;
+  return false;
+}
+function reconcileBank(text,month){
+  let rows;try{rows=parseCSV(text);}catch(e){rows=[];}
+  const bankAll=[];
+  rows.forEach(row=>{
+    const amt=parseInt(String(_bankCol(row,['入金金額（円）','入金金額(円)','入金額','入金'])).replace(/[^0-9]/g,''));
+    if(!amt||isNaN(amt))return;
+    const tekiyo=_bankCol(row,['摘要','入出金先内容','内容']);
+    const ota=_bankOta(tekiyo);
+    if(!ota)return;
+    const date=_bankDate(_bankCol(row,['勘定日','取引日','日付','起算日']));
+    bankAll.push({amount:amt,date,otaType:ota,tekiyo});
+  });
+  const bank=bankAll.filter(b=>!b.date||b.date.startsWith(month));
+  const acc=getAccPayments(month);
+  const accPool=acc.map(a=>({...a,_used:false}));
+  const matched=[],unmatchedBank=[];
+  bank.forEach(b=>{
+    let c=accPool.find(a=>!a._used&&a.amount===b.amount&&_otaMatch(a.otaType,b.otaType));
+    if(!c)c=accPool.find(a=>!a._used&&a.amount===b.amount);
+    if(c){c._used=true;matched.push({bank:b,acc:c});}
+    else unmatchedBank.push(b);
+  });
+  return {matched,unmatchedAcc:accPool.filter(a=>!a._used),unmatchedBank};
+}
+function handleBankRecon(files){
+  const sel=document.getElementById('accMonth');const month=sel?sel.value:'';
+  if(!month){alert('先に対象の月を選んでください');return;}
+  const f=files&&files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    let text;
+    try{text=new TextDecoder('utf-8',{fatal:true}).decode(ev.target.result);}
+    catch(e){text=new TextDecoder('shift-jis').decode(ev.target.result);}
+    const res=reconcileBank(text,month);
+    renderReconResult(month,res.matched,res.unmatchedAcc,res.unmatchedBank);
+  };
+  r.readAsArrayBuffer(f);
+}
+function renderReconResult(month,matched,unmAcc,unmBank){
+  const el=document.getElementById('reconResult');if(!el)return;
+  const yen=n=>'¥'+(n||0).toLocaleString('ja-JP');
+  const head=`<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+    <span style="font-weight:700;font-size:.95em">🔎 銀行明細との照合（${month}）</span>
+    <span style="background:#e8f5e9;color:#2e7d32;border-radius:5px;padding:3px 10px;font-size:.82em;font-weight:700">✅ 一致 ${matched.length}件</span>
+    <span style="background:${unmAcc.length?'#fff3e0':'#f1f1f1'};color:${unmAcc.length?'#e65100':'#999'};border-radius:5px;padding:3px 10px;font-size:.82em;font-weight:700">⚠️ 会計→銀行 未着金 ${unmAcc.length}件</span>
+    <span style="background:${unmBank.length?'#fff3e0':'#f1f1f1'};color:${unmBank.length?'#e65100':'#999'};border-radius:5px;padding:3px 10px;font-size:.82em;font-weight:700">⚠️ 銀行→会計 未処理 ${unmBank.length}件</span>
+    <button onclick="document.getElementById('reconResult').innerHTML=''" style="margin-left:auto;background:none;border:1px solid var(--b);border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.75em;color:var(--t2)">✕ 閉じる</button>
+  </div>`;
+  const list=(title,items,render)=>items.length?`<div style="margin-top:6px"><div style="font-size:.8em;font-weight:700;color:#e65100;margin-bottom:3px">${title}</div>${items.map(render).join('')}</div>`:'';
+  const accItems=list('⚠️ 会計に計上あり・銀行に着金が見当たらない（着金漏れ／未着金）',unmAcc,a=>`<div style="font-size:.8em;padding:3px 8px;background:#fff8f0;border-left:3px solid #ffb74d;margin-bottom:2px">${a.date||'日付なし'}　${a.otaType}　${yen(a.amount)}　<span style="color:var(--t2)">${a.label}</span></div>`);
+  const bankItems=list('⚠️ 銀行に着金あり・会計に無い（未処理／要確認）',unmBank,b=>`<div style="font-size:.8em;padding:3px 8px;background:#fff8f0;border-left:3px solid #ffb74d;margin-bottom:2px">${b.date||'日付なし'}　${b.otaType}　${yen(b.amount)}　<span style="color:var(--t2)">${b.tekiyo}</span></div>`);
+  const ok=(!unmAcc.length&&!unmBank.length)?`<div style="font-size:.85em;color:#2e7d32;font-weight:600;margin-top:4px">🎉 全ての入金が一致しました（漏れなし）</div>`:'';
+  el.innerHTML=`<div style="background:#f7f9ff;border:1px solid #d3ddf5;border-radius:9px;padding:10px 14px;margin-bottom:12px">${head}${ok}${accItems}${bankItems}</div>`;
 }
 
 function addAccRow(){
