@@ -2945,7 +2945,7 @@ function renderPayTab(){
     }
     // 日付セル（分割入金時は完済日＋内訳ツールチップ、それ以外は従来の日付入力）
     const dateCell=st.hasSplits
-      ?`<span style="display:inline-block;font-size:.78em;color:#1565c0;background:#e8f1ff;border:1px solid #b3d4ff;border-radius:4px;padding:3px 7px;cursor:help" title="分割入金：${st.splits.map(s=>(s.date||'日付なし')+' ¥'+(parseInt(s.amount)||0).toLocaleString('ja-JP')).join(' ／ ')}">🔀 ${payDate||'—'}（${st.splits.length}回）</span>`
+      ?`<span style="display:inline-block;font-size:.78em;color:#1565c0;background:#e8f1ff;border:1px solid #b3d4ff;border-radius:4px;padding:3px 7px;cursor:help" title="分割入金：${st.splits.map(s=>(s.date||'日付なし')+' ¥'+(parseInt(s.amount)||0).toLocaleString('ja-JP')+(s.memo?'（'+String(s.memo).replace(/"/g,'&quot;')+'）':'')).join(' ／ ')}">🔀 ${payDate||'—'}（${st.splits.length}回）</span>`
       :`<input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)" style="font-size:.82em;border:1px solid ${payDate?'#a5d6a7':'#ccc'};border-radius:4px;padding:3px 6px;color:${payDate?'#2e7d32':'#aaa'};background:${payDate?'#f1f9f1':'#fff'};width:118px">`;
     return`<tr style="${rowStyle}">
       <td style="text-align:center"><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer;vertical-align:middle" ${isLocked?'disabled':''}></td>
@@ -3112,7 +3112,7 @@ function payState(pd,csvAmt){
 function openAmtModal(id,csvAmt,guest){
   _amtModalId=id;_amtModalCsv=csvAmt;
   const pays=S.get(PAY_KEY)||{};const pd=pays[id]||{};
-  _amtSplits=Array.isArray(pd.splits)?pd.splits.map(s=>({date:s.date||'',amount:s.amount||''})):[];
+  _amtSplits=Array.isArray(pd.splits)?pd.splits.map(s=>({date:s.date||'',amount:s.amount||'',memo:s.memo||''})):[];
   document.getElementById('amtModalGuest').textContent=guest;
   document.getElementById('amtModalCsv').textContent='¥'+csvAmt.toLocaleString('ja-JP');
   document.getElementById('amtModalInput').value=pd.customAmt!=null?pd.customAmt:csvAmt;
@@ -3124,10 +3124,13 @@ function openAmtModal(id,csvAmt,guest){
 function renderAmtSplits(){
   const wrap=document.getElementById('amtSplitRows');const sumEl=document.getElementById('amtSplitSummary');const single=document.getElementById('amtModalInput');
   if(!wrap)return;
-  wrap.innerHTML=_amtSplits.map((s,i)=>`<div style="display:flex;gap:5px;margin-bottom:5px;align-items:center">
-    <input type="date" value="${s.date||''}" onchange="updateAmtSplit(${i},'date',this.value)" style="flex:1;border:1px solid var(--b);border-radius:6px;padding:5px 6px;font-size:.8em">
-    <input type="number" value="${s.amount||''}" placeholder="金額" onchange="updateAmtSplit(${i},'amount',this.value)" style="width:96px;border:1px solid var(--b);border-radius:6px;padding:5px 6px;font-size:.8em;text-align:right;font-family:ui-monospace,monospace">
-    <button onclick="delAmtSplit(${i})" title="削除" style="background:none;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;padding:5px 9px;cursor:pointer;font-size:.78em">×</button>
+  wrap.innerHTML=_amtSplits.map((s,i)=>`<div style="background:#f7f9ff;border:1px solid var(--b2);border-radius:7px;padding:6px;margin-bottom:6px">
+    <div style="display:flex;gap:5px;align-items:center">
+      <input type="date" value="${s.date||''}" onchange="updateAmtSplit(${i},'date',this.value)" style="flex:1;border:1px solid var(--b);border-radius:6px;padding:5px 6px;font-size:.8em">
+      <input type="number" value="${s.amount||''}" placeholder="金額" onchange="updateAmtSplit(${i},'amount',this.value)" style="width:96px;border:1px solid var(--b);border-radius:6px;padding:5px 6px;font-size:.8em;text-align:right;font-family:ui-monospace,monospace">
+      <button onclick="delAmtSplit(${i})" title="削除" style="background:none;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;padding:5px 9px;cursor:pointer;font-size:.78em">×</button>
+    </div>
+    <input type="text" value="${(s.memo||'').replace(/"/g,'&quot;')}" placeholder="メモ（任意・例: 延泊分）" onchange="updateAmtSplit(${i},'memo',this.value)" style="width:100%;box-sizing:border-box;margin-top:5px;border:1px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.78em">
   </div>`).join('');
   const valid=_amtSplits.filter(s=>(parseInt(s.amount)||0)>0);
   if(valid.length){
@@ -3140,7 +3143,7 @@ function renderAmtSplits(){
     sumEl.innerHTML='<span style="color:var(--t3)">分割入金なし（上の金額＝1回払い）</span>';
   }
 }
-function addAmtSplit(){_amtSplits.push({date:'',amount:''});renderAmtSplits();}
+function addAmtSplit(){_amtSplits.push({date:'',amount:'',memo:''});renderAmtSplits();}
 function delAmtSplit(i){_amtSplits.splice(i,1);renderAmtSplits();}
 function updateAmtSplit(i,field,val){
   if(field==='amount')_amtSplits[i].amount=(val===''?'':(Math.round(parseFloat(val))||0));
@@ -3153,7 +3156,7 @@ function savePayAmt(){
   const valid=_amtSplits.filter(s=>(parseInt(s.amount)||0)>0);
   if(valid.length){
     // 分割入金として保存（customAmt=合計／payDate=完済日／status=合計が予定に達したら入金済）
-    const splits=valid.map(s=>({date:s.date||'',amount:parseInt(s.amount)||0}));
+    const splits=valid.map(s=>({date:s.date||'',amount:parseInt(s.amount)||0,memo:(s.memo||'').trim()}));
     const sum=splits.reduce((a,s)=>a+s.amount,0);
     const dates=splits.map(s=>s.date).filter(Boolean).sort();
     pays[id].splits=splits;
@@ -5453,6 +5456,16 @@ function renderAcc(){
   const pays=S.get(PAY_KEY)||{};
   const savedAcc=S.get(ACC_KEY)||{};
   const manualRows=savedAcc[month+'_manual']||[];
+  // 銀行照合で保存した「日付＋番号ごとの入金内訳」。あれば番号別の行に分割描画する
+  const deposits=savedAcc[month+'_deposits']||[];
+  const depByPayout={};
+  deposits.forEach(d=>{if(!d.payoutId)return;(depByPayout[d.payoutId]=depByPayout[d.payoutId]||[]).push(d);});
+  Object.keys(depByPayout).forEach(pid=>depByPayout[pid].sort((a,b)=>{
+    if((a.date||'')!==(b.date||''))return (a.date||'').localeCompare(b.date||'');
+    return (parseInt(String(a.bankNo).replace(/\D/g,''))||0)-(parseInt(String(b.bankNo).replace(/\D/g,''))||0);
+  }));
+  const ymd=d=>String(d||'').replace(/-/g,'')||'????????';
+  const stripNo=n=>{const s=String(n||'').replace(/^0+/,'');return s||String(n||'');};
   
   // Collect OTA-based rows from paid bookings
   const airbnbRows=[],bookingRows=[];
@@ -5466,7 +5479,7 @@ function renderAcc(){
       // 入金額は入金管理で手動修正した値(customAmt)を優先＝消費税誤差の手修正を会計にも反映
       // （宿泊料金・手数料はBooking正規値のまま。差の¥1は入金額に現れる）
       const recvAmt=pd.customAmt!=null?pd.customAmt:netTaxInc;
-      const row={date:pd.payDate||'',facility:tag,guest:bk.g,amount:recvAmt,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s,payoutId:pd.payoutId||'',payoutTotal:(pd.payoutTotal!=null?pd.payoutTotal:null)};
+      const row={date:pd.payDate||'',facility:tag,guest:bk.g,amount:recvAmt,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s,payoutId:pd.payoutId||'',bookingId:bk.id,payoutTotal:(pd.payoutTotal!=null?pd.payoutTotal:null)};
       if((bk.s||'').includes('Airbnb'))airbnbRows.push(row);
       else bookingRows.push(row);
     });
@@ -5530,29 +5543,69 @@ function renderAcc(){
       if(a==='__nopayout__')return 1; if(b==='__nopayout__')return -1;
       return (groups.get(a)[0].date||'').localeCompare(groups.get(b)[0].date||'');
     });
+    const hc=`color:${theme.color};font-weight:600;border-top:2px solid ${theme.border}`;
+    // 小計（見出し）行：ラベル＋入金額/宿泊料金/手数料
+    const subRow=(label,a,s,c)=>`<tr style="background:${theme.bg}">`+
+      `<td colspan="3" style="${tdStyle};${hc}">${label}</td>`+
+      `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace">${fmtF(a)}</td>`+
+      `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace">${fmtF(s)}</td>`+
+      `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(c)}</td>`+
+      `</tr>`;
     return keys.map(key=>{
       const grp=groups.get(key);
       const gAmt=grp.reduce((s,r)=>s+(r.amount||0),0);   // 入金額 小計
       const gStay=grp.reduce((s,r)=>s+(r.stay||0),0);    // 宿泊料金 小計
       const gComm=grp.reduce((s,r)=>s+(r.comm||0),0);    // 手数料 小計
-      const gDate=grp[0].date||'－';
       // CSVのお支払い総額(payoutTotal)と、会計の合計(gAmt)が食い違う＝予約の取りこぼし／想定外手数料
       const ptRow=grp.find(r=>r.payoutTotal!=null);
       const csvTotal=ptRow?ptRow.payoutTotal:null;
       const warn=(csvTotal!=null && Math.round(gAmt)!==Math.round(csvTotal))
         ?` <span title="会計の合計 ¥${gAmt.toLocaleString('ja-JP')}　／　CSVのお支払い総額 ¥${csvTotal.toLocaleString('ja-JP')}　／　差 ${gAmt-csvTotal>=0?'+':'−'}¥${Math.abs(gAmt-csvTotal).toLocaleString('ja-JP')}（取り込めていない予約や、Bookingの想定外手数料の可能性）" style="cursor:help">⚠️</span>`
         :'';
+      const deps=key!=='__nopayout__'?(depByPayout[key]||[]):[];
+      // ── 銀行番号別に分割表示できるか（_depositsあり＆整合チェックOK）──
+      if(deps.length){
+        const byId={};grp.forEach(r=>{byId[r.bookingId]=r;});
+        const memIds=new Set();let memSum=0;
+        deps.forEach(d=>(d.members||[]).forEach(m=>{memIds.add(m.bookingId);memSum+=m.amount||0;}));
+        const grpIds=new Set(grp.map(r=>r.bookingId));
+        const idsOk=[...grpIds].every(id=>memIds.has(id))&&[...memIds].every(id=>grpIds.has(id));
+        const amtOk=Math.round(memSum)===Math.round(gAmt);
+        const eachOk=deps.every(d=>Math.round((d.members||[]).reduce((s,m)=>s+(m.amount||0),0))===Math.round(d.amount));
+        if(idsOk&&amtOk&&eachOk){
+          const seen=new Set();   // 同じ予約は最初の入金行にだけ宿泊料金・手数料を計上（重複防止）
+          return deps.map((d,di)=>{
+            const noStr=d.bankNo?('_'+stripNo(d.bankNo)):'';
+            const label=`<span style="font-family:ui-monospace,monospace">${ymd(d.date)}${noStr}</span> 📦 お支払い番号 ${key} ／ ${(d.members||[]).length}件`+(di===0?warn:'');
+            let dA=0,dS=0,dC=0;
+            const memberRows=(d.members||[]).map(m=>{
+              const br=byId[m.bookingId]||{};
+              const first=!seen.has(m.bookingId);if(first)seen.add(m.bookingId);
+              const stay=first?(br.stay||0):0,comm=first?(br.comm||0):0;
+              dA+=m.amount||0;dS+=stay;dC+=comm;
+              const desc=(br.ota||'').includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM';
+              const memoTxt=m.memo?` <span style="color:#1565c0">（${String(m.memo).replace(/</g,'&lt;')}）</span>`:'';
+              return `<tr style="background:${bg}">
+              <td style="${tdStyle}">${d.date||br.date||''}</td>
+              <td style="${tdStyle}">${desc}</td>
+              <td style="${tdStyle}">${br.facility||m.tag||''}${memoTxt}</td>
+              <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace">${fmtF(m.amount||0)}</td>
+              <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace">${first?fmtF(stay):'—'}</td>
+              <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${first?fmtF(comm):'—'}</td>
+            </tr>`;
+            }).join('');
+            return subRow(label,dA,dS,dC)+memberRows;
+          }).join('');
+        }
+        // 整合しない → 安全のため従来表示にフォールバック＋⚠️注記（お金がズレるより、まとめて出す）
+        const fb=`<span style="font-family:ui-monospace,monospace">${ymd(grp[0].date)}</span> 📦 お支払い番号 ${key} ／ ${grp.length}件`+warn+` <span title="銀行番号別の自動振り分けが確定できなかったため、まとめて表示しています。手動で確認してください。" style="cursor:help;color:#e65100">⚠️振り分け未確定</span>`;
+        return subRow(fb,gAmt,gStay,gComm)+renderRows(grp,bg);
+      }
+      // ── _depositsなし（銀行照合前）：従来表示＋日付プレフィックス（番号は照合後に付く）──
       const label=(key==='__nopayout__'
         ?`お支払い番号なし ／ ${grp.length}件`
-        :`📦 お支払い番号 ${key} ／ 入金日 ${gDate} ／ ${grp.length}件`)+warn;
-      const hc=`color:${theme.color};font-weight:600;border-top:2px solid ${theme.border}`;
-      const head=`<tr style="background:${theme.bg}">`+
-        `<td colspan="3" style="${tdStyle};${hc}">${label}</td>`+
-        `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace">${fmtF(gAmt)}</td>`+
-        `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace">${fmtF(gStay)}</td>`+
-        `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(gComm)}</td>`+
-        `</tr>`;
-      return head+renderRows(grp,bg);
+        :`<span style="font-family:ui-monospace,monospace">${ymd(grp[0].date)}</span> 📦 お支払い番号 ${key} ／ ${grp.length}件`)+warn;
+      return subRow(label,gAmt,gStay,gComm)+renderRows(grp,bg);
     }).join('');
   };
 
@@ -5615,10 +5668,10 @@ function getAccPayments(month){
     const ota=(bk.s||'').includes('Airbnb')?'Airbnb':'Booking';
     const pid=pd.payoutId||('単'+bk.id);
     let receipts;
-    if(st.hasSplits){payoutHasSplit[pid]=true;receipts=st.splits.map(s=>({date:s.date||'',amount:parseInt(s.amount)||0}));}
-    else if(st.complete){receipts=[{date:pd.payDate||'',amount:(pd.customAmt!=null?pd.customAmt:netTaxInc)}];}
+    if(st.hasSplits){payoutHasSplit[pid]=true;receipts=st.splits.map(s=>({date:s.date||'',amount:parseInt(s.amount)||0,memo:s.memo||''}));}
+    else if(st.complete){receipts=[{date:pd.payDate||'',amount:(pd.customAmt!=null?pd.customAmt:netTaxInc),memo:''}];}
     else receipts=[];
-    receipts.forEach(r=>rows.push({ota,pid,date:r.date,amount:r.amount,tag}));
+    receipts.forEach(r=>rows.push({ota,pid,date:r.date,amount:r.amount,tag,bookingId:bk.id,memo:r.memo||''}));
   }));
   // ② グループ化。分割を含むpayoutは「お支払い番号 × 入金日」、それ以外は従来どおり「お支払い番号」単位（＝既存データに影響なし）。
   const groups={};
@@ -5626,8 +5679,9 @@ function getAccPayments(month){
     if(!(r.date||'').startsWith(month))return;   // 入金日（回ごと）で月絞込
     const perDate=!!payoutHasSplit[r.pid];
     const key=perDate?(r.ota+'|'+r.pid+'|'+r.date):(r.ota+'|'+r.pid);
-    if(!groups[key])groups[key]={amount:0,date:r.date,ota:r.ota,payoutId:(String(r.pid).indexOf('単')===0?'':r.pid),rooms:[],perDate};
+    if(!groups[key])groups[key]={amount:0,date:r.date,ota:r.ota,payoutId:(String(r.pid).indexOf('単')===0?'':r.pid),rooms:[],pieces:[],perDate};
     groups[key].amount+=r.amount;groups[key].rooms.push(r.tag);
+    groups[key].pieces.push({tag:r.tag,bookingId:r.bookingId,amount:r.amount,memo:r.memo||''});
   });
   // Booking.com コミッション調整額：同Payoutのグループに乗せる
   const adj=S.get(ADJ_KEY)||{};
@@ -5637,7 +5691,7 @@ function getAccPayments(month){
     if(!groups[k])k=Object.keys(groups).find(key=>groups[key].ota==='Booking'&&groups[key].payoutId===a.payoutId);
     if(k&&groups[k])groups[k].amount+=a.amount;
   });
-  const list=Object.values(groups).map(g=>({amount:Math.round(g.amount),date:g.date,otaType:g.ota,label:(g.payoutId?('📦 '+g.payoutId):(g.ota+'（番号なし）'))+'｜'+[...new Set(g.rooms)].join('・')+(g.perDate?('｜'+(g.date||'日付なし')+'入金分'):'')}));
+  const list=Object.values(groups).map(g=>({amount:Math.round(g.amount),date:g.date,otaType:g.ota,payoutId:g.payoutId,pieces:g.pieces,label:(g.payoutId?('📦 '+g.payoutId):(g.ota+'（番号なし）'))+'｜'+[...new Set(g.rooms)].join('・')+(g.perDate?('｜'+(g.date||'日付なし')+'入金分'):'')}));
   const savedAcc=S.get(ACC_KEY)||{};
   (savedAcc[month+'_manual']||[]).forEach(r=>{
     if(!r.amount)return;
@@ -5690,6 +5744,39 @@ function _findSubsetSum(items,target,maxLen){
   }
   return null;
 }
+// 照合結果から「日付＋銀行番号ごとの入金内訳(_deposits)」を作って保存（会計タブの番号別表示用）
+function _allocatePieces(pieces,banks){
+  // pieces:[{tag,bookingId,amount,memo}] を banks:[{amount,bankNo,...}] に振り分け（合計一致が前提）
+  const map=new Map();banks.forEach(b=>map.set(b,[]));
+  const rem=(pieces||[]).map(p=>({p,used:false}));
+  const order=banks.slice().sort((a,b)=>a.amount-b.amount);   // 小さい入金から確定
+  order.forEach((b,idx)=>{
+    if(idx===order.length-1){rem.filter(x=>!x.used).forEach(x=>{x.used=true;map.get(b).push(x.p);});return;}  // 最後の入金に残り全部
+    const avail=rem.filter(x=>!x.used);
+    let pick=null;
+    const one=avail.find(x=>x.p.amount===b.amount);           // まず1ピース完全一致を優先（例：延泊installment→その番号）
+    if(one)pick=[one];
+    else{const combo=_findSubsetSum(avail.map(x=>({amount:x.p.amount,_ref:x})),b.amount,4);if(combo)pick=combo.map(c=>c._ref);}
+    if(pick)pick.forEach(x=>{x.used=true;map.get(b).push(x.p);});
+  });
+  return map;
+}
+function saveDeposits(month,res){
+  const deposits=[];
+  const toMember=p=>({tag:p.tag,bookingId:p.bookingId,amount:p.amount,memo:p.memo||''});
+  (res.matched||[]).forEach(m=>{
+    if(!m.acc||!m.acc.payoutId)return;   // 📦お支払い番号があるもの（Booking/Airbnb）だけ。手動・番号なしは対象外
+    deposits.push({date:m.bank.date||m.acc.date||'',bankNo:m.bank.bankNo||'',amount:m.bank.amount,otaType:m.bank.otaType,payoutId:m.acc.payoutId,members:(m.acc.pieces||[]).map(toMember)});
+  });
+  (res.splitMatched||[]).forEach(s=>{
+    if(!s.acc||!s.acc.payoutId)return;
+    const alloc=_allocatePieces(s.acc.pieces||[],s.banks);
+    s.banks.forEach(b=>{deposits.push({date:b.date||s.acc.date||'',bankNo:b.bankNo||'',amount:b.amount,otaType:b.otaType,payoutId:s.acc.payoutId,members:(alloc.get(b)||[]).map(toMember)});});
+  });
+  const savedAcc=S.get(ACC_KEY)||{};
+  savedAcc[month+'_deposits']=deposits;
+  S.set(ACC_KEY,savedAcc);   // ACC_KEYはFirebase非同期＝ローカル保存（手動行と同様。月初に銀行CSV取込で再生成）
+}
 function reconcileBank(text,month){
   let rows;try{rows=parseCSV(text);}catch(e){rows=[];}
   const bankAll=[];
@@ -5700,7 +5787,8 @@ function reconcileBank(text,month){
     const ota=_bankOta(tekiyo);
     if(!ota)return;
     const date=_bankDate(_bankCol(row,['勘定日','取引日','日付','起算日']));
-    bankAll.push({amount:amt,date,otaType:ota,tekiyo});
+    const bankNo=String(_bankCol(row,['番号'])||'').trim();
+    bankAll.push({amount:amt,date,otaType:ota,tekiyo,bankNo});
   });
   const bank=bankAll.filter(b=>!b.date||b.date.startsWith(month));
   const acc=getAccPayments(month);
@@ -5737,7 +5825,9 @@ function handleBankRecon(files){
     try{text=new TextDecoder('utf-8',{fatal:true}).decode(ev.target.result);}
     catch(e){text=new TextDecoder('shift-jis').decode(ev.target.result);}
     const res=reconcileBank(text,month);
+    saveDeposits(month,res);
     renderReconResult(month,res);
+    renderAcc();
   };
   r.readAsArrayBuffer(f);
 }
