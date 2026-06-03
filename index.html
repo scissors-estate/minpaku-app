@@ -3434,17 +3434,26 @@ function handlePayCSV(files){
       const isAirbnb=!!(rows[0]&&rows[0]['確認コード']!==undefined);
       const isBkJa=!isAirbnb&&!!(rows[0]&&(rows[0]['照会番号']!==undefined||rows[0]['予約番号']!==undefined));
       if(isAirbnb){
-        // Airbnb format
+        // Airbnb format：CSVは「Payout行 → その下に予約行」の順。
+        // Payout行の Payoneer支払いID を拾い、続く予約行に付与する
+        // （物件バラバラ・チェックイン近接でまとまる入金を再現＝Payout別グループ用）。
+        // 着金日は手動運用のため触らない（CSVの入金予定日は「予定」で実着金とずれるため）。
+        let curPayoutId='';
         rows.forEach(row=>{
+          const type=(row['種別']||'').trim();
+          if(type==='Payout'){
+            const m=(row['参照コード']||'').match(/Payoneer支払いID[:：]\s*(\S+)/);
+            curPayoutId=m?m[1]:'';
+            return;
+          }
           const code=(row['確認コード']||'').trim();
           if(!code)return;
-          const payDate=normDate((row['入金予定日']||'').replace(/\//g,'-'));
           Object.keys(BK).forEach(tag=>{
             BK[tag].forEach(bk=>{
               if(bk.id===code||(bk.id&&code&&bk.id.includes(code))){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
-                if(payDate)pays[bk.id].payDate=payDate;
+                if(curPayoutId)pays[bk.id].payoutId=curPayoutId;
                 matched++;allMatchedIds.push(bk.id);
               }
             });
@@ -5376,8 +5385,8 @@ function renderAcc(){
     <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(r.comm)}</td>
   </tr>`;}).join('');
 
-  // Booking.com：お支払い番号（入金）ごとにグループ化して表示（見出しに入金日・件数・入金合計）
-  const renderBookingGrouped=(rows,bg)=>{
+  // お支払い番号（入金）ごとにグループ化して表示（見出しに入金日・件数・入金合計）。Booking.com/Airbnb共用。
+  const renderPayoutGrouped=(rows,bg)=>{
     if(!rows.length)return '';
     const groups=new Map();
     rows.forEach(r=>{const key=r.payoutId||'__nopayout__';if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);});
@@ -5430,11 +5439,11 @@ function renderAcc(){
 
   document.getElementById('accContent').innerHTML=`
     <div style="margin-bottom:6px"><span style="display:inline-block;background:#FF5A5F;color:#fff;font-size:.78em;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.02em">Airbnb</span></div>
-    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderRows(airbnbRows,'#fff5f5')}
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderPayoutGrouped(airbnbRows,'#fff5f5')}
       <tr style="background:#ffe8e8;font-weight:700"><td colspan="5" style="${tdStyle}">Airbnb手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(airbnbTotal)}</td></tr>
     </tbody></table>
     <div style="margin:12px 0 6px"><span style="display:inline-block;background:#003580;color:#fff;font-size:.78em;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.02em">Booking.com</span></div>
-    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderBookingGrouped(bookingRows,'#f0f4ff')}
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderPayoutGrouped(bookingRows,'#f0f4ff')}
       <tr style="background:#dce6f5;font-weight:700"><td colspan="5" style="${tdStyle}">Booking.com手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(bookingTotal)}</td></tr>
     </tbody></table>
     <div style="font-size:.9em;font-weight:700;color:#4CAF50;margin:12px 0 6px">その他（手動入力）</div>
