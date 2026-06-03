@@ -3438,12 +3438,14 @@ function handlePayCSV(files){
         // Payout行の Payoneer支払いID を拾い、続く予約行に付与する
         // （物件バラバラ・チェックイン近接でまとまる入金を再現＝Payout別グループ用）。
         // 着金日は手動運用のため触らない（CSVの入金予定日は「予定」で実着金とずれるため）。
-        let curPayoutId='';
+        let curPayoutId='',curPayoutTotal=null;
         rows.forEach(row=>{
           const type=(row['種別']||'').trim();
           if(type==='Payout'){
             const m=(row['参照コード']||'').match(/Payoneer支払いID[:：]\s*(\S+)/);
             curPayoutId=m?m[1]:'';
+            const t=parseInt(String(row['支払い済み']||'').replace(/[^0-9-]/g,''));
+            curPayoutTotal=isNaN(t)?null:t;   // この入金(Payout)の総額＝会計タブの差異検出用
             return;
           }
           const code=(row['確認コード']||'').trim();
@@ -3454,6 +3456,7 @@ function handlePayCSV(files){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
                 if(curPayoutId)pays[bk.id].payoutId=curPayoutId;
+                if(curPayoutTotal!=null)pays[bk.id].payoutTotal=curPayoutTotal;
                 matched++;allMatchedIds.push(bk.id);
               }
             });
@@ -3462,13 +3465,15 @@ function handlePayCSV(files){
       } else if(isBkJa){
         // Booking.com 日本語フォーマット（予約番号[新]/照会番号[旧]・お支払い日・純収益）
         const adj=S.get(ADJ_KEY)||{};
+        const payoutTotalsAcc={};   // お支払い番号ごとの総額(全行の純収益合計)＝会計タブの差異検出用
         rows.forEach(row=>{
+          const netAmt=parseInt((row['純収益']||'').replace(/[^0-9-]/g,''));
+          const payoutId=(row['お支払い番号']||'').trim();
+          if(payoutId&&!isNaN(netAmt))payoutTotalsAcc[payoutId]=(payoutTotalsAcc[payoutId]||0)+netAmt;
           const refNum=String(row['予約番号']||row['照会番号']||'').trim();
           const type=(row['タイプ']||'').trim();
           if(!refNum)return;
           const payDate=normDate(row['お支払い日']||'');
-          const netAmt=parseInt((row['純収益']||'').replace(/[^0-9-]/g,''));
-          const payoutId=(row['お支払い番号']||'').trim();
           // コミッション調整額：予約に紐づかない調整行（同Payoutの予約から着金日・施設名を逆引きする）
           if(type==='コミッション調整額'){
             if(isNaN(netAmt))return;
@@ -3495,6 +3500,11 @@ function handlePayCSV(files){
             });
           });
         });
+        // お支払い番号ごとの総額を、その番号の各予約に保存（会計タブで合計と突合）
+        Object.keys(BK).forEach(tag=>BK[tag].forEach(bk=>{
+          const pd=pays[bk.id];
+          if(pd&&pd.payoutId&&payoutTotalsAcc[pd.payoutId]!=null)pd.payoutTotal=payoutTotalsAcc[pd.payoutId];
+        }));
         if(adjMatched>0)S.set(ADJ_KEY,adj);
       } else {
         // Booking.com 英語フォーマット（Reference number・Payout date）
@@ -5334,7 +5344,7 @@ function renderAcc(){
       // 入金額は入金管理で手動修正した値(customAmt)を優先＝消費税誤差の手修正を会計にも反映
       // （宿泊料金・手数料はBooking正規値のまま。差の¥1は入金額に現れる）
       const recvAmt=pd.customAmt!=null?pd.customAmt:netTaxInc;
-      const row={date:pd.payDate||'',facility:tag,guest:bk.g,amount:recvAmt,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s,payoutId:pd.payoutId||''};
+      const row={date:pd.payDate||'',facility:tag,guest:bk.g,amount:recvAmt,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s,payoutId:pd.payoutId||'',payoutTotal:(pd.payoutTotal!=null?pd.payoutTotal:null)};
       if((bk.s||'').includes('Airbnb'))airbnbRows.push(row);
       else bookingRows.push(row);
     });
@@ -5404,9 +5414,15 @@ function renderAcc(){
       const gStay=grp.reduce((s,r)=>s+(r.stay||0),0);    // 宿泊料金 小計
       const gComm=grp.reduce((s,r)=>s+(r.comm||0),0);    // 手数料 小計
       const gDate=grp[0].date||'－';
-      const label=key==='__nopayout__'
+      // CSVのお支払い総額(payoutTotal)と、会計の合計(gAmt)が食い違う＝予約の取りこぼし／想定外手数料
+      const ptRow=grp.find(r=>r.payoutTotal!=null);
+      const csvTotal=ptRow?ptRow.payoutTotal:null;
+      const warn=(csvTotal!=null && Math.round(gAmt)!==Math.round(csvTotal))
+        ?` <span title="会計の合計 ¥${gAmt.toLocaleString('ja-JP')}　／　CSVのお支払い総額 ¥${csvTotal.toLocaleString('ja-JP')}　／　差 ${gAmt-csvTotal>=0?'+':'−'}¥${Math.abs(gAmt-csvTotal).toLocaleString('ja-JP')}（取り込めていない予約や、Bookingの想定外手数料の可能性）" style="cursor:help">⚠️</span>`
+        :'';
+      const label=(key==='__nopayout__'
         ?`お支払い番号なし ／ ${grp.length}件`
-        :`📦 お支払い番号 ${key} ／ 入金日 ${gDate} ／ ${grp.length}件`;
+        :`📦 お支払い番号 ${key} ／ 入金日 ${gDate} ／ ${grp.length}件`)+warn;
       const hc=`color:${theme.color};font-weight:600;border-top:2px solid ${theme.border}`;
       const head=`<tr style="background:${theme.bg}">`+
         `<td colspan="3" style="${tdStyle};${hc}">${label}</td>`+
