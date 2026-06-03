@@ -3204,7 +3204,7 @@ function setDiscView(v){
   renderDisc();
 }
 
-// 消込（アーカイブ）
+// 終了（過去ログへ移動＝アーカイブ。旧称「消込」）
 function archiveDisc(id){
   const arr=getDiscs();const d=arr.find(x=>x.id===id);
   if(d){d.archived=true;saveDiscs(arr);renderDisc();}
@@ -3214,6 +3214,31 @@ function archiveDisc(id){
 function restoreDisc(id){
   const arr=getDiscs();const d=arr.find(x=>x.id===id);
   if(d){d.archived=false;saveDiscs(arr);renderDisc();}
+}
+
+// コピー（複製）：内容を引き継いで「適用中」に新規追加し、すぐ部屋名を直せるよう編集画面を開く
+function copyDisc(id){
+  const arr=getDiscs();
+  const idx=arr.findIndex(x=>x.id===id);
+  if(idx<0)return;
+  const src=arr[idx];
+  const copy={
+    id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    room:src.room||'',ota:src.ota||'Booking.com',content:src.content||'',
+    expiry:src.expiry||'',applied:src.applied||'',notes:src.notes||''
+  };
+  arr.splice(idx+1,0,copy);   // 元の行の直後に挿入
+  saveDiscs(arr);
+  buzz(40);
+  setDiscView('active');      // コピーは「適用中」に入るので適用中ビューへ
+  openDiscModal(copy.id);     // 部屋名だけ直せるよう、すぐ編集画面を開く
+}
+
+// コピー用ボタンのHTML（閲覧専用ユーザーには出さない）。compact=true でテーブル用の小型版。
+function discCopyBtn(id,compact){
+  if(document.body.classList.contains('view-discount'))return'';
+  if(compact)return`<button onclick="copyDisc('${id}')" title="コピー" style="background:none;border:1px solid #b0bec5;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#546e7a;margin-left:3px">📋</button>`;
+  return`<button onclick="copyDisc('${id}')" style="background:none;border:1px solid #b0bec5;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#546e7a">📋 コピー</button>`;
 }
 
 function renderDisc(){
@@ -3269,9 +3294,11 @@ function renderDisc(){
           <div class="disc-card-btns">
             ${isArchived
               ?`<button onclick="restoreDisc('${d.id}')" style="background:none;border:1px solid #c8e6c9;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#388e3c">↩️ 復元</button>
+                ${discCopyBtn(d.id,false)}
                 <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#c62828">🗑️</button>`
               :`<button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:5px 11px;cursor:pointer;font-size:.78em;color:var(--t2)">✏️</button>
-                <button onclick="archiveDisc('${d.id}')" style="background:none;border:1px solid #ffe0b2;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#e65100">消込</button>`
+                ${discCopyBtn(d.id,false)}
+                <button onclick="archiveDisc('${d.id}')" style="background:none;border:1px solid #ffe0b2;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#e65100">終了</button>`
             }
           </div>
         </div>
@@ -3290,7 +3317,7 @@ function renderDisc(){
   const tableHtml=`<div class="disc-show-table disc-tbl-wrap">
     <table style="width:100%;border-collapse:collapse;font-size:.87em;table-layout:fixed">
       <colgroup>
-        ${dragCol}<col style="width:96px"><col style="width:76px"><col style="width:200px"><col style="width:82px"><col style="width:84px"><col><col style="width:112px">
+        ${dragCol}<col style="width:96px"><col style="width:76px"><col style="width:200px"><col style="width:82px"><col style="width:84px"><col><col style="width:150px">
       </colgroup>
       <thead>
         <tr style="background:#eaecf8">
@@ -3320,9 +3347,11 @@ function renderDisc(){
             <td style="padding:8px 8px;border-bottom:1px solid #e0e2f0;text-align:center;white-space:nowrap">
               ${isArchived
                 ?`<button onclick="restoreDisc('${d.id}')" style="background:none;border:1px solid #c8e6c9;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#388e3c">↩️ 復元</button>
+                   ${discCopyBtn(d.id,true)}
                    <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#c62828;margin-left:3px">🗑️</button>`
                 :`<button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:var(--t2)">✏️</button>
-                  <button onclick="archiveDisc('${d.id}')" style="background:none;border:1px solid #ffe0b2;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#e65100;margin-left:3px">消込</button>`
+                  ${discCopyBtn(d.id,true)}
+                  <button onclick="archiveDisc('${d.id}')" style="background:none;border:1px solid #ffe0b2;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#e65100;margin-left:3px">終了</button>`
               }
             </td>
           </tr>`;
