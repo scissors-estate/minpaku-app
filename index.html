@@ -5396,12 +5396,20 @@ function renderAcc(){
     });
     return keys.map(key=>{
       const grp=groups.get(key);
-      const gAmt=grp.reduce((s,r)=>s+(r.amount||0),0);
+      const gAmt=grp.reduce((s,r)=>s+(r.amount||0),0);   // 入金額 小計
+      const gStay=grp.reduce((s,r)=>s+(r.stay||0),0);    // 宿泊料金 小計
+      const gComm=grp.reduce((s,r)=>s+(r.comm||0),0);    // 手数料 小計
       const gDate=grp[0].date||'－';
       const label=key==='__nopayout__'
-        ?`お支払い番号なし ／ ${grp.length}件 ／ 入金合計 ${fmtF(gAmt)}`
-        :`📦 お支払い番号 ${key} ／ 入金日 ${gDate} ／ ${grp.length}件 ／ 入金合計 ${fmtF(gAmt)}`;
-      const head=`<tr style="background:#e3f2fd"><td colspan="6" style="${tdStyle};color:#1565c0;font-weight:600;border-top:2px solid #90caf9">${label}</td></tr>`;
+        ?`お支払い番号なし ／ ${grp.length}件`
+        :`📦 お支払い番号 ${key} ／ 入金日 ${gDate} ／ ${grp.length}件`;
+      const hc='color:#1565c0;font-weight:600;border-top:2px solid #90caf9';
+      const head=`<tr style="background:#e3f2fd">`+
+        `<td colspan="3" style="${tdStyle};${hc}">${label}</td>`+
+        `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace">${fmtF(gAmt)}</td>`+
+        `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace">${fmtF(gStay)}</td>`+
+        `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(gComm)}</td>`+
+        `</tr>`;
       return head+renderRows(grp,bg);
     }).join('');
   };
