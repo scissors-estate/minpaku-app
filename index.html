@@ -361,6 +361,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .pay-tbl tbody tr:nth-child(even):hover td{background:#eceeff}
 .tag-paid{display:inline-block;background:#d4edda;color:#1a6e30;padding:3px 9px;border-radius:99px;font-size:.74em;font-weight:700;letter-spacing:.03em}
 .tag-unpaid{display:inline-block;background:#fff3cd;color:#7a5800;padding:3px 9px;border-radius:99px;font-size:.74em;font-weight:700;letter-spacing:.03em}
+.tag-partial{display:inline-block;background:#ffe0b2;color:#e65100;padding:3px 9px;border-radius:99px;font-size:.74em;font-weight:700;letter-spacing:.02em}
 .pay-btn{border:1.5px solid var(--p);background:transparent;color:var(--p);padding:3px 8px;border-radius:6px;cursor:pointer;font-size:.7em}
 .pay-btn.paid{background:var(--green);border-color:var(--green);color:#fff}
 .payout-group{background:#f4f4f8;font-size:.73em;color:var(--t2);padding:4px 9px;font-weight:600}
@@ -921,6 +922,12 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
     <div style="font-size:.8em;color:var(--t2);margin-bottom:10px" id="amtModalGuest"></div>
     <div style="margin-bottom:6px;font-size:.78em;color:var(--t3)">CSV金額：<span id="amtModalCsv" style="font-weight:700;color:var(--t2)"></span></div>
     <input id="amtModalInput" type="number" style="width:100%;box-sizing:border-box;border:2px solid var(--p);border-radius:8px;padding:10px 12px;font-size:1.1em;font-family:ui-monospace,monospace;text-align:right;outline:none;margin-bottom:12px">
+    <div id="amtSplitWrap" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:6px;margin:2px 0 7px"><div style="flex:1;height:1px;background:var(--b2)"></div><span style="font-size:.72em;color:var(--t3);white-space:nowrap">または 🔀 分割入金（延泊などで複数回に分けて着金）</span><div style="flex:1;height:1px;background:var(--b2)"></div></div>
+      <div id="amtSplitRows"></div>
+      <button onclick="addAmtSplit()" style="width:100%;background:#f0f4ff;color:#1565c0;border:1px dashed #90caf9;border-radius:7px;padding:7px;cursor:pointer;font-size:.8em;font-weight:600">＋ 入金を追加</button>
+      <div id="amtSplitSummary" style="margin-top:8px;font-size:.8em"></div>
+    </div>
     <div class="modal-btns">
       <button style="background:#eee;color:var(--t2);border:none;padding:8px 14px;border-radius:7px;cursor:pointer;font-size:.83em" onclick="revertPayAmt()">CSV金額に戻す</button>
       <button class="btn-cancel" onclick="closeModal('amtModal')">キャンセル</button>
@@ -2912,25 +2919,44 @@ function renderPayTab(){
 
   // 行のレンダラー（IN日順／Payout別の両モードで共通使用）
   const renderRow=bk=>{
-    const pd=pays[bk.id]||{};const ip=pd.status==='1';
-    const payDate=pd.payDate||'';
+    const pd=pays[bk.id]||{};
+    const csvAmt=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
+    const st=payState(pd,csvAmt);
+    const ip=st.complete;
+    const payDate=st.payDate||'';
     const isLocked=pd.locked==='1';
     const isHighlight=_payHighlight&&_payHighlight.has(bk.id);
     const rowStyle=isHighlight?'background:#fffde7;outline:2px solid #f9a825;':isLocked?'background:#f9f9f9;':'';
-    const csvAmt=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
-    const customAmt=pd.customAmt!=null?pd.customAmt:'';
-    const dispAmt=customAmt!==''?customAmt:csvAmt;
-    const isEdited=customAmt!=='';
+    const dispAmt=st.received||(pd.customAmt!=null?pd.customAmt:csvAmt);
+    const isEdited=pd.customAmt!=null||st.hasSplits;
+    const gName=bk.g.replace(/'/g,"\\'");
+    // 状態タグ（入金済／一部入金／未確認）
+    let statusTag;
+    if(isLocked){
+      statusTag=ip?'<span class="tag-paid" title="ロック中：解除してから変更してください">入金済</span>':(st.partial?'<span class="tag-partial" title="ロック中：解除してから変更してください">一部入金</span>':'<span class="tag-unpaid" title="ロック中：解除してから変更してください">未確認</span>');
+    } else if(st.partial){
+      statusTag=`<span class="tag-partial" style="cursor:pointer" onclick="openAmtModal('${bk.id}',${csvAmt},'${gName}')" title="クリックで分割入金を編集">🟡 一部入金 残¥${(csvAmt-st.received).toLocaleString('ja-JP')}</span>`;
+    } else if(ip){
+      statusTag=st.hasSplits
+        ?`<span class="tag-paid" style="cursor:pointer" onclick="openAmtModal('${bk.id}',${csvAmt},'${gName}')" title="分割入金（クリックで編集）">入金済</span>`
+        :`<span class="tag-paid" style="cursor:pointer" onclick="togPayWithConfirm('${bk.id}',false)" title="クリックで未確認に戻す">入金済</span>`;
+    } else {
+      statusTag=`<span class="tag-unpaid" style="cursor:pointer" onclick="togPayWithConfirm('${bk.id}',true)" title="クリックで入金済にする">未確認</span>`;
+    }
+    // 日付セル（分割入金時は完済日＋内訳ツールチップ、それ以外は従来の日付入力）
+    const dateCell=st.hasSplits
+      ?`<span style="display:inline-block;font-size:.78em;color:#1565c0;background:#e8f1ff;border:1px solid #b3d4ff;border-radius:4px;padding:3px 7px;cursor:help" title="分割入金：${st.splits.map(s=>(s.date||'日付なし')+' ¥'+(parseInt(s.amount)||0).toLocaleString('ja-JP')).join(' ／ ')}">🔀 ${payDate||'—'}（${st.splits.length}回）</span>`
+      :`<input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)" style="font-size:.82em;border:1px solid ${payDate?'#a5d6a7':'#ccc'};border-radius:4px;padding:3px 6px;color:${payDate?'#2e7d32':'#aaa'};background:${payDate?'#f1f9f1':'#fff'};width:118px">`;
     return`<tr style="${rowStyle}">
       <td style="text-align:center"><input type="checkbox" class="pay-sel-chk" data-id="${bk.id}" style="width:14px;height:14px;cursor:pointer;vertical-align:middle" ${isLocked?'disabled':''}></td>
-      <td>${isLocked?(ip?'<span class="tag-paid" title="ロック中：解除してから変更してください">入金済</span>':'<span class="tag-unpaid" title="ロック中：解除してから変更してください">未確認</span>'):(ip?`<span class="tag-paid" style="cursor:pointer" onclick="togPayWithConfirm('${bk.id}',false)" title="クリックで未確認に戻す">入金済</span>`:`<span class="tag-unpaid" style="cursor:pointer" onclick="togPayWithConfirm('${bk.id}',true)" title="クリックで入金済にする">未確認</span>`)}</td>
+      <td>${statusTag}</td>
       <td style="color:var(--t2)">${bk.ci}</td>
       <td>${bk.tag}</td>
       <td>
-        <span style="font-family:ui-monospace,monospace;font-weight:600;color:${isEdited?'var(--orange)':'var(--t1)'}">¥${dispAmt.toLocaleString('ja-JP')}</span>
-        ${!isLocked?`<button onclick="openAmtModal('${bk.id}',${csvAmt},'${bk.g.replace(/'/g,"\\'")}')" title="金額を修正" style="border:1px solid #ddd;background:#f7f7fb;border-radius:4px;cursor:pointer;font-size:.68em;padding:2px 5px;color:var(--t3);margin-left:5px;vertical-align:middle">✏️</button>`:'<span style="display:inline-block;width:28px;margin-left:5px"></span>'}
+        <span style="font-family:ui-monospace,monospace;font-weight:600;color:${isEdited?'var(--orange)':'var(--t1)'}">¥${dispAmt.toLocaleString('ja-JP')}</span>${st.partial?`<span style="font-size:.7em;color:#e65100;margin-left:2px">/¥${csvAmt.toLocaleString('ja-JP')}</span>`:''}
+        ${!isLocked?`<button onclick="openAmtModal('${bk.id}',${csvAmt},'${gName}')" title="金額を修正／分割入金" style="border:1px solid #ddd;background:#f7f7fb;border-radius:4px;cursor:pointer;font-size:.68em;padding:2px 5px;color:var(--t3);margin-left:5px;vertical-align:middle">✏️</button>`:'<span style="display:inline-block;width:28px;margin-left:5px"></span>'}
       </td>
-      <td><input class="date-edit" type="date" value="${payDate}" ${isLocked?'disabled':''} onchange="updatePayDate('${bk.id}',this.value)" style="font-size:.82em;border:1px solid ${payDate?'#a5d6a7':'#ccc'};border-radius:4px;padding:3px 6px;color:${payDate?'#2e7d32':'#aaa'};background:${payDate?'#f1f9f1':'#fff'};width:118px"></td>
+      <td>${dateCell}</td>
       <td>${(s=>{ const bg=s==='Airbnb'?'#FF5A5F':s==='Booking.com'?'#003580':'#90A4AE'; return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.73em;font-weight:700;padding:3px 9px;border-radius:4px;letter-spacing:.02em">${s}</span>`; })(bk.s)}</td>
       <td>${bk.g}${bk.cancel?'<span style="margin-left:5px;font-size:.68em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px">キャンセル料</span>':''}</td>
       <td style="text-align:center"><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em;padding:2px">${isLocked?'🔒':'🔓'}</button></td>
@@ -3068,26 +3094,91 @@ function togPayWithConfirm(id,val){
   buzz(30);
   renderPayTab();
 }
-let _amtModalId=null,_amtModalCsv=0;
+let _amtModalId=null,_amtModalCsv=0,_amtSplits=[];
+// 入金状態を判定（分割入金 splits を考慮）。csvAmt=予定額(Airbnb純収益・税込)。
+// 戻り値: {hasSplits, received(受領済み合計), complete(入金済), partial(一部入金), payDate(完済日=最終入金日), splits}
+function payState(pd,csvAmt){
+  pd=pd||{};
+  const splits=Array.isArray(pd.splits)?pd.splits.filter(s=>s&&(parseInt(s.amount)||0)>0):[];
+  if(splits.length){
+    const received=splits.reduce((a,s)=>a+(parseInt(s.amount)||0),0);
+    const dates=splits.map(s=>s.date).filter(Boolean).sort();
+    const complete=received>=csvAmt-1;   // 消費税の±1円は許容
+    return {hasSplits:true,received,complete,partial:!complete,payDate:dates.length?dates[dates.length-1]:'',splits};
+  }
+  const paid=pd.status==='1';
+  return {hasSplits:false,received:paid?(pd.customAmt!=null?pd.customAmt:csvAmt):0,complete:paid,partial:false,payDate:pd.payDate||'',splits:[]};
+}
 function openAmtModal(id,csvAmt,guest){
   _amtModalId=id;_amtModalCsv=csvAmt;
-  const pays=S.get(PAY_KEY)||{};
-  const custom=(pays[id]||{}).customAmt;
+  const pays=S.get(PAY_KEY)||{};const pd=pays[id]||{};
+  _amtSplits=Array.isArray(pd.splits)?pd.splits.map(s=>({date:s.date||'',amount:s.amount||''})):[];
   document.getElementById('amtModalGuest').textContent=guest;
   document.getElementById('amtModalCsv').textContent='¥'+csvAmt.toLocaleString('ja-JP');
-  document.getElementById('amtModalInput').value=custom!=null?custom:csvAmt;
+  document.getElementById('amtModalInput').value=pd.customAmt!=null?pd.customAmt:csvAmt;
+  renderAmtSplits();
   openModal('amtModal');
-  setTimeout(()=>{const el=document.getElementById('amtModalInput');if(el){el.focus();el.select();}},80);
+  setTimeout(()=>{const el=document.getElementById('amtModalInput');if(el&&!el.disabled){el.focus();el.select();}},80);
+}
+// 分割入金UIの描画（合計・残額・状態を計算して表示）
+function renderAmtSplits(){
+  const wrap=document.getElementById('amtSplitRows');const sumEl=document.getElementById('amtSplitSummary');const single=document.getElementById('amtModalInput');
+  if(!wrap)return;
+  wrap.innerHTML=_amtSplits.map((s,i)=>`<div style="display:flex;gap:5px;margin-bottom:5px;align-items:center">
+    <input type="date" value="${s.date||''}" onchange="updateAmtSplit(${i},'date',this.value)" style="flex:1;border:1px solid var(--b);border-radius:6px;padding:5px 6px;font-size:.8em">
+    <input type="number" value="${s.amount||''}" placeholder="金額" onchange="updateAmtSplit(${i},'amount',this.value)" style="width:96px;border:1px solid var(--b);border-radius:6px;padding:5px 6px;font-size:.8em;text-align:right;font-family:ui-monospace,monospace">
+    <button onclick="delAmtSplit(${i})" title="削除" style="background:none;border:1px solid #ffcdd2;color:#c62828;border-radius:6px;padding:5px 9px;cursor:pointer;font-size:.78em">×</button>
+  </div>`).join('');
+  const valid=_amtSplits.filter(s=>(parseInt(s.amount)||0)>0);
+  if(valid.length){
+    const sum=valid.reduce((a,s)=>a+(parseInt(s.amount)||0),0);
+    const complete=sum>=_amtModalCsv-1;
+    if(single){single.disabled=true;single.style.opacity='.4';}
+    sumEl.innerHTML=`合計 <b style="font-family:ui-monospace,monospace">¥${sum.toLocaleString('ja-JP')}</b> ／ 予定 ¥${_amtModalCsv.toLocaleString('ja-JP')}　${complete?'<span style="color:#2e7d32;font-weight:700">✅ 入金済</span>':`<span style="color:#e65100;font-weight:700">🟡 一部入金（残 ¥${(_amtModalCsv-sum).toLocaleString('ja-JP')}）</span>`}`;
+  } else {
+    if(single){single.disabled=false;single.style.opacity='1';}
+    sumEl.innerHTML='<span style="color:var(--t3)">分割入金なし（上の金額＝1回払い）</span>';
+  }
+}
+function addAmtSplit(){_amtSplits.push({date:'',amount:''});renderAmtSplits();}
+function delAmtSplit(i){_amtSplits.splice(i,1);renderAmtSplits();}
+function updateAmtSplit(i,field,val){
+  if(field==='amount')_amtSplits[i].amount=(val===''?'':(Math.round(parseFloat(val))||0));
+  else _amtSplits[i][field]=val;
+  renderAmtSplits();
 }
 function savePayAmt(){
-  const val=document.getElementById('amtModalInput').value;
-  updatePayAmt(_amtModalId,val);
+  const pays=S.get(PAY_KEY)||{};const id=_amtModalId;
+  if(!pays[id])pays[id]={};
+  const valid=_amtSplits.filter(s=>(parseInt(s.amount)||0)>0);
+  if(valid.length){
+    // 分割入金として保存（customAmt=合計／payDate=完済日／status=合計が予定に達したら入金済）
+    const splits=valid.map(s=>({date:s.date||'',amount:parseInt(s.amount)||0}));
+    const sum=splits.reduce((a,s)=>a+s.amount,0);
+    const dates=splits.map(s=>s.date).filter(Boolean).sort();
+    pays[id].splits=splits;
+    pays[id].customAmt=sum;
+    pays[id].payDate=dates.length?dates[dates.length-1]:'';
+    pays[id].status=(sum>=_amtModalCsv-1)?'1':'partial';
+  } else {
+    // 通常（1回払い）：従来どおり customAmt のみ。分割は解除
+    delete pays[id].splits;
+    if(pays[id].status==='partial')delete pays[id].status;
+    const val=document.getElementById('amtModalInput').value;
+    if(val===''||val==null)delete pays[id].customAmt;
+    else pays[id].customAmt=Math.round(parseFloat(val));
+  }
+  S.set(PAY_KEY,pays);
   buzz(50);
   closeModal('amtModal');
+  renderPayTab();
 }
 function revertPayAmt(){
-  updatePayAmt(_amtModalId,'');
+  const pays=S.get(PAY_KEY)||{};const id=_amtModalId;
+  if(pays[id]){delete pays[id].customAmt;delete pays[id].splits;if(pays[id].status==='partial')delete pays[id].status;}
+  S.set(PAY_KEY,pays);
   closeModal('amtModal');
+  renderPayTab();
 }
 function updatePayAmt(id,val){
   const pays=S.get(PAY_KEY)||{};
@@ -5515,22 +5606,38 @@ function renderAcc(){
 // 会計タブの「入金単位」を作る：Booking/Airbnbはお支払い番号グループ、その他(手動)は行単位。
 function getAccPayments(month){
   const pays=S.get(PAY_KEY)||{};
-  const groups={};
+  // ① 予約ごとに「受領した入金」を展開（分割は回ごと／通常は1件）。payoutに分割が含まれるか判定。
+  const rows=[];const payoutHasSplit={};
   Object.keys(BK).forEach(tag=>BK[tag].forEach(bk=>{
     const pd=pays[bk.id]||{};
-    if(pd.status!=='1')return;
-    if(!(pd.payDate||'').startsWith(month))return;
     const netTaxInc=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
-    const recv=pd.customAmt!=null?pd.customAmt:netTaxInc;
+    const st=payState(pd,netTaxInc);
     const ota=(bk.s||'').includes('Airbnb')?'Airbnb':'Booking';
     const pid=pd.payoutId||('単'+bk.id);
-    const key=ota+'|'+pid;
-    if(!groups[key])groups[key]={amount:0,date:pd.payDate||'',ota,payoutId:pd.payoutId||'',rooms:[]};
-    groups[key].amount+=recv; groups[key].rooms.push(tag);
+    let receipts;
+    if(st.hasSplits){payoutHasSplit[pid]=true;receipts=st.splits.map(s=>({date:s.date||'',amount:parseInt(s.amount)||0}));}
+    else if(st.complete){receipts=[{date:pd.payDate||'',amount:(pd.customAmt!=null?pd.customAmt:netTaxInc)}];}
+    else receipts=[];
+    receipts.forEach(r=>rows.push({ota,pid,date:r.date,amount:r.amount,tag}));
   }));
+  // ② グループ化。分割を含むpayoutは「お支払い番号 × 入金日」、それ以外は従来どおり「お支払い番号」単位（＝既存データに影響なし）。
+  const groups={};
+  rows.forEach(r=>{
+    if(!(r.date||'').startsWith(month))return;   // 入金日（回ごと）で月絞込
+    const perDate=!!payoutHasSplit[r.pid];
+    const key=perDate?(r.ota+'|'+r.pid+'|'+r.date):(r.ota+'|'+r.pid);
+    if(!groups[key])groups[key]={amount:0,date:r.date,ota:r.ota,payoutId:(String(r.pid).indexOf('単')===0?'':r.pid),rooms:[],perDate};
+    groups[key].amount+=r.amount;groups[key].rooms.push(r.tag);
+  });
+  // Booking.com コミッション調整額：同Payoutのグループに乗せる
   const adj=S.get(ADJ_KEY)||{};
-  Object.keys(adj).forEach(rn=>{const a=adj[rn];if(!a||!a.payoutId)return;const k='Booking|'+a.payoutId;if(groups[k])groups[k].amount+=a.amount;});
-  const list=Object.values(groups).map(g=>({amount:Math.round(g.amount),date:g.date,otaType:g.ota,label:(g.payoutId?('📦 '+g.payoutId):(g.ota+'（番号なし）'))+'｜'+[...new Set(g.rooms)].join('・')}));
+  Object.keys(adj).forEach(rn=>{
+    const a=adj[rn];if(!a||!a.payoutId)return;
+    let k='Booking|'+a.payoutId;
+    if(!groups[k])k=Object.keys(groups).find(key=>groups[key].ota==='Booking'&&groups[key].payoutId===a.payoutId);
+    if(k&&groups[k])groups[k].amount+=a.amount;
+  });
+  const list=Object.values(groups).map(g=>({amount:Math.round(g.amount),date:g.date,otaType:g.ota,label:(g.payoutId?('📦 '+g.payoutId):(g.ota+'（番号なし）'))+'｜'+[...new Set(g.rooms)].join('・')+(g.perDate?('｜'+(g.date||'日付なし')+'入金分'):'')}));
   const savedAcc=S.get(ACC_KEY)||{};
   (savedAcc[month+'_manual']||[]).forEach(r=>{
     if(!r.amount)return;
@@ -5561,6 +5668,28 @@ function _otaMatch(accType,bankType){
   if(bankType==='Square'&&(accType==='Square'||accType==='その他'))return true;
   return false;
 }
+// 部分和：items(各 .amount>0) から合計が target になる size 2〜maxLen の組合せを1つ返す（なければ null）。少ない枚数を優先。
+function _subsetOfSize(items,target,size,start,acc){
+  if(size===0)return target===0?acc.slice():null;
+  for(let i=start;i<=items.length-size;i++){
+    const v=items[i].amount;
+    if(v>target)continue;            // 金額は正なので超過分は枝刈り
+    acc.push(items[i]);
+    const res=_subsetOfSize(items,target-v,size-1,i+1,acc);
+    if(res)return res;
+    acc.pop();
+  }
+  return null;
+}
+function _findSubsetSum(items,target,maxLen){
+  maxLen=Math.min(maxLen||4,items.length);
+  if(items.length>20)return null;    // 候補が多すぎる時は誤マッチ防止のため合算しない
+  for(let size=2;size<=maxLen;size++){
+    const res=_subsetOfSize(items,target,size,0,[]);
+    if(res)return res;
+  }
+  return null;
+}
 function reconcileBank(text,month){
   let rows;try{rows=parseCSV(text);}catch(e){rows=[];}
   const bankAll=[];
@@ -5576,14 +5705,27 @@ function reconcileBank(text,month){
   const bank=bankAll.filter(b=>!b.date||b.date.startsWith(month));
   const acc=getAccPayments(month);
   const accPool=acc.map(a=>({...a,_used:false}));
-  const matched=[],unmatchedBank=[];
-  bank.forEach(b=>{
+  const bankPool=bank.map(b=>({...b,_used:false}));
+  const matched=[];
+  // ① まず金額が完全一致するものを1:1で照合（同じ送金元を優先、無ければ金額のみ）
+  bankPool.forEach(b=>{
     let c=accPool.find(a=>!a._used&&a.amount===b.amount&&_otaMatch(a.otaType,b.otaType));
     if(!c)c=accPool.find(a=>!a._used&&a.amount===b.amount);
-    if(c){c._used=true;matched.push({bank:b,acc:c});}
-    else unmatchedBank.push(b);
+    if(c){c._used=true;b._used=true;matched.push({bank:b,acc:c});}
   });
-  return {matched,unmatchedAcc:accPool.filter(a=>!a._used),unmatchedBank};
+  // ② 分割入金：1つのお支払いが銀行で複数回に分かれて着金したケース（延泊で送金処理後に追送金 等）。
+  //    残った会計側の各入金に対し、「同じ日・同じ送金元」の残り銀行入金を合算して総額が一致する組を探す。
+  const splitMatched=[];
+  accPool.filter(a=>!a._used).forEach(a=>{
+    const cands=bankPool.filter(b=>!b._used&&_otaMatch(a.otaType,b.otaType)&&(!b.date||!a.date||b.date===a.date));
+    const combo=_findSubsetSum(cands,a.amount,4);
+    if(combo&&combo.length>=2){
+      combo.forEach(b=>b._used=true);
+      a._used=true;
+      splitMatched.push({acc:a,banks:combo});
+    }
+  });
+  return {matched,splitMatched,unmatchedAcc:accPool.filter(a=>!a._used),unmatchedBank:bankPool.filter(b=>!b._used)};
 }
 function handleBankRecon(files){
   const sel=document.getElementById('accMonth');const month=sel?sel.value:'';
@@ -5595,16 +5737,18 @@ function handleBankRecon(files){
     try{text=new TextDecoder('utf-8',{fatal:true}).decode(ev.target.result);}
     catch(e){text=new TextDecoder('shift-jis').decode(ev.target.result);}
     const res=reconcileBank(text,month);
-    renderReconResult(month,res.matched,res.unmatchedAcc,res.unmatchedBank);
+    renderReconResult(month,res);
   };
   r.readAsArrayBuffer(f);
 }
-function renderReconResult(month,matched,unmAcc,unmBank){
+function renderReconResult(month,res){
   const el=document.getElementById('reconResult');if(!el)return;
+  const matched=res.matched||[],splitMatched=res.splitMatched||[],unmAcc=res.unmatchedAcc||[],unmBank=res.unmatchedBank||[];
   const yen=n=>'¥'+(n||0).toLocaleString('ja-JP');
+  const okCount=matched.length+splitMatched.length;
   const head=`<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
     <span style="font-weight:700;font-size:.95em">🔎 銀行明細との照合（${month}）</span>
-    <span style="background:#e8f5e9;color:#2e7d32;border-radius:5px;padding:3px 10px;font-size:.82em;font-weight:700">✅ 一致 ${matched.length}件</span>
+    <span style="background:#e8f5e9;color:#2e7d32;border-radius:5px;padding:3px 10px;font-size:.82em;font-weight:700">✅ 一致 ${okCount}件${splitMatched.length?`（内 分割入金 ${splitMatched.length}件）`:''}</span>
     <span style="background:${unmAcc.length?'#fff3e0':'#f1f1f1'};color:${unmAcc.length?'#e65100':'#999'};border-radius:5px;padding:3px 10px;font-size:.82em;font-weight:700">⚠️ 会計→銀行 未着金 ${unmAcc.length}件</span>
     <span style="background:${unmBank.length?'#fff3e0':'#f1f1f1'};color:${unmBank.length?'#e65100':'#999'};border-radius:5px;padding:3px 10px;font-size:.82em;font-weight:700">⚠️ 銀行→会計 未処理 ${unmBank.length}件</span>
     <button onclick="document.getElementById('reconResult').innerHTML=''" style="margin-left:auto;background:none;border:1px solid var(--b);border-radius:5px;padding:3px 9px;cursor:pointer;font-size:.75em;color:var(--t2)">✕ 閉じる</button>
@@ -5613,7 +5757,8 @@ function renderReconResult(month,matched,unmAcc,unmBank){
   const accItems=list('⚠️ 会計に計上あり・銀行に着金が見当たらない（着金漏れ／未着金）',unmAcc,a=>`<div style="font-size:.8em;padding:3px 8px;background:#fff8f0;border-left:3px solid #ffb74d;margin-bottom:2px">${a.date||'日付なし'}　${a.otaType}　${yen(a.amount)}　<span style="color:var(--t2)">${a.label}</span></div>`);
   const bankItems=list('⚠️ 銀行に着金あり・会計に無い（未処理／要確認）',unmBank,b=>`<div style="font-size:.8em;padding:3px 8px;background:#fff8f0;border-left:3px solid #ffb74d;margin-bottom:2px">${b.date||'日付なし'}　${b.otaType}　${yen(b.amount)}　<span style="color:var(--t2)">${b.tekiyo}</span></div>`);
   const ok=(!unmAcc.length&&!unmBank.length)?`<div style="font-size:.85em;color:#2e7d32;font-weight:600;margin-top:4px">🎉 全ての入金が一致しました（漏れなし）</div>`:'';
-  el.innerHTML=`<div style="background:#f7f9ff;border:1px solid #d3ddf5;border-radius:9px;padding:10px 14px;margin-bottom:12px">${head}${ok}${accItems}${bankItems}</div>`;
+  const splitItems=splitMatched.length?`<div style="margin-top:6px"><div style="font-size:.8em;font-weight:700;color:#2e7d32;margin-bottom:3px">✅ 分割入金（1つのお支払いが銀行で複数回に分かれて着金）</div>${splitMatched.map(s=>`<div style="font-size:.8em;padding:3px 8px;background:#f1f8e9;border-left:3px solid #81c784;margin-bottom:2px">${s.acc.date||'日付なし'}　${s.acc.otaType}　<b>${yen(s.acc.amount)}</b> ＝ ${s.banks.map(b=>yen(b.amount)).join(' ＋ ')}　<span style="color:var(--t2)">${s.acc.label}</span></div>`).join('')}</div>`:'';
+  el.innerHTML=`<div style="background:#f7f9ff;border:1px solid #d3ddf5;border-radius:9px;padding:10px 14px;margin-bottom:12px">${head}${ok}${splitItems}${accItems}${bankItems}</div>`;
 }
 
 function addAccRow(){
