@@ -5334,10 +5334,7 @@ function renderAcc(){
       // 入金額は入金管理で手動修正した値(customAmt)を優先＝消費税誤差の手修正を会計にも反映
       // （宿泊料金・手数料はBooking正規値のまま。差の¥1は入金額に現れる）
       const recvAmt=pd.customAmt!=null?pd.customAmt:netTaxInc;
-      // 予約データから計算した予測額(netTaxInc)と、実際の入金額(recvAmt)が食い違う＝
-      // Bookingが予約データにない手数料を引いた等のサイン → ⚠️で知らせる
-      const mismatch=(pd.customAmt!=null && Math.round(pd.customAmt)!==netTaxInc);
-      const row={date:pd.payDate||'',facility:tag,guest:bk.g,amount:recvAmt,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s,payoutId:pd.payoutId||'',expected:netTaxInc,mismatch:mismatch};
+      const row={date:pd.payDate||'',facility:tag,guest:bk.g,amount:recvAmt,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s,payoutId:pd.payoutId||''};
       if((bk.s||'').includes('Airbnb'))airbnbRows.push(row);
       else bookingRows.push(row);
     });
@@ -5386,7 +5383,7 @@ function renderAcc(){
     <td style="${tdStyle}">${r.date}</td>
     <td style="${tdStyle}">${desc}</td>
     <td style="${tdStyle}">${r.facility}</td>
-    <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace">${r.mismatch?`<span title="予約データ予測 ¥${(r.expected||0).toLocaleString('ja-JP')}　／　実際の入金 ¥${(r.amount||0).toLocaleString('ja-JP')}　／　差 ${r.amount-r.expected>=0?'+':'−'}¥${Math.abs(r.amount-r.expected).toLocaleString('ja-JP')}" style="cursor:help">⚠️</span> `:''}${fmtF(r.amount)}</td>
+    <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace">${fmtF(r.amount)}</td>
     <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace">${fmtF(r.stay)}</td>
     <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(r.comm)}</td>
   </tr>`;}).join('');
@@ -5424,12 +5421,6 @@ function renderAcc(){
   const airbnbTotal=airbnbRows.reduce((s,r)=>s+r.comm,0);
   const bookingTotal=bookingRows.reduce((s,r)=>s+r.comm,0);
 
-  // 入金額の差異（予約データ予測 ≠ 実際の入金）のお知らせ
-  const mismatchCount=airbnbRows.concat(bookingRows).filter(r=>r.mismatch).length;
-  const mismatchBanner=mismatchCount>0
-    ?`<div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:7px;padding:8px 12px;margin-bottom:10px;font-size:.82em;color:#e65100;font-weight:600">⚠️ 入金額の差異 ${mismatchCount}件：予約データの計算と実際の入金額が一致しません（Bookingの想定外手数料などの可能性）。表中の ⚠️ マークの行をご確認ください。</div>`
-    :'';
-
   // Manual rows
   const inpS='border:1px solid var(--b);border-radius:3px;padding:2px 5px;font-size:.78em;outline:none;';
   const numDisp=(val,red)=>val?`<span style="font-family:ui-monospace,monospace;font-size:.82em;${red?'color:var(--red)':''}">${fmtF(val)}</span>`:`<span style="color:#bbb;font-size:.78em">未入力</span>`;
@@ -5459,7 +5450,6 @@ function renderAcc(){
   const manualTotal=manualRows.reduce((s,r)=>s+(r.comm||0),0);
 
   document.getElementById('accContent').innerHTML=`
-    ${mismatchBanner}
     <div style="margin-bottom:6px"><span style="display:inline-block;background:#FF5A5F;color:#fff;font-size:.78em;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.02em">Airbnb</span></div>
     <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderPayoutGrouped(airbnbRows,'#fff5f5',{bg:'#ffe3ea',color:'#c2185b',border:'#f48fb1'})}
       <tr style="background:#ffe8e8;font-weight:700"><td colspan="5" style="${tdStyle}">Airbnb手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(airbnbTotal)}</td></tr>
