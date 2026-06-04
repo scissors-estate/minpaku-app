@@ -5457,8 +5457,8 @@ function ensurePdfKeys(month,folderEnc){
   _pdfKeysCache[month]={loaded:false,keys:new Set()};
   fetch('https://bank.scissors-estate.jp/api/month/'+folderEnc+'/pdf-keys/risona')
     .then(r=>r.ok?r.json():Promise.reject())
-    .then(d=>{_pdfKeysCache[month]={loaded:true,keys:new Set(d.keys||[])};renderAcc();})
-    .catch(()=>{_pdfKeysCache[month]={loaded:true,keys:new Set(),error:true};});  // 取得失敗時は誤って「なし」と出さない
+    .then(d=>{_pdfKeysCache[month]={loaded:true,keys:new Set(d.keys||[]),items:d.items||[]};renderAcc();})
+    .catch(()=>{_pdfKeysCache[month]={loaded:true,keys:new Set(),items:[],error:true};});  // 取得失敗時は誤って「なし」と出さない
 }
 function renderAcc(){
   const sel=document.getElementById('accMonth');if(!sel)return;
@@ -5479,7 +5479,7 @@ function renderAcc(){
   // 銀行明細PDFリンク（bankアプリが配信）。民泊入金は全てりそな口座着金→bank_key=risona固定
   const bankMonthFolder='会計資料'+(parseInt(month.slice(5,7),10)||0)+'月分';
   const PDF_BASE='https://bank.scissors-estate.jp/api/month/'+encodeURIComponent(bankMonthFolder)+'/pdf-by-no/risona/';
-  if(deposits.length)ensurePdfKeys(month,encodeURIComponent(bankMonthFolder));
+  if(deposits.length||manualRows.length)ensurePdfKeys(month,encodeURIComponent(bankMonthFolder));
   
   // Collect OTA-based rows from paid bookings
   const airbnbRows=[],bookingRows=[];
@@ -5660,9 +5660,19 @@ function renderAcc(){
         <td style="${tdStyle};text-align:right"><input type="number" style="${inpS}width:90px;text-align:right;font-family:ui-monospace,monospace" value="${r.comm||''}" placeholder="0" onchange="updateAccRow(${i},'comm',parseInt(this.value)||0,'${month}')"></td>
       </tr>`;
     }
+    const _md=(r.date||'').replace(/-/g,'');
+    const _ma=parseInt(r.amount)||0;
+    const _mki=_pdfKeysCache[month];
+    let mPdfIcon='';
+    if(_mki&&_mki.loaded&&!_mki.error&&_md&&_ma){
+      const _mit=(_mki.items||[]).find(it=>it.date===_md&&it.amount===_ma);
+      mPdfIcon=_mit
+        ?` <a href="${PDF_BASE}${_md}/${_mit.no}" target="_blank" rel="noopener" title="明細PDFを開く（${_md}_${_mit.no}・初回はbankのパスワード）" style="display:inline-block;background:#1565c0;color:#fff;border-radius:4px;padding:0 6px;font-size:.78em;font-weight:700;text-decoration:none;margin-left:5px">📄 PDF</a>`
+        :` <span title="この明細のPDFが見つかりません（${r.date}・¥${_ma.toLocaleString('ja-JP')}）。同名のPDFをbankにアップすると表示されます" style="display:inline-block;background:#fff3e0;color:#e65100;border:1px solid #ffb74d;border-radius:4px;padding:0 6px;font-size:.78em;font-weight:700;margin-left:5px;cursor:help">⚠ PDFなし</span>`;
+    }
     return`<tr style="background:#f0fff4">
       <td style="${tdStyle}">${r.date||'—'} ${editBtn}</td>
-      <td style="${tdStyle}">${r.desc||'—'}</td>
+      <td style="${tdStyle}">${r.desc||'—'}${mPdfIcon}</td>
       <td style="${tdStyle}">${r.facility||'—'}</td>
       <td style="${tdStyle};text-align:right">${numDisp(r.amount,false)}</td>
       <td style="${tdStyle};text-align:right">${numDisp(r.stay,false)}</td>
