@@ -5450,6 +5450,16 @@ function populateAccMonths(){
   renderAcc();
 }
 
+// 銀行明細PDFが存在する {YYYYMMDD}_{番号} 一覧をbankから取得（📄の有無表示用・公開エンドポイント・CORS可）
+let _pdfKeysCache={};
+function ensurePdfKeys(month,folderEnc){
+  if(_pdfKeysCache[month])return;
+  _pdfKeysCache[month]={loaded:false,keys:new Set()};
+  fetch('https://bank.scissors-estate.jp/api/month/'+folderEnc+'/pdf-keys/risona')
+    .then(r=>r.ok?r.json():Promise.reject())
+    .then(d=>{_pdfKeysCache[month]={loaded:true,keys:new Set(d.keys||[])};renderAcc();})
+    .catch(()=>{_pdfKeysCache[month]={loaded:true,keys:new Set(),error:true};});  // 取得失敗時は誤って「なし」と出さない
+}
 function renderAcc(){
   const sel=document.getElementById('accMonth');if(!sel)return;
   const month=sel.value;if(!month)return;
@@ -5469,6 +5479,7 @@ function renderAcc(){
   // 銀行明細PDFリンク（bankアプリが配信）。民泊入金は全てりそな口座着金→bank_key=risona固定
   const bankMonthFolder='会計資料'+(parseInt(month.slice(5,7),10)||0)+'月分';
   const PDF_BASE='https://bank.scissors-estate.jp/api/month/'+encodeURIComponent(bankMonthFolder)+'/pdf-by-no/risona/';
+  if(deposits.length)ensurePdfKeys(month,encodeURIComponent(bankMonthFolder));
   
   // Collect OTA-based rows from paid bookings
   const airbnbRows=[],bookingRows=[];
@@ -5581,7 +5592,15 @@ function renderAcc(){
           const seen=new Set();   // 同じ予約は最初の番号行にだけ宿泊料金・手数料を計上（重複防止）
           deps.forEach((d,di)=>{
             const noStr=d.bankNo?('_'+stripNo(d.bankNo)):'';
-            const pdfIcon=d.bankNo?` <a href="${PDF_BASE}${ymd(d.date)}/${stripNo(d.bankNo)}" target="_blank" rel="noopener" title="銀行明細PDFを開く（${ymd(d.date)}_${stripNo(d.bankNo)}・初回はbankのパスワード入力）" style="text-decoration:none;margin-left:3px">📄</a>`:'';
+            let pdfIcon='';
+            if(d.bankNo){
+              const _pk=ymd(d.date)+'_'+stripNo(d.bankNo);
+              const _ki=_pdfKeysCache[month];
+              const _missing=_ki&&_ki.loaded&&!_ki.error&&!_ki.keys.has(_pk);
+              pdfIcon=_missing
+                ?` <span title="この入金のPDF(${_pk})がまだありません。upload_bank.batで対象月をアップしてください" style="display:inline-block;background:#fff3e0;color:#e65100;border:1px solid #ffb74d;border-radius:5px;padding:1px 7px;font-size:.8em;font-weight:700;margin-left:6px;cursor:help">⚠ PDFなし</span>`
+                :` <a href="${PDF_BASE}${ymd(d.date)}/${stripNo(d.bankNo)}" target="_blank" rel="noopener" title="銀行明細PDFを開く（${_pk}・初回はbankのパスワード入力）" style="display:inline-block;background:#1565c0;color:#fff;border-radius:5px;padding:1px 7px;font-size:.8em;font-weight:700;text-decoration:none;margin-left:6px">📄 PDF</a>`;
+            }
             const label=`<span style="font-family:ui-monospace,monospace">${ymd(d.date)}${noStr}</span> 📦 お支払い番号 ${key} ／ ${(d.members||[]).length}件${pdfIcon}`+(di===0?warn:'');
             let dA=0,dS=0,dC=0;
             const memberRows=(d.members||[]).map(m=>{
