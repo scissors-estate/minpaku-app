@@ -5533,16 +5533,12 @@ function renderAcc(){
     <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(r.comm)}</td>
   </tr>`;}).join('');
 
-  // お支払い番号（入金）ごとにグループ化して表示（見出しに入金日・件数・入金合計）。Booking.com/Airbnb共用。
+  // お支払い番号（入金）ごとに表示。銀行照合済みなら「入金日＋銀行番号」の昇順で並べる（番号は銀行明細のまま）。
   const renderPayoutGrouped=(rows,bg,theme)=>{
     if(!rows.length)return '';
     theme=theme||{bg:'#e3f2fd',color:'#1565c0',border:'#90caf9'};
     const groups=new Map();
     rows.forEach(r=>{const key=r.payoutId||'__nopayout__';if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);});
-    const keys=[...groups.keys()].sort((a,b)=>{
-      if(a==='__nopayout__')return 1; if(b==='__nopayout__')return -1;
-      return (groups.get(a)[0].date||'').localeCompare(groups.get(b)[0].date||'');
-    });
     const hc=`color:${theme.color};font-weight:600;border-top:2px solid ${theme.border}`;
     // 小計（見出し）行：ラベル＋入金額/宿泊料金/手数料
     const subRow=(label,a,s,c)=>`<tr style="background:${theme.bg}">`+
@@ -5551,8 +5547,10 @@ function renderAcc(){
       `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace">${fmtF(s)}</td>`+
       `<td style="${tdStyle};${hc};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(c)}</td>`+
       `</tr>`;
-    return keys.map(key=>{
-      const grp=groups.get(key);
+    const noNum=n=>{const v=parseInt(String(n==null?'':n).replace(/\D/g,''),10);return isNaN(v)?Number.MAX_SAFE_INTEGER:v;};
+    // 描画ユニットを作る（番号別入金＝1ユニット）→ 入金日昇順→銀行番号昇順で並べる
+    const out=[];   // {d:入金日, n:銀行番号(数値), nopay:bool, h:HTML}
+    groups.forEach((grp,key)=>{
       const gAmt=grp.reduce((s,r)=>s+(r.amount||0),0);   // 入金額 小計
       const gStay=grp.reduce((s,r)=>s+(r.stay||0),0);    // 宿泊料金 小計
       const gComm=grp.reduce((s,r)=>s+(r.comm||0),0);    // 手数料 小計
@@ -5562,7 +5560,11 @@ function renderAcc(){
       const warn=(csvTotal!=null && Math.round(gAmt)!==Math.round(csvTotal))
         ?` <span title="会計の合計 ¥${gAmt.toLocaleString('ja-JP')}　／　CSVのお支払い総額 ¥${csvTotal.toLocaleString('ja-JP')}　／　差 ${gAmt-csvTotal>=0?'+':'−'}¥${Math.abs(gAmt-csvTotal).toLocaleString('ja-JP')}（取り込めていない予約や、Bookingの想定外手数料の可能性）" style="cursor:help">⚠️</span>`
         :'';
-      const deps=key!=='__nopayout__'?(depByPayout[key]||[]):[];
+      if(key==='__nopayout__'){
+        out.push({d:'9999-99-99',n:Number.MAX_SAFE_INTEGER,nopay:true,h:subRow(`お支払い番号なし ／ ${grp.length}件`+warn,gAmt,gStay,gComm)+renderRows(grp,bg)});
+        return;
+      }
+      const deps=depByPayout[key]||[];
       // ── 銀行番号別に分割表示できるか（_depositsあり＆整合チェックOK）──
       if(deps.length){
         const byId={};grp.forEach(r=>{byId[r.bookingId]=r;});
@@ -5573,8 +5575,8 @@ function renderAcc(){
         const amtOk=Math.round(memSum)===Math.round(gAmt);
         const eachOk=deps.every(d=>Math.round((d.members||[]).reduce((s,m)=>s+(m.amount||0),0))===Math.round(d.amount));
         if(idsOk&&amtOk&&eachOk){
-          const seen=new Set();   // 同じ予約は最初の入金行にだけ宿泊料金・手数料を計上（重複防止）
-          return deps.map((d,di)=>{
+          const seen=new Set();   // 同じ予約は最初の番号行にだけ宿泊料金・手数料を計上（重複防止）
+          deps.forEach((d,di)=>{
             const noStr=d.bankNo?('_'+stripNo(d.bankNo)):'';
             const label=`<span style="font-family:ui-monospace,monospace">${ymd(d.date)}${noStr}</span> 📦 お支払い番号 ${key} ／ ${(d.members||[]).length}件`+(di===0?warn:'');
             let dA=0,dS=0,dC=0;
@@ -5594,19 +5596,26 @@ function renderAcc(){
               <td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${first?fmtF(comm):'—'}</td>
             </tr>`;
             }).join('');
-            return subRow(label,dA,dS,dC)+memberRows;
-          }).join('');
+            out.push({d:d.date||grp[0].date||'',n:noNum(d.bankNo),h:subRow(label,dA,dS,dC)+memberRows});
+          });
+          return;
         }
         // 整合しない → 安全のため従来表示にフォールバック＋⚠️注記（お金がズレるより、まとめて出す）
         const fb=`<span style="font-family:ui-monospace,monospace">${ymd(grp[0].date)}</span> 📦 お支払い番号 ${key} ／ ${grp.length}件`+warn+` <span title="銀行番号別の自動振り分けが確定できなかったため、まとめて表示しています。手動で確認してください。" style="cursor:help;color:#e65100">⚠️振り分け未確定</span>`;
-        return subRow(fb,gAmt,gStay,gComm)+renderRows(grp,bg);
+        out.push({d:grp[0].date||'',n:Number.MAX_SAFE_INTEGER,h:subRow(fb,gAmt,gStay,gComm)+renderRows(grp,bg)});
+        return;
       }
       // ── _depositsなし（銀行照合前）：従来表示＋日付プレフィックス（番号は照合後に付く）──
-      const label=(key==='__nopayout__'
-        ?`お支払い番号なし ／ ${grp.length}件`
-        :`<span style="font-family:ui-monospace,monospace">${ymd(grp[0].date)}</span> 📦 お支払い番号 ${key} ／ ${grp.length}件`)+warn;
-      return subRow(label,gAmt,gStay,gComm)+renderRows(grp,bg);
-    }).join('');
+      const label=`<span style="font-family:ui-monospace,monospace">${ymd(grp[0].date)}</span> 📦 お支払い番号 ${key} ／ ${grp.length}件`+warn;
+      out.push({d:grp[0].date||'',n:Number.MAX_SAFE_INTEGER,h:subRow(label,gAmt,gStay,gComm)+renderRows(grp,bg)});
+    });
+    // 入金日 昇順 → 銀行番号 昇順（番号なしは各日付の最後、お支払い番号なしは全体の最後）
+    out.sort((a,b)=>{
+      if(a.nopay&&!b.nopay)return 1; if(b.nopay&&!a.nopay)return -1;
+      if((a.d||'')!==(b.d||''))return (a.d||'').localeCompare(b.d||'');
+      return a.n-b.n;
+    });
+    return out.map(x=>x.h).join('');
   };
 
   const airbnbTotal=airbnbRows.reduce((s,r)=>s+r.comm,0);
