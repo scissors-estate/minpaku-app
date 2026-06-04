@@ -5547,7 +5547,7 @@ function renderAcc(){
   const renderRows=(rows,bg)=>rows.map(r=>{
     const rowBg=r.isAdjustment?'#fff3cd':bg;  // 調整額はクリーム色で目立たせる
     const desc=r.desc||(r.ota.includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM');
-    return `<tr style="background:${rowBg}">
+    return `<tr data-cd="${r.date||''}" data-cs="${desc}" data-cf="${String(r.facility||'').replace(/"/g,'&quot;')}" data-ca="${r.amount||0}" data-cy="${r.stay||0}" data-cc="${r.comm||0}" style="background:${rowBg}">
     <td style="${tdStyle}">${r.date}</td>
     <td style="${tdStyle}">${desc}</td>
     <td style="${tdStyle}">${r.facility}</td>
@@ -5619,7 +5619,7 @@ function renderAcc(){
               dA+=m.amount||0;dS+=stay;dC+=comm;
               const desc=(br.ota||'').includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM';
               const memoTxt=m.memo?` <span style="color:#1565c0">（${String(m.memo).replace(/</g,'&lt;')}）</span>`:'';
-              return `<tr style="background:${bg}">
+              return `<tr data-cd="${d.date||br.date||''}" data-cs="${desc}" data-cf="${String(br.facility||m.tag||'').replace(/"/g,'&quot;')}" data-ca="${m.amount||0}" data-cy="${first?(stay||0):''}" data-cc="${first?(comm||0):''}" style="background:${bg}">
               <td style="${tdStyle}">${d.date||br.date||''}</td>
               <td style="${tdStyle}">${desc}</td>
               <td style="${tdStyle}">${br.facility||m.tag||''}${memoTxt}</td>
@@ -5679,7 +5679,7 @@ function renderAcc(){
         ?` <a href="${PDF_BASE}${_md}/${_mit.no}" target="_blank" rel="noopener" title="明細PDFを開く（${_md}_${_mit.no}・初回はbankのパスワード）" style="display:inline-block;background:#1565c0;color:#fff;border-radius:4px;padding:0 6px;font-size:.78em;font-weight:700;text-decoration:none;margin-left:5px">📄 PDF</a>`
         :` <span title="この明細のPDFが見つかりません（${r.date}・¥${_ma.toLocaleString('ja-JP')}）。同名のPDFをbankにアップすると表示されます" style="display:inline-block;background:#fff3e0;color:#e65100;border:1px solid #ffb74d;border-radius:4px;padding:0 6px;font-size:.78em;font-weight:700;margin-left:5px;cursor:help">⚠ PDFなし</span>`;
     }
-    return`<tr style="background:#f0fff4">
+    return`<tr data-cd="${r.date||''}" data-cs="${String(r.desc||'').replace(/"/g,'&quot;')}" data-cf="${String(r.facility||'').replace(/"/g,'&quot;')}" data-ca="${r.amount||0}" data-cy="${r.stay||0}" data-cc="${r.comm||0}" style="background:#f0fff4">
       <td style="${tdStyle}">${r.date||'—'} ${editBtn}</td>
       <td style="${tdStyle}">${r.desc||'—'}${mPdfIcon}</td>
       <td style="${tdStyle}">${r.facility||'—'}</td>
@@ -5963,38 +5963,14 @@ function printAcc(){
 function dlAccExcel(){
   const sel=document.getElementById('accMonth');if(!sel)return;
   const month=sel.value;
-  const pays=S.get(PAY_KEY)||{};
-  const savedAcc=S.get(ACC_KEY)||{};
+  renderAcc();   // 会計タブを最新描画し、その「表示順そのまま」でCSV化（タブと並び・金額が一致）
+  const cont=document.getElementById('accContent');
+  const esc=v=>{v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
   let csv='入金日,摘要,施設名,入金額,宿泊料金,手数料\n';
-  Object.keys(BK).forEach(tag=>{
-    BK[tag].forEach(bk=>{
-      const pd=pays[bk.id]||{};if(pd.status!=='1')return;
-      if(!(pd.payDate||'').startsWith(month))return;
-      const netTax=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
-      const commTax=Math.round(bk.commission*1.1);
-      const desc=bk.s.includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM';
-      csv+=(pd.payDate||'')+','+desc+','+tag+','+netTax+','+(netTax+commTax)+','+commTax+'\n';
-    });
-  });
-  // Booking.com コミッション調整額（同Payoutの予約から着金日・施設名を逆引き）
-  const adj=S.get(ADJ_KEY)||{};
-  Object.keys(adj).forEach(refNum=>{
-    const a=adj[refNum];
-    if(!a||!a.payoutId)return;
-    let related=null,relatedTag=null;
-    for(const tag of Object.keys(BK)){
-      for(const bk of BK[tag]){
-        const pd=pays[bk.id]||{};
-        if(pd.payoutId===a.payoutId&&pd.payDate){related=pd;relatedTag=tag;break;}
-      }
-      if(related)break;
-    }
-    if(!related)return;
-    if(!(related.payDate||'').startsWith(month))return;
-    csv+=related.payDate+',コミッション調整額,'+relatedTag+','+a.amount+',0,'+(-a.amount)+'\n';
-  });
-  (savedAcc[month+'_manual']||[]).forEach(function(r){
-    csv+=(r.date||'')+','+(r.desc||'')+','+(r.facility||'')+','+(r.amount||0)+','+(r.stay||0)+','+(r.comm||0)+'\n';
+  const trs=cont?cont.querySelectorAll('tr[data-ca]'):[];
+  trs.forEach(tr=>{
+    const g=k=>tr.getAttribute(k)||'';
+    csv+=[g('data-cd'),g('data-cs'),g('data-cf'),g('data-ca'),g('data-cy'),g('data-cc')].map(esc).join(',')+'\n';
   });
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='会計_'+month+'.csv';a.click();
