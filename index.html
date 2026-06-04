@@ -742,6 +742,7 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
       <button onclick="dlAccExcel()" style="background:var(--green);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">📥 CSVダウンロード</button>
       <button onclick="printAcc()" style="background:#607D8B;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">🖨️ 印刷／PDF保存</button>
       <label style="background:#1565c0;color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600;position:relative;overflow:hidden;display:inline-block">📄 銀行明細で照合<input type="file" accept=".csv" onchange="handleBankRecon(this.files);this.value=''" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"></label>
+      <button onclick="downloadAllPdfs()" title="表示中の月の領収書PDFをまとめてZIPでダウンロード（初回はbankのパスワード入力）" style="background:#00897b;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">📦 領収書PDF一括DL</button>
     </div>
     <div id="reconResult"></div>
     <div class="sec"><h2>📒 民泊手数料まとめ（税込）</h2>
@@ -5459,6 +5460,14 @@ function ensurePdfKeys(month,folderEnc){
     .then(r=>r.ok?r.json():Promise.reject())
     .then(d=>{_pdfKeysCache[month]={loaded:true,keys:new Set(d.keys||[]),items:d.items||[]};renderAcc();})
     .catch(()=>{_pdfKeysCache[month]={loaded:true,keys:new Set(),items:[],error:true};});  // 取得失敗時は誤って「なし」と出さない
+}
+// 表示中の月の領収書PDFを一括ZIPでダウンロード（bankのZIP配信を利用・実PDFのためBasic認証）
+function downloadAllPdfs(){
+  const sel=document.getElementById('accMonth');const month=sel?sel.value:'';
+  if(!month){alert('対象の月を選んでください');return;}
+  const folder='会計資料'+(parseInt(month.slice(5,7),10)||0)+'月分';
+  const url='https://bank.scissors-estate.jp/api/month/'+encodeURIComponent(folder)+'/pdf-zip/risona';
+  const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();
 }
 function renderAcc(){
   const sel=document.getElementById('accMonth');if(!sel)return;
