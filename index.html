@@ -5466,6 +5466,9 @@ function renderAcc(){
   }));
   const ymd=d=>String(d||'').replace(/-/g,'')||'????????';
   const stripNo=n=>{const s=String(n||'').replace(/^0+/,'');return s||String(n||'');};
+  // 銀行明細PDFリンク（bankアプリが配信）。民泊入金は全てりそな口座着金→bank_key=risona固定
+  const bankMonthFolder='会計資料'+(parseInt(month.slice(5,7),10)||0)+'月分';
+  const PDF_BASE='https://bank.scissors-estate.jp/api/month/'+encodeURIComponent(bankMonthFolder)+'/pdf-by-no/risona/';
   
   // Collect OTA-based rows from paid bookings
   const airbnbRows=[],bookingRows=[];
@@ -5578,7 +5581,8 @@ function renderAcc(){
           const seen=new Set();   // 同じ予約は最初の番号行にだけ宿泊料金・手数料を計上（重複防止）
           deps.forEach((d,di)=>{
             const noStr=d.bankNo?('_'+stripNo(d.bankNo)):'';
-            const label=`<span style="font-family:ui-monospace,monospace">${ymd(d.date)}${noStr}</span> 📦 お支払い番号 ${key} ／ ${(d.members||[]).length}件`+(di===0?warn:'');
+            const pdfIcon=d.bankNo?` <a href="${PDF_BASE}${ymd(d.date)}/${stripNo(d.bankNo)}" target="_blank" rel="noopener" title="銀行明細PDFを開く（${ymd(d.date)}_${stripNo(d.bankNo)}・初回はbankのパスワード入力）" style="text-decoration:none;margin-left:3px">📄</a>`:'';
+            const label=`<span style="font-family:ui-monospace,monospace">${ymd(d.date)}${noStr}</span> 📦 お支払い番号 ${key} ／ ${(d.members||[]).length}件${pdfIcon}`+(di===0?warn:'');
             let dA=0,dS=0,dC=0;
             const memberRows=(d.members||[]).map(m=>{
               const br=byId[m.bookingId]||{};
