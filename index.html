@@ -2446,13 +2446,18 @@ function bulkCompleteSelected(){
     const mk=ds+'_'+tag; c[mk]='1'; upd[mk]='1';
     const bks=BK[tag]||[];
     const nextCI=bks.map(b=>b.ci).filter(ci=>ci>ds).sort()[0];
+    // CHエントリ（清掃タスク）がある日付は伝播ストップ（togChkと同じ挙動に統一）
+    const chDates=new Set((CH[tag]||[]).map(e=>e.d.replace(/\//g,'-')));
     let cur=new Date(ds);cur.setDate(cur.getDate()+1);
     const limit=nextCI?new Date(nextCI):null;
     let safety=0;
     while(safety<60){
       const dStr=cur.toISOString().split('T')[0];
+      // 次の清掃タスク予定日・次のチェックイン日に達したら付与せず停止（オーバーラン防止）
+      if(chDates.has(dStr))break;
+      if(limit&&cur>=limit)break;
       const k=dStr+'_'+tag; c[k]='1'; upd[k]='1'; safety++;
-      if(limit&&cur>=limit)break;if(!limit)break;
+      if(!limit)break;
       cur.setDate(cur.getDate()+1);
     }
   });
@@ -2641,6 +2646,13 @@ function resetChks(){
 // 誤って「完了」マークがついてしまった未来チェックインの清掃を自動修復する。
 // 一度実行したらフラグを立てて以降スキップ。
 function cleanupOverpropagatedChks(){
+  // 【2026-06-05 無効化】この自動修復は「過去の伝播バグ（チェックイン日オーバーラン）で
+  // 誤って付いた完了マーク」を一度だけ掃除するための処理だった。だが実行済みフラグが
+  // 端末ごと(localStorage)のため、新しいPC/スマホ・キャッシュ削除のたびに再実行され、
+  // 「未来チェックインに付いた正しい完了チェック」まで消すゾンビの一因になりうる。
+  // togChk/bulkCompleteSelected の伝播を「判定→付与」に統一し未来CIへマークが付かなくなった
+  // ＝この修復はもう不要。誤削除リスクを断つため無効化する。
+  return;
   const flagKey='mp_chks_propbug_cleaned_v1';
   if(S.get(flagKey))return;
   if(!BK||!Object.keys(BK).length)return; // BK未ロード→後で再呼出
@@ -4956,11 +4968,52 @@ const FB_CFG = {
 let fbDB = null;
 let fbReady = false;
 
+// 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
+// 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
+const APP_VERSION = 20260605;
+let _verReloading = false;
+function scheduleVersionReload(remoteVer){
+  if(_verReloading) return;
+  _verReloading = true;
+  console.log('🔄 新しいバージョン', remoteVer, '> 現在', APP_VERSION, '… 自動更新します');
+  try{
+    if(!document.getElementById('verUpdateBar')){
+      const bar=document.createElement('div');
+      bar.id='verUpdateBar';
+      bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#16a34a;color:#fff;padding:10px 14px;text-align:center;font-size:14px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer';
+      bar.textContent='🔄 新しいバージョンに更新しています…（自動で切り替わります）';
+      bar.onclick=()=>location.reload(true);
+      document.body.appendChild(bar);
+    }
+  }catch(e){}
+  // 入力中（文字入力・選択中）はリロードを延期し、操作の取りこぼしを防ぐ
+  const tryReload=()=>{
+    const ae=document.activeElement;
+    const typing=ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName);
+    if(typing){ setTimeout(tryReload, 4000); return; }
+    location.reload(true);
+  };
+  setTimeout(tryReload, 2500);
+}
+
 function initFirebase(){
   try {
     if(!firebase.apps.length) firebase.initializeApp(FB_CFG);
     fbDB = firebase.database();
     fbReady = true;
+
+    // 【2026-06-05】古いタブの自動更新（バージョンチェック）。
+    // 6/1以前の古いコードのまま開きっぱなしのタブ/端末が、古い「全体上書き」方式で清掃チェック等を
+    // 消すゾンビを防ぐ。新コードをデプロイしたら APP_VERSION を上げる。各タブは app_version を購読し、
+    // 自分より新しければ自動リロード（＝新コードに更新）する。
+    fbDB.ref('app_version').on('value', snap => {
+      try{
+        const remote = snap.val();
+        if(remote == null){ fbDB.ref('app_version').set(APP_VERSION); return; }  // 初回登録
+        if(Number(remote) > APP_VERSION){ scheduleVersionReload(Number(remote)); }       // 自分が古い→更新
+        else if(Number(remote) < APP_VERSION){ fbDB.ref('app_version').set(APP_VERSION); } // 自分が新しい→他タブを更新
+      }catch(e){ console.warn('app_version check error:', e); }
+    });
 
     // リアルタイムリスナー設定
     fbDB.ref('bookings').on('value', snap => {
