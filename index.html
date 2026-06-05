@@ -1671,6 +1671,10 @@ function computeMS(){
       const openFrom=openData[t];
       if(openFrom&&openFrom>mk)return; // 未開業
       const rent=getRoomRentForMonth(t,mk);
+      // 稼働ゼロの部屋も「部屋別詳細」に表示する（0件/¥0・家賃のみ計上）。
+      //   月の合計値（粗利・原価）は変えないよう、totalRoomUtil等は触らず下のrent計上は従来どおり。
+      ms.rooms[t]={tag:t,prop:ROOMS[t]||'',isSub:(ROOMS[t]||'').includes('代行'),
+        sales:0,comm:0,cl:0,net:0,days:0,cnt:0,gu:0,rent,util:0,grossProfit:0-rent};
       if(rent>0){
         totalRoomRent+=rent;
         (ROOMS[t]||'').includes('代行')?emptySRent+=rent:emptyDRent+=rent;
@@ -4130,8 +4134,12 @@ function loadCSVs(){
     cleanupOrphanRooms();  // 清掃CSVにない & 予約も清掃もない部屋を削除
 
     // ── CSV差分レポート（新規予約・キャンセル・変更検出） ──
-    // ※ FirebaseのBK読込タイミングに依存しないよう、前回取込時に保存したlocalStorageスナップを使用
-    const _prevBkSnap=S.get(PREV_BK_SNAP_KEY)||null; // {id: {ci,co,n,g,prop,tag}}
+    // ※ 差分の基準は「全端末で共有する予約履歴(BK_HIST_KEY = Firebase bkHistory 同期)」の最新スナップを使う。
+    //    旧実装は端末ローカルの PREV_BK_SNAP_KEY を基準にしていたため、複数人が別PCで取り込むとポップの
+    //    件数がタブ「予約変動」(共有履歴基準)とズレた。共有履歴基準に統一して一致させる。
+    //    履歴が空（初回・未同期）のときは null＝従来どおり差分なし表示にフォールバック。
+    const _bkHistArr=(S.get(BK_HIST_KEY)||[]).filter(h=>h&&h.isoTs);
+    const _prevBkSnap=_bkHistArr.length?_bkHistArr[_bkHistArr.length-1].snap:null; // {id: {ci,co,n,g,prop,tag}}
     let _diffNew=[],_diffCancelled=[],_diffChanged=[];
     if(_prevBkSnap){
       const prevIdMap=new Map(Object.entries(_prevBkSnap));
