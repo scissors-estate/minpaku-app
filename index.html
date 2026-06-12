@@ -3269,7 +3269,23 @@ function getDiscs(){
   if(d===null||d===undefined){S.set(DISC_KEY,DISC_SEED);fbWrite('discounts',DISC_SEED);return DISC_SEED;}
   return d;
 }
-function saveDiscs(arr){S.set(DISC_KEY,arr);fbWrite('discounts',arr);}
+function saveDiscs(arr){
+  S.set(DISC_KEY,arr);
+  // 🛡️ 自動バックアップ：保存のたび履歴に積む（万一消えても discHistory から復元可能）
+  if(fbReady){ try{ fbMergeHistory('discHistory',{isoTs:new Date().toISOString(),count:(arr?arr.length:0),data:arr},HIST_MAX); }catch(e){} }
+  if(!fbReady||!fbDB){ return; }
+  // 🛡️ 大量削除ガード：サーバーの現在件数より大きく減る保存は確認（古いタブによる丸ごと上書き事故を防ぐ）
+  fbDB.ref('discounts').once('value',function(s){
+    var cur=s.val();
+    var curLen=Array.isArray(cur)?cur.length:(cur&&typeof cur==='object'?Object.keys(cur).length:0);
+    var newLen=arr?arr.length:0;
+    if(curLen-newLen>=3 && !confirm('⚠️ いまサーバー上の割引は '+curLen+' 件です。\nこの操作で '+newLen+' 件に減ります（'+(curLen-newLen)+' 件削除）。\n\n古い画面のまま保存していませんか？\nこのまま保存してよければ「OK」を押してください。')){
+      if(cur!=null){ _origSset(DISC_KEY,Array.isArray(cur)?cur:Object.values(cur)); renderDisc(); }
+      return;
+    }
+    fbWrite('discounts',arr);
+  },function(){ fbWrite('discounts',arr); });
+}
 
 function otaBadge(ota){
   const bg=ota==='Airbnb'?'#FF5A5F':ota==='Booking.com'?'#003580':ota==='両方'?'#7b5ea7':'#90A4AE';
@@ -4970,7 +4986,7 @@ let fbReady = false;
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260605;
+const APP_VERSION = 20260612;
 let _verReloading = false;
 function scheduleVersionReload(remoteVer){
   if(_verReloading) return;
