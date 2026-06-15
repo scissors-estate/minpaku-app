@@ -4993,7 +4993,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260615;
+const APP_VERSION = 20260616;
 let _verReloading = false;
 function scheduleVersionReload(remoteVer){
   if(_verReloading) return;
@@ -5199,11 +5199,19 @@ function initFirebase(){
     });
     fbDB.ref('bkHistory').on('value', snap => {
       const val = snap.val();
-      if(val) S.set(BK_HIST_KEY, val);
+      if(val){
+        S.set(BK_HIST_KEY, val);
+        // 予約変動タブを開いていれば、最新の共有履歴で基準一覧＆レポートを作り直す（選択は維持）
+        const ds=document.getElementById('diffBaseSel');
+        if(ds && ds.offsetParent!==null){ try{ renderDiffTab(); }catch(e){} }
+      }
     });
     fbDB.ref('msHistory').on('value', snap => {
       const val = snap.val();
-      if(val) S.set(MS_HIST_KEY, val);
+      if(val){
+        S.set(MS_HIST_KEY, val);
+        try{ renderOps(); }catch(e){}   // 運営タブの「前回基準」一覧を最新の共有履歴で作り直す（_opsPrevSelは維持）
+      }
     });
     fbDB.ref('diffReport').on('value', snap => {
       const val = snap.val();
