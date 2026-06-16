@@ -1123,9 +1123,14 @@ function applyUserPerms(){
   // （ここでは特に何もしない）
 }
 
+// 巨大化する履歴(msHistory/bkHistory)は localStorage 上限(約5MB)を超え、Quota超過で保存が黙って失敗し
+// 古い一覧が残る不具合があった（msHistoryだけで4MB超）。これらは「メモリ保持」にする。
+// Firebaseが正本＝永続不要（リロード時はリスナーが再取得）。これでlocalStorageの容量を解放する。
+const _memStore={};
+function _isMemKey(k){ return k===MS_HIST_KEY || k===BK_HIST_KEY; }
 const S={
-  get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},
-  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+  get(k){ if(_isMemKey(k)) return (k in _memStore)?_memStore[k]:null; try{return JSON.parse(localStorage.getItem(k))}catch(e){return null} },
+  set(k,v){ if(_isMemKey(k)){ _memStore[k]=v; return; } try{localStorage.setItem(k,JSON.stringify(v))}catch(e){} }
 };
 function loadCfg(){
   const s=S.get(CONF_KEY);if(s)Object.assign(cfg,s);
@@ -4950,6 +4955,9 @@ function renderRoomMgmt(){
 //  INIT
 // ════════════════════════════════════════════
 function initApp(){
+  // 旧版で localStorage に保存されていた巨大な履歴を削除して容量を解放（Quota超過対策）。
+  // 以後 msHistory/bkHistory はメモリ保持（Firebaseが正本・リスナーが再取得）。
+  try{ localStorage.removeItem(MS_HIST_KEY); localStorage.removeItem(BK_HIST_KEY); }catch(e){}
   initFirebase();
   try{ updateConnBar(); }catch(e){}   // Firebase初期化に失敗してもインジケーターは出す(🔴)
   const today=new Date().toISOString().split('T')[0];
@@ -4993,7 +5001,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260616;
+const APP_VERSION = 20260617;
 let _verReloading = false;
 function scheduleVersionReload(remoteVer){
   if(_verReloading) return;
