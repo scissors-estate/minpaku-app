@@ -2455,9 +2455,12 @@ function bulkCompleteSelected(){
     const chDates=new Set((CH[tag]||[]).map(e=>e.d.replace(/\//g,'-')));
     let cur=new Date(ds);cur.setDate(cur.getDate()+1);
     const limit=nextCI?new Date(nextCI):null;
+    const today=new Date().toISOString().split('T')[0];
     let safety=0;
     while(safety<60){
       const dStr=cur.toISOString().split('T')[0];
+      // 【2026-06-18 修正】今日より先（未来）には“済”を付けない（前方塗りの未来分を廃止）
+      if(dStr>today)break;
       // 次の清掃タスク予定日・次のチェックイン日に達したら付与せず停止（オーバーラン防止）
       if(chDates.has(dStr))break;
       if(limit&&cur>=limit)break;
@@ -2618,9 +2621,13 @@ function togChk(ds,tag,val,chkEl){
         const chDates=new Set((CH[tag]||[]).map(e=>e.d.replace(/\//g,'-')));
         let cur=new Date(ds);cur.setDate(cur.getDate()+1);
         const limit=nextCI?new Date(nextCI):null;
+        const today=new Date().toISOString().split('T')[0];
         let safety=0;
         while(safety<60){
           const dStr=cur.toISOString().split('T')[0];
+          // 【2026-06-18 修正】今日より先（未来）には“済”を付けない＝後から予約が割り込んでも未来日が誤って済にならない。
+          // 空室の待ち日は cleanChk の「直近清掃からの継承」でその場判定するので緑(済)は維持される。
+          if(dStr>today)break;
           // 次の清掃タスク予定日に達したら伝播をストップ（その日はまだ未完了）
           if(chDates.has(dStr))break;
           // 次のチェックイン日に達したら伝播をストップ（その日は別の清掃が必要なので未完了のまま）
@@ -5001,7 +5008,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260617;
+const APP_VERSION = 20260618;
 let _verReloading = false;
 function scheduleVersionReload(remoteVer){
   if(_verReloading) return;
