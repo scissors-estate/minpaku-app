@@ -3612,9 +3612,10 @@ function handlePayCSV(files){
         rows.forEach(row=>{
           const type=(row['種別']||'').trim();
           if(type==='Payout'){
-            const m=(row['参照コード']||'').match(/Payoneer支払いID[:：]\s*(\S+)/);
-            curPayoutId=m?m[1]:'';
-            const t=parseInt(String(row['支払い済み']||'').replace(/[^0-9-]/g,''));
+            const ref=(row['参照コード']||'').trim();
+            const m=ref.match(/Payoneer支払いID[:：]\s*(\S+)/);
+            curPayoutId=m?m[1]:ref;   // 新形式=参照コードがそのままPayout ID(2026-07-02 Airbnb仕様変更対応)
+            const t=Math.round(parseFloat(String(row['支払い済み']||'').replace(/[^0-9.-]/g,'')));   // 小数点付き(49179.00)対応・×100防止(2026-07-02)
             curPayoutTotal=isNaN(t)?null:t;   // この入金(Payout)の総額＝会計タブの差異検出用
             return;
           }
@@ -5008,7 +5009,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260618;
+const APP_VERSION = 20260702;
 let _verReloading = false;
 function scheduleVersionReload(remoteVer){
   if(_verReloading) return;
