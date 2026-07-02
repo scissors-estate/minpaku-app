@@ -3094,8 +3094,7 @@ function bulkLockPaid(){
   if(!targets.length){alert('ロック対象がありません。\n（入金済 + 着金日あり + 未ロック の行が0件です）');return;}
   if(!confirm(`「入金済 + 着金日あり + 未ロック」の ${targets.length}件をまとめてロックします。\n\nよろしいですか？`))return;
   targets.forEach(id=>{pays[id].locked='1';});
-  S.set(PAY_KEY,pays);
-  if(fbReady)fbWrite('payments',pays);
+  S.set(PAY_KEY,pays);   // Firebase同期は S.set ラッパの差分書き込みに一本化（重複fbWrite削除・2026-07-02）
   buzz([30,50,30]);
   renderPayTab();
   alert(`✅ ${targets.length}件をロックしました。`);
@@ -5011,7 +5010,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260702.2;
+const APP_VERSION = 20260702.3;
 let _verReloading = false;
 function scheduleVersionReload(remoteVer){
   if(_verReloading) return;
@@ -5120,7 +5119,10 @@ function initFirebase(){
     });
     fbDB.ref('payments').on('value', snap => {
       const val = snap.val();
-      if(val) S.set(PAY_KEY, val);
+      if(val){
+        _origSset(PAY_KEY, val);   // 受信はローカル反映のみ（書き戻さない＝他端末の変更を消さない・2026-07-02）
+        _lastPaymentsSnap = val;    // 差分書き込みの基準を更新
+      }
     });
     fbDB.ref('adjustments').on('value', snap => {
       const val = snap.val();
@@ -5327,11 +5329,28 @@ function saveBookingsToFb(){
 
 // チェック・支払い・光熱費・写真の変更をFirebaseに同期
 const _origSset = S.set.bind(S);
+// 入金(payments)は差分書き込み（他端末の同時編集を丸ごと上書きしない・清掃と同じ思想）2026-07-02
+let _lastPaymentsSnap = {};
+function fbWritePaymentsDiff(v){
+  if(!fbReady || !fbDB) return;
+  try{
+    const cur = v || {};
+    const updates = {};
+    for(const key in cur){
+      if(JSON.stringify(cur[key]) !== JSON.stringify(_lastPaymentsSnap[key])) updates[key] = cur[key];
+    }
+    for(const key in _lastPaymentsSnap){
+      if(!(key in cur)) updates[key] = null;   // ローカルで削除された予約はFirebaseからも削除
+    }
+    if(Object.keys(updates).length) fbDB.ref('payments').update(sanitizeFbKeys(updates));
+    _lastPaymentsSnap = JSON.parse(JSON.stringify(cur));
+  }catch(e){ console.warn('fbWritePaymentsDiff error:', e); }
+}
 S.set = function(k, v){
   _origSset(k, v);
   if(!fbReady) return;
   // 清掃チェック(CHK_KEY)は fbCheckUpdate による差分書き込みに一本化（全体置換を廃止）
-  if(k === PAY_KEY)      fbWrite('payments', v);
+  if(k === PAY_KEY)      fbWritePaymentsDiff(v);
   if(k === EXP_KEY)      fbWrite('expenses', v);
   if(k === UTIL_KEY)     fbWrite('utilities', v);
   if(k === PHOTO_KEY)    fbWrite('photos', v);
