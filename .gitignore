@@ -3,5 +3,6 @@
 
 # ただし以下はGitHubに公開する
 !.gitignore
+!.nojekyll
 !index.html
 !README.md
