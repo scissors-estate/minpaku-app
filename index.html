@@ -537,6 +537,7 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
     <button class="tab" id="tabCal" onclick="swTab('cal',this)">📅 カレンダー</button>
     <button class="tab" id="tabClean" onclick="swTab('clean',this)">🧹 清掃</button>
     <button class="tab" id="tabBb" onclick="swTab('bb',this)">📋 掲示板</button>
+    <button class="tab" id="tabWeekend" onclick="swTab('weekend',this)">🗓️ 週末空室</button>
     <button class="tab" id="tabDiff" onclick="swTab('diff',this);renderDiffTab()">🔔 予約変動</button>
     <button class="tab" id="tabPay" onclick="swTab('pay',this)">💰 入金管理</button>
     <button class="tab" id="tabInv" onclick="swTab('inv',this)">📄 請求書</button>
@@ -858,6 +859,18 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
       <button onclick="addBBDate()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:.8em">📅 日付を追加</button>
     </div>
     <div id="bbContent"></div>
+  </div>
+
+  <!-- 週末空室 × 日曜同建物クリーナー -->
+  <div class="pane" id="weekendPane">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+      <span style="font-size:.8em;color:var(--t2);font-weight:600">対象の土曜：</span>
+      <input type="date" id="wkSatDate" onchange="renderWeekend()" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 7px;font-size:.82em;outline:none">
+      <span id="wkRangeLabel" style="font-size:.92em;font-weight:700"></span>
+      <button onclick="wkSetDefault();renderWeekend()" style="background:var(--p);color:#fff;border:none;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:.8em;font-weight:600">今週末</button>
+    </div>
+    <div style="font-size:.72em;color:var(--t3);margin-bottom:12px">週末（土夜・日夜）に空室の部屋と、その日曜に同じ建物へ来る清掃スタッフを一覧化します。満室の部屋は除外。</div>
+    <div id="weekendContent"></div>
   </div>
 
   <!-- 予約変動 -->
@@ -4591,10 +4604,92 @@ function swTab(id,btn){
   if(id==='inv')populateInvMonths();
   if(id==='acc')populateAccMonths();
   if(id==='bb')renderBB();
+  if(id==='weekend')renderWeekend();
   if(id==='users')renderUserMgmt();
   if(id==='roomMgmt')renderRoomMgmt();
   if(id==='cal')renderCal();
   if(id==='disc')renderDisc();
+}
+
+// ════════════════════════════════════════════
+//  週末空室 × 日曜同建物クリーナー 一覧（2026-07-03 新タブ）
+// ════════════════════════════════════════════
+// 部屋名の頭で物理建物を判定：末尾数字を除去 → 日本語を含み末尾が英字1文字ならそれも除去
+// 例）青戸201→青戸 / SC102→SC / 墨田A→墨田 / 立石A→立石
+function wkBuilding(room){
+  let p=String(room||'').replace(/\d+$/,'');
+  if(/[^\x00-\x7F]/.test(p)&&/[A-Za-z]$/.test(p))p=p.replace(/[A-Za-z]$/,'');
+  return p;
+}
+function wkNextSat(){
+  const t=new Date();t.setHours(0,0,0,0);
+  const add=(6-t.getDay()+7)%7;             // 今日以降の直近の土曜（今日が土曜なら当日）
+  t.setDate(t.getDate()+add);
+  return t.toISOString().slice(0,10);
+}
+function wkSetDefault(){const el=document.getElementById('wkSatDate');if(el)el.value=wkNextSat();}
+function wkMD(s){const d=new Date(s);return (d.getMonth()+1)+'/'+d.getDate();}
+function renderWeekend(){
+  const el=document.getElementById('weekendContent');if(!el)return;
+  const satInp=document.getElementById('wkSatDate');
+  if(satInp&&!satInp.value)satInp.value=wkNextSat();
+  const satStr=satInp?satInp.value:wkNextSat();
+  if(!satStr){el.innerHTML='';return;}
+  const satD=new Date(satStr);
+  const sunD=new Date(satD);sunD.setDate(satD.getDate()+1);
+  const sunStr=sunD.toISOString().slice(0,10);
+  const lbl=document.getElementById('wkRangeLabel');
+  if(lbl)lbl.textContent=`${wkMD(satStr)}(土) 〜 ${wkMD(sunStr)}(日)`;
+  if(typeof ROOMS==='undefined'||!ROOMS||!Object.keys(ROOMS).length){el.innerHTML='<div style="font-size:.82em;color:var(--t3);padding:10px 2px">データがまだ読み込まれていません。CSVを取り込んでから再表示してください。</div>';return;}
+  // 日曜に同建物で稼働するクリーナー（建物→クリーナー集合）
+  const sunByBld={};
+  Object.keys(ROOMS).forEach(tag=>{
+    const c=getClr(tag,sunStr);
+    if(c&&c!=='未割当'){const b=wkBuilding(tag);(sunByBld[b]=sunByBld[b]||new Set()).add(c);}
+  });
+  // 部屋ごとの占有判定（確認済み予約のみ・キャンセル料フラグは除外）
+  const rows=[];
+  Object.keys(ROOMS).forEach(tag=>{
+    let satOcc=false,sunOcc=false;
+    (BK[tag]||[]).forEach(b=>{
+      if(b.cancel)return;
+      const ci=new Date(b.ci),co=new Date(b.co);
+      if(ci<=satD&&co>satD)satOcc=true;
+      if(ci<=sunD&&co>sunD)sunOcc=true;
+    });
+    if(satOcc&&sunOcc)return;   // 満室は一覧から除外
+    const kubun=(!satOcc&&!sunOcc)?'both':(!satOcc?'satonly':'sunonly');
+    let cleaner='';
+    if(kubun!=='sunonly'){
+      const b=wkBuilding(tag);
+      cleaner=sunByBld[b]?[...sunByBld[b]].join('、'):'__none__';
+    }
+    const num=parseInt((String(ROOMS[tag]||'').match(/^\d+/)||['0'])[0],10);
+    rows.push({tag,cleaner,kubun,num});
+  });
+  rows.sort((a,b)=>a.num-b.num||a.tag.localeCompare(b.tag,'ja'));
+  const sunMD=wkMD(sunStr);
+  const secs=[
+    {key:'both',mark:'🟢',title:'土日とも空室',note:`${sunMD}(日)OUTの予約が入ったら日曜日の掃除が増えるので要注意`},
+    {key:'satonly',mark:'🔵',title:'土曜のみ空室',note:`${sunMD}(日)OUTの予約が入ったら日曜日の掃除が増えるので要注意`},
+    {key:'sunonly',mark:'🟡',title:'日曜のみ空室',note:'掃除は月曜日以降なので気にしないでOK'}
+  ];
+  const esc=s=>String(s==null?'':s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+  let html='';
+  secs.forEach(sec=>{
+    const list=rows.filter(r=>r.kubun===sec.key);
+    html+=`<div style="margin-bottom:20px"><div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px"><span style="font-size:.98em;font-weight:700">${sec.mark} ${sec.title}<span style="font-size:.78em;color:var(--t3);font-weight:500">（${list.length}件）</span></span><span style="font-size:.72em;color:var(--t3)">⚠ ${sec.note}</span></div>`;
+    if(!list.length){html+='<div style="font-size:.8em;color:var(--t3);padding:5px 2px">該当なし</div></div>';return;}
+    const showCl=(sec.key!=='sunonly');
+    html+=`<table style="width:100%;border-collapse:collapse;font-size:.83em"><thead><tr style="background:#f0f2f7"><th style="text-align:left;padding:6px 10px;border:1px solid var(--b2);width:40%">部屋</th><th style="text-align:left;padding:6px 10px;border:1px solid var(--b2)">${showCl?'日曜同建物クリーナー':''}</th></tr></thead><tbody>`;
+    list.forEach(r=>{
+      let cell='';
+      if(showCl)cell=(r.cleaner==='__none__')?'<span style="color:#d32f2f;font-weight:600">出勤予定なし</span>':esc(r.cleaner);
+      html+=`<tr><td style="padding:6px 10px;border:1px solid var(--b2)">${esc(r.tag)}</td><td style="padding:6px 10px;border:1px solid var(--b2)">${cell}</td></tr>`;
+    });
+    html+='</tbody></table></div>';
+  });
+  el.innerHTML=html;
 }
 
 function togRmBldg(id){
@@ -5010,7 +5105,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260702.3;
+const APP_VERSION = 20260703;
 let _verReloading = false;
 function scheduleVersionReload(remoteVer){
   if(_verReloading) return;
