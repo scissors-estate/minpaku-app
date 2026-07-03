@@ -537,7 +537,7 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
     <button class="tab" id="tabCal" onclick="swTab('cal',this)">📅 カレンダー</button>
     <button class="tab" id="tabClean" onclick="swTab('clean',this)">🧹 清掃</button>
     <button class="tab" id="tabBb" onclick="swTab('bb',this)">📋 掲示板</button>
-    <button class="tab" id="tabWeekend" onclick="swTab('weekend',this)">🗓️ 週末空室</button>
+    <button class="tab" id="tabWeekend" onclick="swTab('weekend',this)">🗓️ 週末確認</button>
     <button class="tab" id="tabDiff" onclick="swTab('diff',this);renderDiffTab()">🔔 予約変動</button>
     <button class="tab" id="tabPay" onclick="swTab('pay',this)">💰 入金管理</button>
     <button class="tab" id="tabInv" onclick="swTab('inv',this)">📄 請求書</button>
@@ -4625,10 +4625,13 @@ function wkNextSat(){
   const t=new Date();t.setHours(0,0,0,0);
   const add=(6-t.getDay()+7)%7;             // 今日以降の直近の土曜（今日が土曜なら当日）
   t.setDate(t.getDate()+add);
-  return t.toISOString().slice(0,10);
+  // ローカル日付をそのまま返す（toISOStringはUTC変換で日本時間だと前日にズレるため使わない・2026-07-03修正）
+  return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
 }
 function wkSetDefault(){const el=document.getElementById('wkSatDate');if(el)el.value=wkNextSat();}
-function wkMD(s){const d=new Date(s);return (d.getMonth()+1)+'/'+d.getDate();}
+const WK_WD=['日','月','火','水','木','金','土'];
+function wkMD(s){const d=new Date(s);return (d.getUTCMonth()+1)+'/'+d.getUTCDate();}
+function wkWD(s){const d=new Date(s);return WK_WD[d.getUTCDay()];}
 function renderWeekend(){
   const el=document.getElementById('weekendContent');if(!el)return;
   const satInp=document.getElementById('wkSatDate');
@@ -4639,7 +4642,7 @@ function renderWeekend(){
   const sunD=new Date(satD);sunD.setDate(satD.getDate()+1);
   const sunStr=sunD.toISOString().slice(0,10);
   const lbl=document.getElementById('wkRangeLabel');
-  if(lbl)lbl.textContent=`${wkMD(satStr)}(土) 〜 ${wkMD(sunStr)}(日)`;
+  if(lbl)lbl.textContent=`${wkMD(satStr)}(${wkWD(satStr)}) 〜 ${wkMD(sunStr)}(${wkWD(sunStr)})`;
   if(typeof ROOMS==='undefined'||!ROOMS||!Object.keys(ROOMS).length){el.innerHTML='<div style="font-size:.82em;color:var(--t3);padding:10px 2px">データがまだ読み込まれていません。CSVを取り込んでから再表示してください。</div>';return;}
   // 日曜に同建物で稼働するクリーナー（建物→クリーナー集合）
   const sunByBld={};
@@ -5105,7 +5108,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260703;
+const APP_VERSION = 20260704;
 let _verReloading = false;
 function scheduleVersionReload(remoteVer){
   if(_verReloading) return;
