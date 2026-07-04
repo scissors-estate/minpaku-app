@@ -411,66 +411,42 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 /* ════════ Step2: ユーザー権限による「閲覧のみ」モード ════════ */
 /* タブ自体は表示するが、編集系のボタン・入力欄を非表示／無効化する */
 
-/* 入金管理（payment）— view */
-body.view-payment #payPane button[onclick*="handlePayCSV"],
+/* ════ view権限の編集UI隠蔽（2026-07-05 data-edit方式に刷新） ════
+   編集系のボタンには HTML/テンプレート側で data-edit 属性を付け、ここでは [data-edit] だけを隠す。
+   旧方式 button[onclick*="関数名"] は関数リネームで静かに壊れるため廃止（実際に請求書・割引等で死んでいた）。
+   ⚠新しい編集ボタンを作るときは必ず data-edit を付けること。 */
+body.view-payment #payPane [data-edit],
 body.view-payment #payPane label[for*="payCsv"],
-body.view-payment #payPane input[type="file"],
-body.view-payment #payPane button[onclick*="bulkUpdatePayDate"],
-body.view-payment #payPane button[onclick*="paySelectSamePayoutId"],
-body.view-payment #payPane button[onclick*="bulkLockPaid"],
-body.view-payment #payPane button[onclick*="togPayWithConfirm"],
-body.view-payment #payPane button[onclick*="togLock"]{display:none !important}
+body.view-payment #payPane input[type="file"]{display:none !important}
 body.view-payment #payPane input.date-edit,
 body.view-payment #payPane input.pay-sel-chk{pointer-events:none;opacity:.5;background:#f5f5f5 !important}
 
-/* 請求書（invoice）— view */
-body.view-invoice #invPane button[onclick*="addInv"],
-body.view-invoice #invPane button[onclick*="editInv"],
-body.view-invoice #invPane button[onclick*="delInv"],
-body.view-invoice #invPane button[onclick*="saveInv"]{display:none !important}
+body.view-invoice #invPane [data-edit]{display:none !important}
 body.view-invoice #invPane input:not([readonly]),
 body.view-invoice #invPane textarea:not([readonly]){pointer-events:none;opacity:.6;background:#f5f5f5 !important}
 
-/* 会計（accounting）— view */
-body.view-accounting #accPane button[onclick*="addAccRow"],
-body.view-accounting #accPane button[onclick*="updateAccRow"],
-body.view-accounting #accPane button[onclick*="_accEditRow"]{display:none !important}
+body.view-accounting #accPane [data-edit]{display:none !important}
 body.view-accounting #accPane input{pointer-events:none;opacity:.6;background:#f5f5f5 !important}
 
-/* 部屋管理（roomMgmt）— view */
-body.view-roomMgmt #roomMgmtPane button[onclick*="addRoom"],
-body.view-roomMgmt #roomMgmtPane button[onclick*="editRoom"],
-body.view-roomMgmt #roomMgmtPane button[onclick*="delRoom"],
-body.view-roomMgmt #roomMgmtPane button[onclick*="saveRoomRent"],
-body.view-roomMgmt #roomMgmtPane button[onclick*="updateRoomRent"]{display:none !important}
+body.view-roomMgmt #roomMgmtPane [data-edit]{display:none !important}
 body.view-roomMgmt #roomMgmtPane input{pointer-events:none;opacity:.6;background:#f5f5f5 !important}
 
-/* ユーザー管理（userMgmt）— view */
-body.view-userMgmt #usersPane button[onclick*="addNewUser"],
-body.view-userMgmt #usersPane button[onclick*="editUser"],
-body.view-userMgmt #usersPane button[onclick*="changePw"],
-body.view-userMgmt #usersPane button[onclick*="toggleUserActive"]{display:none !important}
+body.view-userMgmt #usersPane [data-edit]{display:none !important}
 
-/* 掲示板（bbs）— view */
+/* 掲示板（bbs）— view: メモ・追記も編集不可に */
+body.view-bbs #bbPane [data-edit],
 body.view-bbs #bbPane form,
-body.view-bbs #bbPane button[onclick*="postBb"],
-body.view-bbs #bbPane button[onclick*="delBb"],
 body.view-bbs #bbPane textarea{display:none !important}
+body.view-bbs #bbPane input[type="text"]{pointer-events:none;opacity:.6;background:#f5f5f5 !important}
 
 /* 清掃（cleaning）— view（チェックボックスを操作不可に） */
 body.view-cleaning #cleanPane input[type="checkbox"]{pointer-events:none;opacity:.5}
-body.view-cleaning #cleanPane button[onclick*="updateClean"],
-body.view-cleaning #cleanPane button[onclick*="editComment"]{display:none !important}
+body.view-cleaning #cleanPane [data-edit]{display:none !important}
 
-/* 割引管理（discount）— view */
-body.view-discount #discPane button[onclick*="addDisc"],
-body.view-discount #discPane button[onclick*="saveDiscs"],
-body.view-discount #discPane button[onclick*="delDisc"]{display:none !important}
+body.view-discount #discPane [data-edit]{display:none !important}
 body.view-discount #discPane input{pointer-events:none;opacity:.6;background:#f5f5f5 !important}
 
-/* 予約変動（bookchg）— view */
-body.view-bookchg #diffPane button[onclick*="acknowledge"],
-body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !important}
+body.view-bookchg #diffPane [data-edit]{display:none !important}
 
 /* 運営（operating）— view（基本的に閲覧用のため特に隠すものは少ない） */
 /* 必要に応じて Step3 で追加 */
@@ -741,8 +717,8 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding:8px 10px;background:#f0f2ff;border-radius:8px">
       <span style="font-size:.78em;color:var(--t2);font-weight:600">選択した件の着金日を一括変更：</span>
       <input type="date" id="bulkPayDate" style="border:1.5px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.78em;outline:none">
-      <button onclick="bulkUpdatePayDate()" style="background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">一括適用</button>
-      <button onclick="paySelectSamePayoutId()" style="background:transparent;border:1.5px solid var(--p);color:var(--p);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.75em">同Payout IDを選択</button>
+      <button data-edit onclick="bulkUpdatePayDate()" style="background:var(--p);color:#fff;border:none;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">一括適用</button>
+      <button data-edit onclick="paySelectSamePayoutId()" style="background:transparent;border:1.5px solid var(--p);color:var(--p);padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.75em">同Payout IDを選択</button>
       <div style="margin-left:auto;display:flex;gap:6px">
         <button onclick="exportPayCSV()" title="表示中の一覧をCSVダウンロード" style="background:#fff;border:1.5px solid var(--b);color:var(--t2);padding:5px 11px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">📥 CSV出力</button>
         <button onclick="printPayTable()" title="表示中の一覧を印刷" style="background:#fff;border:1.5px solid var(--b);color:var(--t2);padding:5px 11px;border-radius:6px;cursor:pointer;font-size:.78em;font-weight:600">🖨️ 印刷</button>
@@ -752,7 +728,7 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px 12px;background:#fff8e1;border:1.5px solid #ffd54f;border-radius:8px">
       <span style="font-size:.78em;color:#795548;font-weight:600">🔒 一括ロック：</span>
       <span style="font-size:.75em;color:#795548">「入金済 ＋ 着金日あり ＋ 未ロック」の行をまとめてロックします</span>
-      <button onclick="bulkLockPaid()" style="margin-left:auto;background:#f57f17;color:#fff;border:none;padding:6px 16px;border-radius:7px;cursor:pointer;font-size:.8em;font-weight:700;white-space:nowrap">🔒 一括ロック実行</button>
+      <button data-edit onclick="bulkLockPaid()" style="margin-left:auto;background:#f57f17;color:#fff;border:none;padding:6px 16px;border-radius:7px;cursor:pointer;font-size:.8em;font-weight:700;white-space:nowrap">🔒 一括ロック実行</button>
     </div>
     <div class="pay-tbl-wrap"><table class="pay-tbl">
   <colgroup>
@@ -786,8 +762,8 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
         <thead><tr><th style="width:24px"></th><th style="width:320px">摘要</th><th class="ra" style="width:60px">数量</th><th class="ra" style="width:80px">単価</th><th class="ra" style="width:65px">税率</th><th class="ra" style="width:100px">金額</th><th style="width:30px"></th></tr></thead>
         <tbody id="invBody"></tbody>
       </table>
-      <button class="inv-add" onclick="addInvItem()">＋ 行を追加</button>
-      <button class="inv-add" onclick="addInvSep()" style="margin-left:8px">＋ 区切りを追加</button>
+      <button class="inv-add" data-edit onclick="addInvItem()">＋ 行を追加</button>
+      <button class="inv-add" data-edit onclick="addInvSep()" style="margin-left:8px">＋ 区切りを追加</button>
       <button class="inv-add" onclick="resetInv()" style="margin-left:8px;color:#d32f2f;border-color:#d32f2f">🔄 CSVから再構築</button>
       <div style="font-size:.75em;color:#888;margin-top:6px">💡 行の左端「⋮⋮」をドラッグで並び替えできます</div>
       <div class="inv-total" id="invTotal"></div>
@@ -815,7 +791,7 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
     <div id="reconResult"></div>
     <div class="sec"><h2>📒 民泊手数料まとめ（税込）</h2>
       <div id="accContent"><div class="nd">CSVを読み込んでください</div></div>
-      <button onclick="addAccRow()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em;margin-top:10px">＋ 手動入力行を追加（スクエア等）</button>
+      <button data-edit onclick="addAccRow()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:7px;cursor:pointer;font-size:.78em;margin-top:10px">＋ 手動入力行を追加（スクエア等）</button>
     </div>
   </div>
 
@@ -833,7 +809,7 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
   <div class="pane" id="discPane">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <h2 style="margin:0;font-size:1em;font-weight:700">🏷️ 割引・セール管理</h2>
-      <button id="discAddBtn" onclick="openDiscModal()" style="background:var(--p);color:#fff;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">＋ 追加</button>
+      <button id="discAddBtn" data-edit onclick="openDiscModal()" style="background:var(--p);color:#fff;border:none;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">＋ 追加</button>
       <!-- ビュー切替（セグメントコントロール） -->
       <div style="display:flex;gap:0;background:#d8dae8;border-radius:9px;padding:3px">
         <button id="discViewActiveBtn" onclick="setDiscView('active')" style="border:none;cursor:pointer;padding:5px 16px;border-radius:7px;font-size:.8em;font-weight:700;background:#fff;color:var(--t);box-shadow:0 1px 4px rgba(0,0,0,.13);transition:all .15s">適用中</button>
@@ -900,7 +876,7 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
   <div class="pane" id="usersPane">
     <div class="sec">
       <h2>👥 ユーザー管理</h2>
-      <button onclick="addNewUser()" style="background:var(--p);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85em;font-weight:600;margin-bottom:14px">＋ ユーザーを追加</button>
+      <button data-edit onclick="addNewUser()" style="background:var(--p);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85em;font-weight:600;margin-bottom:14px">＋ ユーザーを追加</button>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:.83em" id="userMgmtTbl">
           <thead><tr style="background:#f4f4f8">
@@ -923,7 +899,7 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
       <span id="bbWeekLabel" style="font-size:.95em;font-weight:700"></span>
       <button onclick="bbNav(1)" style="background:#fff;border:1.5px solid var(--b);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:.82em">次の7日 →</button>
       <button onclick="bbWeekOffset=0;renderBB()" style="background:var(--p);color:#fff;border:none;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:.8em;font-weight:600">今日</button>
-      <button onclick="addBBDate()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:.8em">📅 日付を追加</button>
+      <button data-edit onclick="addBBDate()" style="background:transparent;border:1.5px dashed var(--p);color:var(--p);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:.8em">📅 日付を追加</button>
     </div>
     <div id="bbContent"></div>
   </div>
@@ -1398,6 +1374,11 @@ const excl=v=>Math.round(parseFloat(v||0)/1.1);
 
 // ② Full amount format
 const fmtF=n=>'¥'+Math.round(n).toLocaleString('ja-JP');
+// 【2026-07-05】ローカル（日本時間）基準の日付/月文字列。
+// 「今日」を new Date().toISOString() で作ると UTC変換で 0〜9時に前日へズレる（週末確認タブで実バグ化した前科あり）ため、
+// 現在時刻から日付を作るときは必ずこちらを使う。※日付文字列('YYYY-MM-DD')から作ったDateの toISOString 往復は安全なので対象外。
+function localDateStr(d){d=d||new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function localMonthStr(d){return localDateStr(d).slice(0,7);}
 const oc=v=>v>=50?'gh':v>=30?'gm':'gl';
 const occBg=v=>v>=50?'#4CAF50':v>=30?'#FF9800':'#f5576c';
 // 履歴用タイムスタンプフォーマット
@@ -1910,7 +1891,7 @@ function renderOpsTabs(){
     document.getElementById('opsContent').innerHTML='<div class="nd">📂 右上の「CSV更新」からCSVを読み込んでください</div>';
     return;
   }
-  const todayM=new Date().toISOString().substring(0,7);
+  const todayM=localMonthStr();
   if(!curM||!MS[curM]){
     curM=months.includes(todayM)?todayM:months[months.length-1];
   }
@@ -2558,7 +2539,7 @@ function bulkCompleteSelected(){
     const chDates=new Set((CH[tag]||[]).map(e=>e.d.replace(/\//g,'-')));
     let cur=new Date(ds);cur.setDate(cur.getDate()+1);
     const limit=nextCI?new Date(nextCI):null;
-    const today=new Date().toISOString().split('T')[0];
+    const today=localDateStr();
     let safety=0;
     while(safety<60){
       const dStr=cur.toISOString().split('T')[0];
@@ -2575,7 +2556,7 @@ function bulkCompleteSelected(){
   _origSset(CHK_KEY,c);fbCheckUpdate(upd);renderClean();
 }
 
-function chgDate(d){const inp=document.getElementById('cleanDate');const dt=new Date(inp.value);dt.setDate(dt.getDate()+d);inp.value=dt.toISOString().split('T')[0];renderClean();}
+function chgDate(d){const inp=document.getElementById('cleanDate');const dt=new Date(inp.value);dt.setDate(dt.getDate()+d);inp.value=localDateStr(dt);renderClean();}
 // ② Multi-select filter functions
 function toggleProp(p){
   if(p==='all'){cF.props=new Set(['all']);}
@@ -2626,7 +2607,7 @@ function isChk(ds,tag){try{const c=S.get(CHK_KEY)||{};return c[ds+'_'+tag]==='1'
 // r.lc（直前の清掃タスク）の前後3日にチェックがあれば「済」として継承（過去日のみ）
 function isCleanDoneByLastClean(ds,tag,lc){
   if(!lc||!lc.d)return false;
-  const today=new Date().toISOString().split('T')[0];
+  const today=localDateStr();
   if(ds>=today)return false;
   try{
     const lcDate=lc.d.replace(/\//g,'-');
@@ -2641,7 +2622,7 @@ function isCleanDoneByLastClean(ds,tag,lc){
 }
 function isCleanDoneSmart(ds,tag,cm){
   if(isChk(ds,tag))return true;
-  const today=new Date().toISOString().split('T')[0];
+  const today=localDateStr();
   if(cm&&cm.cd){
     const cdNorm=cm.cd.replace(/\//g,'-');
     if(cdNorm!==ds&&isChk(cdNorm,tag))return true;
@@ -2724,7 +2705,7 @@ function togChk(ds,tag,val,chkEl){
         const chDates=new Set((CH[tag]||[]).map(e=>e.d.replace(/\//g,'-')));
         let cur=new Date(ds);cur.setDate(cur.getDate()+1);
         const limit=nextCI?new Date(nextCI):null;
-        const today=new Date().toISOString().split('T')[0];
+        const today=localDateStr();
         let safety=0;
         while(safety<60){
           const dStr=cur.toISOString().split('T')[0];
@@ -2773,7 +2754,7 @@ function cleanupOverpropagatedChks(){
   if(!BK||!Object.keys(BK).length)return; // BK未ロード→後で再呼出
   const c=S.get(CHK_KEY)||{};
   if(!Object.keys(c).length){S.set(flagKey,true);return;} // チェックデータなし→何もせず終了
-  const today=new Date().toISOString().split('T')[0];
+  const today=localDateStr();
   const cleaned=[];
   const upd={};
   Object.keys(BK).forEach(tag=>{
@@ -3071,9 +3052,9 @@ function renderPayTab(){
     } else if(ip){
       statusTag=st.hasSplits
         ?`<span class="tag-paid" style="cursor:pointer" onclick="openAmtModal('${bk.id}',${csvAmt},'${gName}')" title="分割入金（クリックで編集）">入金済</span>`
-        :`<span class="tag-paid" style="cursor:pointer" onclick="togPayWithConfirm('${bk.id}',false)" title="クリックで未確認に戻す">入金済</span>`;
+        :`<span class="tag-paid" style="cursor:pointer" data-edit onclick="togPayWithConfirm('${bk.id}',false)" title="クリックで未確認に戻す">入金済</span>`;
     } else {
-      statusTag=`<span class="tag-unpaid" style="cursor:pointer" onclick="togPayWithConfirm('${bk.id}',true)" title="クリックで入金済にする">未確認</span>`;
+      statusTag=`<span class="tag-unpaid" style="cursor:pointer" data-edit onclick="togPayWithConfirm('${bk.id}',true)" title="クリックで入金済にする">未確認</span>`;
     }
     // 日付セル（分割入金時は完済日＋内訳ツールチップ、それ以外は従来の日付入力）
     const dateCell=st.hasSplits
@@ -3091,7 +3072,7 @@ function renderPayTab(){
       <td>${dateCell}</td>
       <td>${(s=>{ const bg=s==='Airbnb'?'#FF5A5F':s==='Booking.com'?'#003580':'#90A4AE'; return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.73em;font-weight:700;padding:3px 9px;border-radius:4px;letter-spacing:.02em">${s}</span>`; })(bk.s)}</td>
       <td>${bk.g}${bk.cancel?'<span style="margin-left:5px;font-size:.68em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px">キャンセル料</span>':''}</td>
-      <td style="text-align:center"><button onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em;padding:2px">${isLocked?'🔒':'🔓'}</button></td>
+      <td style="text-align:center"><button data-edit onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em;padding:2px">${isLocked?'🔒':'🔓'}</button></td>
     </tr>`;
   };
 
@@ -3478,8 +3459,8 @@ function copyDisc(id){
 // コピー用ボタンのHTML（閲覧専用ユーザーには出さない）。compact=true でテーブル用の小型版。
 function discCopyBtn(id,compact){
   if(document.body.classList.contains('view-discount'))return'';
-  if(compact)return`<button onclick="copyDisc('${id}')" title="コピー" style="background:none;border:1px solid #b0bec5;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#546e7a;margin-left:3px">📋</button>`;
-  return`<button onclick="copyDisc('${id}')" style="background:none;border:1px solid #b0bec5;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#546e7a">📋 コピー</button>`;
+  if(compact)return`<button data-edit onclick="copyDisc('${id}')" title="コピー" style="background:none;border:1px solid #b0bec5;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#546e7a;margin-left:3px">📋</button>`;
+  return`<button data-edit onclick="copyDisc('${id}')" style="background:none;border:1px solid #b0bec5;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#546e7a">📋 コピー</button>`;
 }
 
 function renderDisc(){
@@ -3534,12 +3515,12 @@ function renderDisc(){
           <span class="disc-card-room">${d.room||'—'}</span>
           <div class="disc-card-btns">
             ${isArchived
-              ?`<button onclick="restoreDisc('${d.id}')" style="background:none;border:1px solid #c8e6c9;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#388e3c">↩️ 復元</button>
+              ?`<button data-edit onclick="restoreDisc('${d.id}')" style="background:none;border:1px solid #c8e6c9;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#388e3c">↩️ 復元</button>
                 ${discCopyBtn(d.id,false)}
-                <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#c62828">🗑️</button>`
-              :`<button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:5px 11px;cursor:pointer;font-size:.78em;color:var(--t2)">✏️</button>
+                <button data-edit onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#c62828">🗑️</button>`
+              :`<button data-edit onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:5px 11px;cursor:pointer;font-size:.78em;color:var(--t2)">✏️</button>
                 ${discCopyBtn(d.id,false)}
-                <button onclick="archiveDisc('${d.id}')" style="background:none;border:1px solid #ffe0b2;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#e65100">終了</button>`
+                <button data-edit onclick="archiveDisc('${d.id}')" style="background:none;border:1px solid #ffe0b2;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:.78em;color:#e65100">終了</button>`
             }
           </div>
         </div>
@@ -3587,12 +3568,12 @@ function renderDisc(){
             <td style="padding:8px 10px;border-bottom:1px solid #e0e2f0;${sep};color:var(--t2);font-size:.82em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${(d.notes||'').replace(/"/g,'&quot;')}">${d.notes||'—'}</td>
             <td style="padding:8px 8px;border-bottom:1px solid #e0e2f0;text-align:center;white-space:nowrap">
               ${isArchived
-                ?`<button onclick="restoreDisc('${d.id}')" style="background:none;border:1px solid #c8e6c9;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#388e3c">↩️ 復元</button>
+                ?`<button data-edit onclick="restoreDisc('${d.id}')" style="background:none;border:1px solid #c8e6c9;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#388e3c">↩️ 復元</button>
                    ${discCopyBtn(d.id,true)}
-                   <button onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#c62828;margin-left:3px">🗑️</button>`
-                :`<button onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:var(--t2)">✏️</button>
+                   <button data-edit onclick="deleteDisc('${d.id}')" style="background:none;border:1px solid #ffcdd2;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#c62828;margin-left:3px">🗑️</button>`
+                :`<button data-edit onclick="openDiscModal('${d.id}')" style="background:none;border:1px solid var(--b);border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:var(--t2)">✏️</button>
                   ${discCopyBtn(d.id,true)}
-                  <button onclick="archiveDisc('${d.id}')" style="background:none;border:1px solid #ffe0b2;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#e65100;margin-left:3px">終了</button>`
+                  <button data-edit onclick="archiveDisc('${d.id}')" style="background:none;border:1px solid #ffe0b2;border-radius:5px;padding:3px 8px;cursor:pointer;font-size:.75em;color:#e65100;margin-left:3px">終了</button>`
               }
             </td>
           </tr>`;
@@ -3755,7 +3736,7 @@ function handlePayCSV(files){
             adj[refNum]={
               payoutId,amount:netAmt,payProcDate:payDate,
               type:'コミッション調整額',ota:'Booking.com',
-              importedAt:new Date().toISOString().slice(0,10)
+              importedAt:localDateStr()
             };
             adjMatched++;
             return;
@@ -3836,7 +3817,7 @@ function exportPayCSV(){
   const csv='\uFEFF'+rows.map(r=>r.map(esc).join(',')).join('\r\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  a.download='入金管理_'+new Date().toISOString().substring(0,10)+'.csv';
+  a.download='入金管理_'+localDateStr()+'.csv';
   a.click();URL.revokeObjectURL(a.href);
 }
 function printPayTable(){
@@ -4063,7 +4044,7 @@ function buildInvHTML(snapshot){
   const t=calcInvTotals(items);
   const sub=t.sub,tax=t.tax,tot=t.tot;
   const invNum=isSnap?snapshot.invNum:`INV-${String(cfg.nextInv).padStart(10,'0')}`;
-  const today=isSnap?snapshot.issuedDate:new Date().toISOString().split('T')[0];
+  const today=isSnap?snapshot.issuedDate:localDateStr();
   const c=isSnap?snapshot.cfg:{recip:cfg.recip,reg:cfg.reg,issuer:cfg.issuer,addr:cfg.addr,tel:cfg.tel,bank:cfg.bank};
   const rows=items.map((it,idx)=>{
     if(it._separator){
@@ -4135,7 +4116,7 @@ function issueInv(){
   const sub=invItems.reduce((s,it)=>s+(it._separator?0:(it.qty||0)*(it.unit||0)),0);
   const tax=Math.round(sub*.1),tot=sub+tax;
   const invNum=`INV-${String(cfg.nextInv).padStart(10,'0')}`;
-  const today=new Date().toISOString().split('T')[0];
+  const today=localDateStr();
   const snap={
     id:Date.now()+'-'+invNum,
     issuedAt:new Date().toISOString(),
@@ -4991,7 +4972,7 @@ function renderRoomMgmt(){
   const rents=S.get(ROOM_RENT_KEY)||{};
   const openData=S.get(ROOM_OPEN_KEY)||{};
   const bedsData=S.get(BED_KEY)||{};
-  const todayM=new Date().toISOString().substring(0,7);
+  const todayM=localMonthStr();
 
   // 建物ごとにグループ化
   const groups={};
@@ -5014,7 +4995,7 @@ function renderRoomMgmt(){
           <span style="color:var(--t3);min-width:70px">${e.from}〜</span>
           <span style="font-family:ui-monospace,monospace;min-width:80px">税込 ${fmtF(e.rentInc)}</span>
           <span style="color:var(--t3)">→ 税抜 ${fmtF(Math.round(e.rentInc/1.1))}</span>
-          <button onclick="delRoomRent('${tag}','${e.from}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:1px 6px;cursor:pointer;font-size:.85em">削除</button>
+          <button data-edit onclick="delRoomRent('${tag}','${e.from}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:1px 6px;cursor:pointer;font-size:.85em">削除</button>
         </div>`).join(''):'<div style="font-size:.78em;color:var(--t3);margin-top:4px">設定なし</div>';
       const openMonth=openData[tag]||'';
       return`<div style="border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:8px">
@@ -5038,7 +5019,7 @@ function renderRoomMgmt(){
         <div style="margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           <input type="month" id="rmFrom_${tag}" value="${todayM}" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em">
           <input type="number" id="rmRent_${tag}" placeholder="家賃（税込）" step="1000" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em;width:130px">
-          <button onclick="saveRoomRent('${tag}',document.getElementById('rmFrom_${tag}').value,parseInt(document.getElementById('rmRent_${tag}').value)||0)" style="background:var(--p);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82em;font-weight:600">保存</button>
+          <button data-edit onclick="saveRoomRent('${tag}',document.getElementById('rmFrom_${tag}').value,parseInt(document.getElementById('rmRent_${tag}').value)||0)" style="background:var(--p);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82em;font-weight:600">保存</button>
         </div>
       </div>`;
     }).join('');
@@ -5067,7 +5048,7 @@ function renderRoomMgmt(){
         <span style="color:var(--t3);min-width:70px">${e.from}〜</span>
         <span style="font-family:ui-monospace,monospace;min-width:80px">税込 ${fmtF(e.rentInc)}</span>
         <span style="color:var(--t3)">→ 税抜 ${fmtF(Math.round(e.rentInc/1.1))}</span>
-        <button onclick="delRoomRent('${name}','${e.from}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:1px 6px;cursor:pointer;font-size:.85em">削除</button>
+        <button data-edit onclick="delRoomRent('${name}','${e.from}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:1px 6px;cursor:pointer;font-size:.85em">削除</button>
       </div>`).join(''):'<div style="font-size:.78em;color:var(--t3);margin-top:4px">設定なし</div>';
     return`<div style="border:1px solid #ffc0c0;border-radius:10px;padding:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -5079,7 +5060,7 @@ function renderRoomMgmt(){
       <div style="margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <input type="month" id="rmFrom_${name}" value="${todayM}" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em">
         <input type="number" id="rmRent_${name}" placeholder="家賃（税込）" step="1000" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em;width:130px">
-        <button onclick="saveRoomRent('${name}',document.getElementById('rmFrom_${name}').value,parseInt(document.getElementById('rmRent_${name}').value)||0)" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82em;font-weight:600">保存</button>
+        <button data-edit onclick="saveRoomRent('${name}',document.getElementById('rmFrom_${name}').value,parseInt(document.getElementById('rmRent_${name}').value)||0)" style="background:var(--red);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82em;font-weight:600">保存</button>
       </div>
     </div>`;
   }).join('');
@@ -5108,7 +5089,7 @@ function renderRoomMgmt(){
         <span style="color:var(--t3);min-width:70px">${e.from}〜</span>
         <span style="font-family:ui-monospace,monospace;min-width:80px">税込 ${fmtF(e.rentInc)}</span>
         <span style="color:var(--t3)">→ 税抜 ${fmtF(Math.round(e.rentInc/1.1))}</span>
-        <button onclick="delRoomRent('${name}','${e.from}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:1px 6px;cursor:pointer;font-size:.85em">削除</button>
+        <button data-edit onclick="delRoomRent('${name}','${e.from}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:1px 6px;cursor:pointer;font-size:.85em">削除</button>
       </div>`).join(''):'<div style="font-size:.78em;color:var(--t3);margin-top:4px">設定なし</div>';
     return`<div style="border:1px solid #c0d8ff;border-radius:10px;padding:12px;margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -5120,7 +5101,7 @@ function renderRoomMgmt(){
       <div style="margin-top:10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <input type="month" id="rmFrom_${name}" value="${todayM}" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em">
         <input type="number" id="rmRent_${name}" placeholder="利用料（税込）" step="1000" style="border:1px solid var(--b);border-radius:6px;padding:4px 8px;font-size:.8em;width:130px">
-        <button onclick="saveRoomRent('${name}',document.getElementById('rmFrom_${name}').value,parseInt(document.getElementById('rmRent_${name}').value)||0)" style="background:var(--p);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82em;font-weight:600">保存</button>
+        <button data-edit onclick="saveRoomRent('${name}',document.getElementById('rmFrom_${name}').value,parseInt(document.getElementById('rmRent_${name}').value)||0)" style="background:var(--p);color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82em;font-weight:600">保存</button>
       </div>
     </div>`;
   }).join('');
@@ -5166,7 +5147,7 @@ function initApp(){
   try{ localStorage.removeItem(MS_HIST_KEY); localStorage.removeItem(BK_HIST_KEY); }catch(e){}
   initFirebase();
   try{ updateConnBar(); }catch(e){}   // Firebase初期化に失敗してもインジケーターは出す(🔴)
-  const today=new Date().toISOString().split('T')[0];
+  const today=localDateStr();
   document.getElementById('cleanDate').value=today;
   // ① ログイン後は必ず運営タブ・収益サブタブを表示
   const isStaff=currentUser&&currentUser.role==='staff';
@@ -5207,7 +5188,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260705.2;
+const APP_VERSION = 20260705.3;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -5343,7 +5324,7 @@ function initFirebase(){
         renderOpsTabs();
         // ② cleanDateが設定されている事を確認してからrenderClean
         const cdEl=document.getElementById('cleanDate');
-        if(cdEl&&!cdEl.value){cdEl.value=new Date().toISOString().split('T')[0];}
+        if(cdEl&&!cdEl.value){cdEl.value=localDateStr();}
         renderClean();
         renderPayTab();
         populateInvMonths();
@@ -5716,7 +5697,6 @@ function getWeekDates(offset){
   return[sat,sun];
 }
 
-function dateToStr(d){return d.toISOString().split('T')[0];}
 function dayLabel(d){const w=['日','月','火','水','木','金','土'];return d.getMonth()+1+'/'+d.getDate()+'（'+w[d.getDay()]+'）';}
 
 function bbNav(dir){bbWeekOffset+=dir;renderBB();}
@@ -5796,7 +5776,7 @@ function renderBB(){
     return`<div style="background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.07)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--p)">
         <div style="font-size:1em;font-weight:700">■ ${title}</div>
-        ${isExtra?`<button onclick="removeBBDate('${ds}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.72em">削除</button>`:''}
+        ${isExtra?`<button data-edit onclick="removeBBDate('${ds}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.72em">削除</button>`:''}
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
         <div style="background:#f8f9ff;border-radius:8px;padding:8px 14px;text-align:center">
@@ -5830,7 +5810,7 @@ function renderBB(){
       ${renderLastMinuteSection(ds)}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
         <div style="font-size:.8em;font-weight:600;color:var(--t2)">📝 申し送り事項</div>
-        <button onclick="toggleBBLock('${ds}')" style="background:${noteLocked?'var(--p)':'none'};border:1px solid ${noteLocked?'var(--p)':'var(--b)'};border-radius:5px;padding:2px 10px;cursor:pointer;font-size:.75em;color:${noteLocked?'#fff':'var(--t3)'};">${noteLocked?'✏️ 編集':'📌 カード化'}</button>
+        <button data-edit onclick="toggleBBLock('${ds}')" style="background:${noteLocked?'var(--p)':'none'};border:1px solid ${noteLocked?'var(--p)':'var(--b)'};border-radius:5px;padding:2px 10px;cursor:pointer;font-size:.75em;color:${noteLocked?'#fff':'var(--t3)'};">${noteLocked?'✏️ 編集':'📌 カード化'}</button>
       </div>
       ${noteLocked
         ? `<div style="background:#f8f9ff;border:1.5px solid var(--p);border-radius:8px;padding:12px 14px;font-size:.85em;line-height:1.7;white-space:pre-wrap;color:var(--t1);min-height:60px">${note.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div><div style="font-size:.7em;color:var(--p);margin-top:4px;text-align:right">📌 カード化済み　✏️ 編集ボタンで変更できます</div>`
@@ -6096,10 +6076,10 @@ function renderAcc(){
   const numDisp=(val,red)=>val?`<span style="font-family:ui-monospace,monospace;font-size:.82em;${red?'color:var(--red)':''}">${fmtF(val)}</span>`:`<span style="color:#bbb;font-size:.78em">未入力</span>`;
   const manualHtml=manualRows.map((r,i)=>{
     const isEdit=_accEditRow===i;
-    const editBtn=`<button onclick="_accEditRow=${i};renderAcc()" style="border:none;background:none;cursor:pointer;color:#aaa;font-size:.8em;padding:0 3px;vertical-align:middle" title="編集">✏️</button>`;
+    const editBtn=`<button data-edit onclick="_accEditRow=${i};renderAcc()" style="border:none;background:none;cursor:pointer;color:#aaa;font-size:.8em;padding:0 3px;vertical-align:middle" title="編集">✏️</button>`;
     if(isEdit){
       return`<tr style="background:#f0fff4">
-        <td style="${tdStyle}"><div style="display:flex;flex-direction:column;gap:3px"><input type="date" style="${inpS}width:130px" value="${r.date||''}" onchange="updateAccRow(${i},'date',this.value,'${month}')"><button onclick="_accEditRow=-1;renderAcc()" style="border:none;background:var(--p);color:#fff;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.72em;white-space:nowrap;width:fit-content">✓ 完了</button></div></td>
+        <td style="${tdStyle}"><div style="display:flex;flex-direction:column;gap:3px"><input type="date" style="${inpS}width:130px" value="${r.date||''}" onchange="updateAccRow(${i},'date',this.value,'${month}')"><button data-edit onclick="_accEditRow=-1;renderAcc()" style="border:none;background:var(--p);color:#fff;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.72em;white-space:nowrap;width:fit-content">✓ 完了</button></div></td>
         <td style="${tdStyle}"><input style="${inpS}width:120px" value="${r.desc||''}" onchange="updateAccRow(${i},'desc',this.value,'${month}')"></td>
         <td style="${tdStyle}"><input style="${inpS}width:160px" value="${r.facility||''}" onchange="updateAccRow(${i},'facility',this.value,'${month}')"></td>
         <td style="${tdStyle};text-align:right"><input type="number" style="${inpS}width:90px;text-align:right;font-family:ui-monospace,monospace" value="${r.amount||''}" placeholder="0" onchange="updateAccRow(${i},'amount',parseInt(this.value)||0,'${month}')"></td>
@@ -6922,9 +6902,9 @@ function renderUserMgmt(){
       <td style="padding:9px 10px"><span style="background:${roleColor};color:#fff;padding:2px 8px;border-radius:99px;font-size:.75em;font-weight:700;white-space:nowrap">${roleLbl}</span></td>
       <td style="padding:9px 10px"><span style="background:${active?'var(--green)':'var(--t3)'};color:#fff;padding:2px 8px;border-radius:99px;font-size:.75em;font-weight:700;white-space:nowrap">${active?'有効':'無効'}</span></td>
       <td style="padding:9px 10px;white-space:nowrap">
-        <button onclick="editUser(${i})" style="background:var(--p);color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em;margin-right:4px;white-space:nowrap">編集</button>
-        <button onclick="changePw(${i})" style="background:var(--orange);color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em;margin-right:4px;white-space:nowrap">PW変更</button>
-        <button onclick="toggleUserActive(${i})" style="background:${active?'#888':'var(--green)'};color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em;white-space:nowrap">${active?'無効化':'有効化'}</button>
+        <button data-edit onclick="editUser(${i})" style="background:var(--p);color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em;margin-right:4px;white-space:nowrap">編集</button>
+        <button data-edit onclick="changePw(${i})" style="background:var(--orange);color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em;margin-right:4px;white-space:nowrap">PW変更</button>
+        <button data-edit onclick="toggleUserActive(${i})" style="background:${active?'#888':'var(--green)'};color:#fff;border:none;padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75em;white-space:nowrap">${active?'無効化':'有効化'}</button>
       </td>
     </tr>`;
   }).join('');
@@ -7126,7 +7106,7 @@ function getLastMinuteRooms(ds){
   const daysToCheck=[ds];
   if(dow===6){
     const sun=new Date(d);sun.setDate(d.getDate()+1);
-    daysToCheck.push(sun.toISOString().split('T')[0]);
+    daysToCheck.push(localDateStr(sun));   // getWeekDates由来=現在時刻ベースなのでローカル日付で（toISOStringは0〜9時に前日ズレ）
   }
   const targets=[];
   Object.keys(ROOMS).forEach(tag=>{
