@@ -1143,8 +1143,23 @@ const _memStore={};
 function _isMemKey(k){ return k===MS_HIST_KEY || k===BK_HIST_KEY; }
 const S={
   get(k){ if(_isMemKey(k)) return (k in _memStore)?_memStore[k]:null; try{return JSON.parse(localStorage.getItem(k))}catch(e){return null} },
-  set(k,v){ if(_isMemKey(k)){ _memStore[k]=v; return; } try{localStorage.setItem(k,JSON.stringify(v))}catch(e){} }
+  set(k,v){ if(_isMemKey(k)){ _memStore[k]=v; return; } try{localStorage.setItem(k,JSON.stringify(v))}catch(e){ console.warn('localStorage保存失敗:', k, e); _warnStorageFull(); } }
 };
+// 【2026-07-05】保存失敗（Quota超過等）を黙殺しない。「保存したのに消えてる」の温床だったため、
+// 失敗したら画面上部に1回だけ赤バナーで知らせる（タップで閉じる。Firebase同期分は影響なし）
+let _storageWarned=false;
+function _warnStorageFull(){
+  if(_storageWarned) return;
+  try{
+    if(!document.body) return;   // 起動直後で body 未生成なら、次の失敗時に表示
+    const bar=document.createElement('div');
+    bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99998;background:#dc2626;color:#fff;padding:10px 14px;text-align:center;font-size:14px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer';
+    bar.textContent='⚠ この端末への保存に失敗しました（ストレージ満杯の可能性）。直前の変更が保存されていないかもしれません。タップで閉じる';
+    bar.onclick=()=>bar.remove();
+    document.body.appendChild(bar);
+    _storageWarned=true;
+  }catch(e){}
+}
 function loadCfg(){
   const s=S.get(CONF_KEY);if(s)Object.assign(cfg,s);
   const u=S.get('mp_users6');if(u&&u.length)USERS=u;
@@ -4267,7 +4282,7 @@ function loadCSVs(){
       if(fbReady)fbMergeHistory('msHistory',_msHistEntry,HIST_MAX);
     }
 
-    saveBookingsToFb();
+    saveBookingsToFb(true);   // CSV取込時はmeta（取込時刻）も更新
     renderOpsTabs();
     renderClean();
     renderPayTab();
@@ -5108,30 +5123,67 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260704;
+const APP_VERSION = 20260705;
 let _verReloading = false;
-function scheduleVersionReload(remoteVer){
-  if(_verReloading) return;
-  _verReloading = true;
-  console.log('🔄 新しいバージョン', remoteVer, '> 現在', APP_VERSION, '… 自動更新します');
+// 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
+// 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
+//       リロードしても新しくならない＝無駄打ちなので、60秒おきに配信が追いつくのを待つ。
+// 弁②: それでも同一リモート版に対するリロードはsessionStorageで最大1回。2回目は手動更新の案内に切替えて停止。
+function showVerBar(msg, bg){
   try{
-    if(!document.getElementById('verUpdateBar')){
-      const bar=document.createElement('div');
+    let bar=document.getElementById('verUpdateBar');
+    if(!bar){
+      bar=document.createElement('div');
       bar.id='verUpdateBar';
-      bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#16a34a;color:#fff;padding:10px 14px;text-align:center;font-size:14px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer';
-      bar.textContent='🔄 新しいバージョンに更新しています…（自動で切り替わります）';
       bar.onclick=()=>location.reload(true);
       document.body.appendChild(bar);
     }
+    bar.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:'+bg+';color:#fff;padding:10px 14px;text-align:center;font-size:14px;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer';
+    bar.textContent=msg;
   }catch(e){}
-  // 入力中（文字入力・選択中）はリロードを延期し、操作の取りこぼしを防ぐ
-  const tryReload=()=>{
-    const ae=document.activeElement;
-    const typing=ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName);
-    if(typing){ setTimeout(tryReload, 4000); return; }
-    location.reload(true);
+}
+async function _servedAppVersion(){
+  try{
+    const res = await fetch('index.html?nocache='+Date.now(), {cache:'no-store'});
+    if(!res.ok) return null;
+    const txt = await res.text();
+    const m = txt.match(/const APP_VERSION\s*=\s*([\d.]+)/);
+    return m ? Number(m[1]) : null;
+  }catch(e){ return null; }
+}
+function scheduleVersionReload(remoteVer){
+  if(_verReloading) return;
+  _verReloading = true;
+  // 弁②: リロード回数チェック（sessionStorageはリロードを跨いで同一タブに残る）
+  const relKey='mp_verreload_'+remoteVer;
+  let relCount=0; try{ relCount=Number(sessionStorage.getItem(relKey)||0); }catch(e){}
+  if(relCount>=1){
+    console.warn('🔄 自動更新を1回試しましたがまだ古いままです（version', remoteVer, '）。手動更新の案内に切替えます');
+    showVerBar('⚠ 自動更新できませんでした。Ctrl+Shift+R（スマホは再読み込み）で手動更新してください', '#d97706');
+    return;
+  }
+  console.log('🔄 新しいバージョン', remoteVer, '> 現在', APP_VERSION, '… 自動更新します');
+  showVerBar('🔄 新しいバージョンに更新しています…（自動で切り替わります）', '#16a34a');
+  const attemptReload = async ()=>{
+    // 弁①: 配信実体の確認。取得失敗(オフライン等)時はnull＝従来どおりリロードに進む（弁②が最後の砦）
+    const served = await _servedAppVersion();
+    if(served !== null && served <= APP_VERSION){
+      console.warn('🔄 配信中のAPP_VERSION('+served+')がまだ古いためリロード保留。60秒後に再確認します');
+      showVerBar('🔄 新バージョンの配信待ち…（反映されしだい自動で切り替わります）', '#16a34a');
+      setTimeout(attemptReload, 60000);
+      return;
+    }
+    // 入力中（文字入力・選択中）はリロードを延期し、操作の取りこぼしを防ぐ
+    const tryReload=()=>{
+      const ae=document.activeElement;
+      const typing=ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName);
+      if(typing){ setTimeout(tryReload, 4000); return; }
+      try{ sessionStorage.setItem(relKey, String(relCount+1)); }catch(e){}
+      location.reload(true);
+    };
+    tryReload();
   };
-  setTimeout(tryReload, 2500);
+  setTimeout(attemptReload, 2500);
 }
 
 // 接続インジケーター：いまオンライン(🟢)かオフライン(🔴)かを画面右下に常時表示。
@@ -5183,6 +5235,8 @@ function initFirebase(){
     fbDB.ref('bookings').on('value', snap => {
       const val = snap.val();
       if(val){
+        // 差分書き込みの基準（Firebase上の現状）を更新（saveBookingsToFbの差分update用）
+        try{ _lastBookingsSnap = JSON.parse(JSON.stringify({BK:val.BK||{},ROOMS:val.ROOMS||{},CH:val.CH||{},CM:val.CM||{}})); }catch(e){}
         // Restore BK and ROOMS from Firebase
         const stored = val;
         if(stored.BK) { Object.assign(BK, stored.BK); }
@@ -5412,17 +5466,40 @@ function fbCheckUpdate(updates){
 }
 
 // CSVロード後にFirebaseへ保存
-function saveBookingsToFb(){
-  if(!fbReady) return;
+// 【2026-07-05】ノード全体の .set 置換をやめ、変わった部屋/タグだけのマルチパス差分 update に変更
+// （payments/checks と同じ思想。2端末が別々のCSVを取り込んでも、相手の取込分を丸ごと消さない）。
+// withMeta=true のとき（CSV取込時）だけ meta の取込時刻を更新する。
+// 注意: sanitizeFbKeys はキー中の / も _ に潰すため、マルチパスのパス区切りは自前で組む。
+//       比較前にローカル側を sanitize してキー表記をFirebase保存形（=受信スナップ）と揃える。
+let _lastBookingsSnap = {};   // Firebase上のbookingsの最新スナップ（受信・送信のたびに更新）
+function saveBookingsToFb(withMeta){
+  if(!fbReady || !fbDB) return;
   // 清掃データの重複排除（同一タグ×同一日付は1件のみ保持）
   const cleanCH={};
   Object.keys(CH).forEach(tag=>{
     const seen=new Set();
     cleanCH[tag]=(CH[tag]||[]).filter(c=>{if(seen.has(c.d))return false;seen.add(c.d);return true;});
   });
-  const _d = new Date();
-  const now = _d.toLocaleDateString('ja-JP')+'　'+_d.getHours()+':'+String(_d.getMinutes()).padStart(2,'0');
-  fbWrite('bookings', { BK, ROOMS, CH: cleanCH, CM, meta: 'CSV取込:' + now });
+  try{
+    const cur = sanitizeFbKeys({ BK, ROOMS, CH: cleanCH, CM });
+    const updates = {};
+    ['BK','ROOMS','CH','CM'].forEach(sec=>{
+      const c = cur[sec]||{}, prev = _lastBookingsSnap[sec]||{};
+      for(const key in c){
+        if(JSON.stringify(c[key]) !== JSON.stringify(prev[key])) updates[sec+'/'+key] = c[key];
+      }
+      for(const key in prev){
+        if(!(key in c)) updates[sec+'/'+key] = null;   // ローカルで消えた部屋/タグはFirebaseからも削除
+      }
+    });
+    if(!Object.keys(updates).length && !withMeta) return;   // 変更なしなら何も書かない
+    if(withMeta){
+      const _d = new Date();
+      updates['meta'] = 'CSV取込:' + _d.toLocaleDateString('ja-JP')+'　'+_d.getHours()+':'+String(_d.getMinutes()).padStart(2,'0');
+    }
+    fbDB.ref('bookings').update(updates);
+    _lastBookingsSnap = JSON.parse(JSON.stringify(cur));
+  }catch(e){ console.warn('saveBookingsToFb error:', e); }
 }
 
 // チェック・支払い・光熱費・写真の変更をFirebaseに同期
