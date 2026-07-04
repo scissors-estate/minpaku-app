@@ -477,6 +477,53 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
 
 /* 月次明細（acct）— view（既に閲覧主体のため特に隠すものは少ない） */
 /* 必要に応じて Step3 で追加 */
+
+/* ════ 清掃費まとめ（2026-07-05 新タブ） ════ */
+.cs-table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.06);font-size:.88em}
+.cs-table thead th{padding:11px 10px;font-weight:600;color:#fff;text-align:right;vertical-align:bottom;line-height:1.25}
+.cs-table thead th:first-child{text-align:left}
+.cs-th-room{background:#7b6ae8}.cs-th-total{background:#7b5ce0}.cs-th-src{background:#8a8ea3}
+.cs-table tr.cs-bld td{background:#e3def8;color:#5b4bd0;font-weight:700;padding:12px 10px;text-align:right;border-top:2px solid #cfc8f0;border-bottom:1px solid #d2ccf0;cursor:pointer}
+.cs-table tr.cs-bld td:first-child{text-align:left}
+.cs-table tr.cs-bld .cs-cnt{font-weight:400;font-size:.85em;color:#8a83c0;margin-left:4px}
+.cs-table tr.cs-row{cursor:pointer}
+.cs-table tr.cs-row:hover td{filter:brightness(.97)}
+.cs-table tr.cs-row td{padding:11px 10px;text-align:right;border-bottom:1px solid #eef0f6}
+.cs-table tr.cs-row td:first-child{text-align:left;font-weight:700;color:#c0407a;background:#fdeef4;white-space:nowrap;padding-left:24px}
+.cs-table td.cs-c-src{background:#f7f8fb;color:#555}
+.cs-table td.cs-c-total{background:#f3eeff;font-weight:700;color:#6d5ce7}
+.cs-arrow{color:#b9b0e8;font-size:.8em;margin-right:7px;display:inline-block;width:10px}
+.cs-table tr.cs-detail{display:none}
+.cs-table tr.cs-detail.open{display:table-row}
+.cs-table tr.cs-detail>td{background:#fafbff;border-bottom:2px solid #eceefb;padding:0}
+.cs-dwrap{display:flex;gap:26px;flex-wrap:wrap;padding:13px 18px 13px 32px}
+.cs-dblock{font-size:.85em;min-width:190px}
+.cs-dblock .cs-dh{font-weight:700;font-size:.85em;margin-bottom:6px}
+.cs-dblock.cs-amt .cs-dh{color:#6d5ce7}.cs-dblock.cs-bed .cs-dh{color:#8a8ea3}.cs-dblock.cs-cover .cs-dh{color:#1f9d57}.cs-dblock.cs-towel .cs-dh{color:#e08a2b}
+.cs-dblock .cs-drow{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:3px 0}
+.cs-dblock .cs-qty{flex:1 1 auto;text-align:right;color:#9aa0b5;font-size:.9em}
+.cs-dblock .cs-amt-v{flex:0 0 auto;min-width:60px;text-align:right;font-weight:600}
+.cs-dblock.cs-amt .cs-drow{border-bottom:1px dashed #e6e6f0}
+.cs-dblock .cs-note{font-size:.8em;color:#aeb3c7;margin-top:4px}
+.cs-table tr.cs-foot td{padding:13px 10px;text-align:right;font-weight:700;background:#ded8fa;border-top:2px solid #b9aef0;color:#4a3ac0;cursor:pointer}
+.cs-table tr.cs-foot td:first-child{text-align:left}
+.cs-price-group{border-left:3px solid #ddd;padding-left:13px}
+.cs-price-group.cover{border-color:#2aa564}.cs-price-group.towel{border-color:#e0972b}
+.cs-price-group .cs-gname{font-size:.8em;font-weight:700;margin-bottom:7px}
+.cs-price-group.cover .cs-gname{color:#1f9d57}.cs-price-group.towel .cs-gname{color:#e08a2b}
+.cs-price-row{display:flex;gap:13px;flex-wrap:wrap}
+.cs-price-row label{font-size:.78em;color:#666;display:flex;flex-direction:column;gap:4px}
+.cs-price-row input{width:78px;padding:6px 8px;border:1px solid var(--b);border-radius:6px;font-size:1em}
+@media (max-width:600px){
+  .cs-table{font-size:.82em}
+  .cs-table thead th{padding:9px 5px}
+  .cs-table tr.cs-row td{padding:10px 5px}
+  .cs-table tr.cs-row td:first-child{padding-left:16px}
+  .cs-dwrap{gap:14px;padding-left:16px}
+  .cs-dblock{min-width:100%}
+}
+/* 清掃費まとめ（cleansum）— view: 単価編集を隠す（閲覧のみ） */
+body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
 </style>
 </head>
 <body>
@@ -534,6 +581,7 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
   <div class="tabs">
     <button class="tab on" id="tabOper" onclick="swTab('ops',this)">📊 運営</button>
     <button class="tab" id="tabDisc" onclick="swTab('disc',this)">🏷️ 割引管理</button>
+    <button class="tab" id="tabCleanSum" onclick="swTab('cleanSum',this)">🧺 清掃費まとめ</button>
     <button class="tab" id="tabCal" onclick="swTab('cal',this)">📅 カレンダー</button>
     <button class="tab" id="tabClean" onclick="swTab('clean',this)">🧹 清掃</button>
     <button class="tab" id="tabBb" onclick="swTab('bb',this)">📋 掲示板</button>
@@ -575,6 +623,25 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
   </div>
 
   <!-- カレンダー -->
+  <!-- 清掃費まとめ（2026-07-05 新タブ）: 部屋×月（チェックアウト月）の清掃費＋カバー＋タオルのコスト集計（税別） -->
+  <div class="pane" id="cleanSumPane">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+      <select id="cleanSumMonth" onchange="renderCleanSum()" style="border:1.5px solid var(--b);border-radius:6px;padding:6px 9px;font-size:.85em;outline:none;min-width:120px"></select>
+      <button onclick="dlCleanSumExcel()" style="background:var(--green);color:#fff;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">📥 Excelダウンロード</button>
+      <button onclick="printCleanSum()" style="background:var(--p);color:#fff;border:none;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:.82em;font-weight:600">🖨️ 印刷／PDF保存</button>
+    </div>
+    <details id="supplyPriceBox" style="background:#fff;border:1px solid var(--b);border-radius:10px;margin-bottom:14px">
+      <summary style="cursor:pointer;padding:11px 14px;font-size:.85em;font-weight:700;color:var(--t2)">🛠 単価設定（白光・1枚あたり税別）— タップで開く</summary>
+      <div id="supplyPriceInputs" style="display:flex;gap:22px;flex-wrap:wrap;padding:4px 16px 14px"></div>
+    </details>
+    <div id="cleanSumContent"></div>
+    <div style="margin-top:14px;font-size:.75em;color:var(--t3);line-height:1.8">
+      ・チェックアウト月で集計（清掃・カバー/タオル交換はチェックアウト後の1回）。金額はすべて<b>税別</b>。<br>
+      ・カバー類の枚数＝清掃回数×ベッド台数（枕カバーはシングル1枚・ダブル2枚）／タオル＝宿泊人数×1枚。<br>
+      ・ベッド台数は「部屋管理」タブで登録。キャンセル予約・事務所は含みません。行をタップすると内訳が開きます。
+    </div>
+  </div>
+
   <div class="pane" id="calPane" style="padding:14px;max-width:none"></div>
 
   <!-- 清掃 -->
@@ -1019,7 +1086,7 @@ body.view-bookchg #diffPane button[onclick*="confirmDiff"]{display:none !importa
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6',BK_HIST_KEY='mp_bkhist6',MS_HIST_KEY='mp_mshist6',ADJ_KEY='mp_adj6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6',BK_HIST_KEY='mp_bkhist6',MS_HIST_KEY='mp_mshist6',ADJ_KEY='mp_adj6',BED_KEY='mp_room_beds6',SUPPLY_PRICE_KEY='mp_supply_price6';
 const HIST_MAX=14; // 履歴の最大保持件数（肥大化防止のため30→14に削減）
 // 予約スナップに含める下限日：チェックアウトが「今日−35日」以降の予約だけ保存。
 // 現在宿泊中の延泊も拾える／泊まり終わった予約を誤キャンセル検知しない／サイズ激減。
@@ -1067,6 +1134,7 @@ let currentUser=null;
 const TAB_PERMS=[
   {key:'operating', label:'🏢 運営'},
   {key:'discount',  label:'🎟 割引管理'},
+  {key:'cleansum',  label:'🧺 清掃費まとめ'},
   {key:'calendar',  label:'📅 カレンダー'},
   {key:'cleaning',  label:'🧹 清掃'},
   {key:'bbs',       label:'📌 掲示板'},
@@ -1089,13 +1157,20 @@ function getDefaultPerms(role){
 // perms が未定義のユーザーには role からデフォルト権限を補完（メモリ上のみ／自動保存なし）
 // → admin が編集して保存した時点で localStorage + Firebase に反映される
 function ensureUserPerms(){
-  USERS.forEach(u=>{ if(!u.perms) u.perms=getDefaultPerms(u.role); });
+  USERS.forEach(u=>{
+    if(!u.perms){ u.perms=getDefaultPerms(u.role); return; }
+    // 保存済みpermsに存在しないキー（後から追加されたタブ）はroleの既定値で補完する。
+    // これが無いと新タブ追加時に perms[key]||'none' で管理者にすら表示されなくなる。
+    const def=getDefaultPerms(u.role);
+    Object.keys(def).forEach(k=>{ if(!(k in u.perms)) u.perms[k]=def[k]; });
+  });
 }
 
 // 各タブ／設定ボタンと perm キーの対応（Step2）
 const PERM_TARGETS={
   operating: {tabId:'tabOper'},
   discount:  {tabId:'tabDisc'},
+  cleansum:  {tabId:'tabCleanSum'},
   calendar:  {tabId:'tabCal'},
   cleaning:  {tabId:'tabClean'},
   bbs:       {tabId:'tabBb'},
@@ -4288,6 +4363,7 @@ function loadCSVs(){
     renderPayTab();
     populateInvMonths();
     try{populateAccMonths();}catch(e){}
+    try{ if(document.getElementById('cleanSumPane')&&document.getElementById('cleanSumPane').classList.contains('on'))renderCleanSum(); }catch(e){}
     closeModal('csvModal');
     // 差分データを保存（タブからいつでも参照可能に）
     const _d2=new Date();
@@ -4624,6 +4700,7 @@ function swTab(id,btn){
   if(id==='roomMgmt')renderRoomMgmt();
   if(id==='cal')renderCal();
   if(id==='disc')renderDisc();
+  if(id==='cleanSum')renderCleanSum();
 }
 
 // ════════════════════════════════════════════
@@ -4913,6 +4990,7 @@ function renderRoomMgmt(){
   if(!allTags.length){el.innerHTML='<div class="sec"><div class="nd">CSVを読み込むと部屋一覧が表示されます</div></div>';return;}
   const rents=S.get(ROOM_RENT_KEY)||{};
   const openData=S.get(ROOM_OPEN_KEY)||{};
+  const bedsData=S.get(BED_KEY)||{};
   const todayM=new Date().toISOString().substring(0,7);
 
   // 建物ごとにグループ化
@@ -4948,6 +5026,12 @@ function renderRoomMgmt(){
           <span style="font-size:.75em;color:var(--t2);font-weight:600">🗓 開業月</span>
           <input type="month" id="rmOpen_${tag}" value="${openMonth}" style="border:1px solid var(--b);border-radius:6px;padding:3px 7px;font-size:.8em" onchange="saveRoomOpen('${tag}',this.value)">
           <span style="font-size:.72em;color:${openMonth?'var(--green)':'var(--t3)'}">${openMonth?openMonth+'〜':'未設定（常時開業）'}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+          <span style="font-size:.75em;color:var(--t2);font-weight:600">🛏 ベッド数</span>
+          <label style="font-size:.75em;color:var(--t3);display:flex;align-items:center;gap:4px">シングル<input type="number" id="rmBedS_${tag}" value="${(bedsData[tag]||{}).s||0}" min="0" style="border:1px solid var(--b);border-radius:6px;padding:3px 7px;font-size:1em;width:52px" onchange="saveRoomBeds('${tag}')">台</label>
+          <label style="font-size:.75em;color:var(--t3);display:flex;align-items:center;gap:4px">ダブル<input type="number" id="rmBedD_${tag}" value="${(bedsData[tag]||{}).d||0}" min="0" style="border:1px solid var(--b);border-radius:6px;padding:3px 7px;font-size:1em;width:52px" onchange="saveRoomBeds('${tag}')">台</label>
+          <span style="font-size:.72em;color:var(--t3)">※🧺清掃費まとめで使用</span>
         </div>
         <div style="font-size:.75em;color:var(--t2);margin-bottom:4px">家賃履歴</div>
         ${histHTML}
@@ -5123,7 +5207,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260705;
+const APP_VERSION = 20260705.2;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -5206,6 +5290,13 @@ function updateConnBar(){
 }
 
 function initFirebase(){
+  // 【2026-07-05】ローカル検証ガード: localhostでは本番Firebaseに接続しない。
+  // ローカル検証中のテスト操作が本番RTDBに書き込まれる事故を構造的に封じる（実際に起きかけた）。
+  if(/^(localhost|127\.)/.test(location.hostname)){
+    console.warn('🧪 ローカル検証モード: Firebase接続をスキップ（fbReady=false・保存はこの端末のみ）');
+    try{ updateConnBar(); }catch(e){}
+    return;
+  }
   try {
     if(!firebase.apps.length) firebase.initializeApp(FB_CFG);
     fbDB = firebase.database();
@@ -5257,6 +5348,7 @@ function initFirebase(){
         renderPayTab();
         populateInvMonths();
         try{populateAccMonths();}catch(e){}
+        try{ if(document.getElementById('cleanSumPane')&&document.getElementById('cleanSumPane').classList.contains('on'))renderCleanSum(); }catch(e){}
         if(stored.meta) document.getElementById('meta').textContent = stored.meta;
         checkAutoSnap();
         // 過去の伝播バグで誤マークされた清掃チェックを自動修復（1回だけ）
@@ -5359,6 +5451,22 @@ function initFirebase(){
       if(val){
         _origSset(BB_KEY, val);
         if(document.getElementById('bbContent'))renderBB();
+      }
+    });
+    // 清掃費まとめ（2026-07-05）: ベッド数・単価。受信はローカル反映のみ（書き戻さない）
+    fbDB.ref('room_beds').on('value', snap => {
+      const val = snap.val();
+      if(val){
+        _origSset(BED_KEY, val);
+        if(document.getElementById('cleanSumPane')&&document.getElementById('cleanSumPane').classList.contains('on'))renderCleanSum();
+        if(document.getElementById('roomMgmtPane')&&document.getElementById('roomMgmtPane').classList.contains('on'))renderRoomMgmt();
+      }
+    });
+    fbDB.ref('supply_prices').on('value', snap => {
+      const val = snap.val();
+      if(val){
+        _origSset(SUPPLY_PRICE_KEY, val);
+        if(document.getElementById('cleanSumPane')&&document.getElementById('cleanSumPane').classList.contains('on'))renderCleanSum();
       }
     });
     fbDB.ref('invEdits').on('value', snap => {
@@ -6341,6 +6449,236 @@ function populateAcctMonths(){
   if(cur&&months.includes(cur))sel.value=cur;
   else if(months.includes(_curMonth))sel.value=_curMonth;
   else if(months.length)sel.value=months[0];
+}
+
+// ════════════════════════════════════════════
+//  清掃費まとめ（2026-07-05 新タブ）
+//  部屋×月で清掃費(CSVの税抜実額)＋カバー代＋タオル代を集計（すべて税別）。
+//  ・月バケツ＝チェックアウト月（清掃・交換はチェックアウト後の1回のため。月次明細の按分とは目的が異なる）
+//  ・キャンセル(b.cancel)と事務所(cfg.offices)は除外
+//  ・ベッド数=room_beds／単価=supply_prices（Firebaseへは該当キーのみ差分update・全体.setしない）
+// ════════════════════════════════════════════
+const SUPPLY_PRICE_DEF={kakeS:245,kakeD:340,sheetS:210,sheetD:290,pillow:80,bath:120,face:65};
+const SUPPLY_PRICE_ITEMS=[
+  {key:'kakeS',label:'掛けカバー シングル',grp:'cover'},
+  {key:'kakeD',label:'掛けカバー ダブル',grp:'cover'},
+  {key:'sheetS',label:'シーツ シングル',grp:'cover'},
+  {key:'sheetD',label:'シーツ ダブル',grp:'cover'},
+  {key:'pillow',label:'枕カバー',grp:'cover'},
+  {key:'bath',label:'バスタオル',grp:'towel'},
+  {key:'face',label:'フェイスタオル',grp:'towel'}
+];
+function getSupplyPrices(){ return Object.assign({},SUPPLY_PRICE_DEF,S.get(SUPPLY_PRICE_KEY)||{}); }
+function saveSupplyPrice(key,val){
+  const v=Math.max(0,parseInt(val)||0);
+  const cur=S.get(SUPPLY_PRICE_KEY)||{};
+  cur[key]=v;
+  _origSset(SUPPLY_PRICE_KEY,cur);
+  fbUpdate('supply_prices',{[key]:v});   // 該当キーのみ差分update
+  renderCleanSum();
+}
+function saveRoomBeds(tag){
+  const sEl=document.getElementById('rmBedS_'+tag),dEl=document.getElementById('rmBedD_'+tag);
+  const sgl=Math.max(0,parseInt(sEl&&sEl.value)||0);
+  const dbl=Math.max(0,parseInt(dEl&&dEl.value)||0);
+  const beds=S.get(BED_KEY)||{};
+  beds[tag]={s:sgl,d:dbl};
+  _origSset(BED_KEY,beds);
+  const safeTag=tag.replace(/[.#$/\[\]]/g,'_');
+  fbUpdate('room_beds',{[safeTag]:{s:sgl,d:dbl}});   // 該当部屋のみ差分update
+}
+function populateCleanSumMonths(){
+  const sel=document.getElementById('cleanSumMonth');
+  if(!sel)return;
+  const cur=sel.value;
+  const set=new Set();
+  Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{ if(b.co&&!b.cancel)set.add(b.co.slice(0,7)); }));
+  const months=[...set].sort().reverse();
+  sel.innerHTML=months.map(m=>`<option value="${m}">${m}</option>`).join('');
+  const _now=new Date();
+  const _curMonth=`${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}`;
+  if(cur&&months.includes(cur))sel.value=cur;
+  else if(months.includes(_curMonth))sel.value=_curMonth;
+  else if(months.length)sel.value=months[0];
+}
+// 戻り値: [{name:建物名, rooms:[{tag,cleanings,guests,cleanFee,sgl,dbl,coverQty,pillowQty,kake,sheet,pil,cover,bath,face,towel,total}]}]
+function buildCleanSumData(month){
+  const p=getSupplyPrices();
+  const beds=S.get(BED_KEY)||{};
+  const officeTags=new Set(cfg.offices.map(o=>o.tag));
+  const groups={};
+  Object.keys(ROOMS).sort().forEach(tag=>{
+    if(officeTags.has(tag))return;
+    const bks=(BK[tag]||[]).filter(b=>!b.cancel&&b.co&&b.co.slice(0,7)===month);
+    const cleanings=bks.length;
+    const guests=bks.reduce((a,b)=>a+(b.n||1),0);
+    const cleanFee=bks.reduce((a,b)=>a+(b.cleaning||0),0);   // CSV由来・税抜
+    const bd=beds[tag]||{};
+    const sgl=bd.s||0,dbl=bd.d||0;
+    const coverQty=cleanings*(sgl+dbl);
+    const pillowQty=cleanings*(sgl+dbl*2);                   // 枕カバー: シングル1・ダブル2
+    const kake=cleanings*(sgl*p.kakeS+dbl*p.kakeD);
+    const sheet=cleanings*(sgl*p.sheetS+dbl*p.sheetD);
+    const pil=pillowQty*p.pillow;
+    const cover=kake+sheet+pil;
+    const bath=guests*p.bath,face=guests*p.face;
+    const towel=bath+face;
+    const total=cleanFee+cover+towel;
+    const bldg=ROOMS[tag]||'その他';
+    if(!groups[bldg])groups[bldg]={name:bldg,rooms:[]};
+    groups[bldg].rooms.push({tag,cleanings,guests,cleanFee,sgl,dbl,coverQty,pillowQty,kake,sheet,pil,cover,bath,face,towel,total});
+  });
+  return Object.keys(groups).sort().map(k=>groups[k]);
+}
+function renderSupplyPriceInputs(){
+  const el=document.getElementById('supplyPriceInputs');
+  if(!el)return;
+  if(el.contains(document.activeElement))return;   // 入力中は再構築しない（フォーカス喪失防止）
+  const p=getSupplyPrices();
+  const grp=g=>SUPPLY_PRICE_ITEMS.filter(i=>i.grp===g).map(i=>
+    `<label>${i.label}<input type="number" min="0" value="${p[i.key]}" onchange="saveSupplyPrice('${i.key}',this.value)"></label>`).join('');
+  el.innerHTML=`
+    <div class="cs-price-group cover"><div class="cs-gname">カバー類</div><div class="cs-price-row">${grp('cover')}</div></div>
+    <div class="cs-price-group towel"><div class="cs-gname">タオル類</div><div class="cs-price-row">${grp('towel')}</div></div>`;
+}
+function csToggle(id,arwId){
+  const d=document.getElementById(id);
+  if(!d)return;
+  d.classList.toggle('open');
+  const a=document.getElementById(arwId);
+  if(a)a.textContent=d.classList.contains('open')?'▼':'▶';
+}
+function _csDetailHTML(r){
+  return`<div class="cs-dwrap">
+    <div class="cs-dblock cs-amt"><div class="cs-dh">金額の内訳（合計の中身）</div>
+      <div class="cs-drow"><span style="color:#2f6fd6">清掃費</span><span class="cs-amt-v">${fmtF(r.cleanFee)}</span></div>
+      <div class="cs-drow"><span style="color:#1f9d57">カバー代</span><span class="cs-amt-v">${fmtF(r.cover)}</span></div>
+      <div class="cs-drow"><span style="color:#e08a2b">タオル代</span><span class="cs-amt-v">${fmtF(r.towel)}</span></div>
+    </div>
+    <div class="cs-dblock cs-bed"><div class="cs-dh">ベッド台数</div>
+      <div class="cs-drow"><span>シングル</span><span class="cs-amt-v">${r.sgl} 台</span></div>
+      <div class="cs-drow"><span>ダブル</span><span class="cs-amt-v">${r.dbl} 台</span></div>
+      <div class="cs-note">※「部屋管理」タブで登録</div>
+    </div>
+    <div class="cs-dblock cs-cover"><div class="cs-dh">カバー代の内訳</div>
+      <div class="cs-drow"><span>掛けカバー</span><span class="cs-qty">${r.coverQty}枚</span><span class="cs-amt-v">${fmtF(r.kake)}</span></div>
+      <div class="cs-drow"><span>シーツ</span><span class="cs-qty">${r.coverQty}枚</span><span class="cs-amt-v">${fmtF(r.sheet)}</span></div>
+      <div class="cs-drow"><span>枕カバー</span><span class="cs-qty">${r.pillowQty}枚</span><span class="cs-amt-v">${fmtF(r.pil)}</span></div>
+    </div>
+    <div class="cs-dblock cs-towel"><div class="cs-dh">タオル代の内訳（宿泊 ${r.guests}人）</div>
+      <div class="cs-drow"><span>バスタオル</span><span class="cs-qty">${r.guests}枚</span><span class="cs-amt-v">${fmtF(r.bath)}</span></div>
+      <div class="cs-drow"><span>フェイスタオル</span><span class="cs-qty">${r.guests}枚</span><span class="cs-amt-v">${fmtF(r.face)}</span></div>
+    </div>
+  </div>`;
+}
+function _csSumRooms(rooms){
+  const z={cleanings:0,guests:0,cleanFee:0,sgl:0,dbl:0,coverQty:0,pillowQty:0,kake:0,sheet:0,pil:0,cover:0,bath:0,face:0,towel:0,total:0};
+  rooms.forEach(r=>Object.keys(z).forEach(k=>z[k]+=r[k]||0));
+  return z;
+}
+function renderCleanSum(){
+  populateCleanSumMonths();
+  renderSupplyPriceInputs();
+  const sel=document.getElementById('cleanSumMonth');
+  const el=document.getElementById('cleanSumContent');
+  if(!sel||!el)return;
+  const month=sel.value;
+  if(!month){el.innerHTML='<div class="nd">CSVを読み込むと集計が表示されます</div>';return;}
+  const data=buildCleanSumData(month);
+  if(!data.length){el.innerHTML='<div class="nd">CSVを読み込むと集計が表示されます</div>';return;}
+  let idx=0;
+  let body='';
+  data.forEach((b,bi)=>{
+    const bsum=_csSumRooms(b.rooms);
+    body+=`<tr class="cs-bld" onclick="csToggle('csBldDetail_${bi}','csBldArw_${bi}')">
+      <td><span class="cs-arrow" id="csBldArw_${bi}">▶</span>🏢 ${b.name} <span class="cs-cnt">(${b.rooms.length}室)</span></td>
+      <td class="cs-c-total">${fmtF(bsum.total)}</td><td>${bsum.cleanings}回</td><td>${bsum.guests}人</td></tr>
+      <tr class="cs-detail" id="csBldDetail_${bi}"><td colspan="4">${_csDetailHTML(bsum)}</td></tr>`;
+    b.rooms.forEach(r=>{
+      const i=idx++;
+      body+=`<tr class="cs-row" onclick="csToggle('csDetail_${i}','csArw_${i}')">
+        <td><span class="cs-arrow" id="csArw_${i}">▶</span>${r.tag}</td>
+        <td class="cs-c-total">${fmtF(r.total)}</td>
+        <td class="cs-c-src">${r.cleanings}回</td>
+        <td class="cs-c-src">${r.guests}人</td></tr>
+        <tr class="cs-detail" id="csDetail_${i}"><td colspan="4">${_csDetailHTML(r)}</td></tr>`;
+    });
+  });
+  const gsum=_csSumRooms(data.flatMap(b=>b.rooms));
+  el.innerHTML=`<table class="cs-table">
+    <thead><tr><th class="cs-th-room">部屋 / 建物</th><th class="cs-th-total">合計</th><th class="cs-th-src">清掃<br>回数</th><th class="cs-th-src">宿泊<br>人数</th></tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot>
+      <tr class="cs-foot" onclick="csToggle('csFootDetail','csFootArw')">
+        <td><span class="cs-arrow" id="csFootArw">▶</span>全体合計</td>
+        <td>${fmtF(gsum.total)}</td><td>${gsum.cleanings}回</td><td>${gsum.guests}人</td></tr>
+      <tr class="cs-detail" id="csFootDetail"><td colspan="4">${_csDetailHTML(gsum)}</td></tr>
+    </tfoot>
+  </table>`;
+}
+function dlCleanSumExcel(){
+  const sel=document.getElementById('cleanSumMonth');
+  if(!sel||!sel.value)return;
+  const month=sel.value;
+  const data=buildCleanSumData(month);
+  const esc=v=>{v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  let csv='建物,部屋,合計(税別),清掃費(税別),カバー代(税別),タオル代(税別),清掃回数,宿泊人数,ベッド(シングル),ベッド(ダブル),掛けカバー枚数,シーツ枚数,枕カバー枚数,タオル枚数\n';
+  data.forEach(b=>{
+    b.rooms.forEach(r=>{
+      csv+=[esc(b.name),esc(r.tag),r.total,r.cleanFee,r.cover,r.towel,r.cleanings,r.guests,r.sgl,r.dbl,r.coverQty,r.coverQty,r.pillowQty,r.guests].join(',')+'\n';
+    });
+    const s=_csSumRooms(b.rooms);
+    csv+=[esc(b.name+' 小計'),'',s.total,s.cleanFee,s.cover,s.towel,s.cleanings,s.guests,'','','','','',''].join(',')+'\n';
+  });
+  const g=_csSumRooms(data.flatMap(b=>b.rooms));
+  csv+=['全体合計','',g.total,g.cleanFee,g.cover,g.towel,g.cleanings,g.guests,'','','','','',''].join(',')+'\n';
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='清掃費まとめ_'+month+'.csv';
+  a.click();
+}
+function printCleanSum(){
+  const sel=document.getElementById('cleanSumMonth');
+  if(!sel||!sel.value)return;
+  const month=sel.value;
+  const data=buildCleanSumData(month);
+  const yen=n=>'¥'+Math.round(n).toLocaleString();
+  let rows='';
+  data.forEach(b=>{
+    const s=_csSumRooms(b.rooms);
+    rows+=`<tr class="bld"><td>🏢 ${b.name}（${b.rooms.length}室）</td><td>${yen(s.total)}</td><td>${yen(s.cleanFee)}</td><td>${yen(s.cover)}</td><td>${yen(s.towel)}</td><td>${s.cleanings}回</td><td>${s.guests}人</td></tr>`;
+    b.rooms.forEach(r=>{
+      rows+=`<tr><td class="rm">${r.tag}</td><td>${yen(r.total)}</td><td>${yen(r.cleanFee)}</td><td>${yen(r.cover)}</td><td>${yen(r.towel)}</td><td>${r.cleanings}回</td><td>${r.guests}人</td></tr>`;
+    });
+  });
+  const g=_csSumRooms(data.flatMap(b=>b.rooms));
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>清掃費まとめ ${month}</title>
+  <style>
+    body{font-family:'Meiryo','Hiragino Kaku Gothic ProN',sans-serif;padding:14px;color:#222}
+    h1{font-size:17px;margin:0 0 4px}
+    .sub{font-size:11px;color:#777;margin-bottom:12px}
+    table{width:100%;border-collapse:collapse;font-size:11.5px}
+    th,td{border:1px solid #ccc;padding:5px 7px;text-align:right;white-space:nowrap}
+    th{background:#ece8fb;color:#4a3ac0}
+    td:first-child,th:first-child{text-align:left}
+    tr.bld td{background:#f3f0fc;font-weight:700}
+    td.rm{padding-left:18px}
+    tfoot td{background:#ded8fa;font-weight:700}
+    @media print{ body{padding:6px} @page{ size:A4; margin:8mm } }
+  </style></head><body>
+  <h1>🧺 清掃費まとめ　${month}</h1>
+  <div class="sub">金額はすべて税別。チェックアウト月で集計（清掃・交換はチェックアウト後の1回）。枕カバー＝シングル1枚・ダブル2枚／タオル＝宿泊人数×1枚。</div>
+  <table>
+    <thead><tr><th>部屋 / 建物</th><th>合計</th><th>清掃費</th><th>カバー代</th><th>タオル代</th><th>清掃回数</th><th>宿泊人数</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td>全体合計</td><td>${yen(g.total)}</td><td>${yen(g.cleanFee)}</td><td>${yen(g.cover)}</td><td>${yen(g.towel)}</td><td>${g.cleanings}回</td><td>${g.guests}人</td></tr></tfoot>
+  </table>
+  <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`;
+  const win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
 }
 
 function buildAcctData(month){
