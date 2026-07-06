@@ -5188,7 +5188,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260705.3;
+const APP_VERSION = 20260706;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -5352,6 +5352,10 @@ function initFirebase(){
     fbDB.ref('adjustments').on('value', snap => {
       const val = snap.val();
       if(val) S.set(ADJ_KEY, val);
+    });
+    // 会計(mp_acc6)の同期【2026-07-06 A4】: 受信はマージ方式（詳細は _accApplyFbValue のコメント）
+    fbDB.ref('accounting').on('value', snap => {
+      _accApplyFbValue(snap.val());
     });
     fbDB.ref('users').on('value', snap => {
       let val = snap.val();
@@ -5610,11 +5614,64 @@ function fbWritePaymentsDiff(v){
     _lastPaymentsSnap = JSON.parse(JSON.stringify(cur));
   }catch(e){ console.warn('fbWritePaymentsDiff error:', e); }
 }
+// 会計(mp_acc6)の同期【2026-07-06 A4】: payments と同じ「月キー単位の差分update」方式。
+// トップレベルキー＝「YYYY-MM_manual」「YYYY-MM_deposits」なので、変わった月だけ書く。
+// 注意: RTDBは空配列/空オブジェクトを保存できず「キーごと消える」→ 空値は「無い」と同一視して
+//       比較・送信する（さもないと 送る→消える→また送る のループになる）。
+let _lastAccSnap = {};
+function _accIsEmpty(v){
+  return v==null || (Array.isArray(v) ? v.length===0 : (typeof v==='object' && Object.keys(v).length===0));
+}
+function fbWriteAccDiff(v){
+  if(!fbReady || !fbDB) return;
+  try{
+    const cur = sanitizeFbKeys(v || {});
+    const updates = {};
+    for(const key in cur){
+      if(_accIsEmpty(cur[key])){ if(key in _lastAccSnap) updates[key]=null; continue; }  // 空になった月は削除
+      if(JSON.stringify(cur[key]) !== JSON.stringify(_lastAccSnap[key])) updates[key] = cur[key];
+    }
+    for(const key in _lastAccSnap){
+      if(!(key in cur)) updates[key] = null;   // ローカルで消えた月はFirebaseからも削除
+    }
+    if(Object.keys(updates).length) fbDB.ref('accounting').update(updates);
+    _lastAccSnap = {};
+    for(const key in cur){ if(!_accIsEmpty(cur[key])) _lastAccSnap[key] = JSON.parse(JSON.stringify(cur[key])); }
+  }catch(e){ console.warn('fbWriteAccDiff error:', e); }
+}
+// 受信＝マージ方式。共有キーはFirebaseが正・ローカルにしか無い月キーは消さずFirebaseへ合流させる。
+// これにより初回同期の「どの端末が正本か」問題は月キー単位に縮小する（同じ月を複数端末が
+// 別内容で持っていた場合のみ、先にFirebaseへ入れた端末が勝つ→運用手順で正本端末を先に開く）。
+function _accApplyFbValue(val){
+  try{
+    const local = sanitizeFbKeys(S.get(ACC_KEY) || {});
+    if(!val){
+      // Firebase側が空 → ローカルにデータがあればシード（この端末が正本になる）
+      const seed = {};
+      for(const k in local){ if(!_accIsEmpty(local[k])) seed[k] = local[k]; }
+      _lastAccSnap = JSON.parse(JSON.stringify(seed));
+      if(Object.keys(seed).length && fbDB) fbDB.ref('accounting').update(seed);
+      return;
+    }
+    _lastAccSnap = JSON.parse(JSON.stringify(val));
+    const upload = {};
+    for(const k in local){ if(!(k in val) && !_accIsEmpty(local[k])) upload[k] = local[k]; }
+    const merged = Object.assign({}, local, val);   // 共有キーはFirebase優先
+    _origSset(ACC_KEY, merged);                     // 受信はローカル反映のみ（echo書き込みしない）
+    if(Object.keys(upload).length && fbDB){
+      fbDB.ref('accounting').update(upload);
+      Object.assign(_lastAccSnap, JSON.parse(JSON.stringify(upload)));
+    }
+    // 会計タブの再描画（行編集中はキー入力を消さないためスキップ。✓完了時にrenderAccが走る）
+    if(_accEditRow===-1){ try{ populateAccMonths(); }catch(e){} }
+  }catch(e){ console.warn('_accApplyFbValue error:', e); }
+}
 S.set = function(k, v){
   _origSset(k, v);
   if(!fbReady) return;
   // 清掃チェック(CHK_KEY)は fbCheckUpdate による差分書き込みに一本化（全体置換を廃止）
   if(k === PAY_KEY)      fbWritePaymentsDiff(v);
+  if(k === ACC_KEY)      fbWriteAccDiff(v);
   if(k === EXP_KEY)      fbWrite('expenses', v);
   if(k === UTIL_KEY)     fbWrite('utilities', v);
   if(k === PHOTO_KEY)    fbWrite('photos', v);
@@ -6244,7 +6301,7 @@ function saveDeposits(month,res){
   });
   const savedAcc=S.get(ACC_KEY)||{};
   savedAcc[month+'_deposits']=deposits;
-  S.set(ACC_KEY,savedAcc);   // ACC_KEYはFirebase非同期＝ローカル保存（手動行と同様。月初に銀行CSV取込で再生成）
+  S.set(ACC_KEY,savedAcc);   // 【2026-07-06 A4】ACC_KEYもFirebase同期（月キー差分update）。銀行CSV取込での再生成もそのまま同期される
 }
 function reconcileBank(text,month){
   let rows;try{rows=parseCSV(text);}catch(e){rows=[];}
