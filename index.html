@@ -1337,7 +1337,7 @@ function checkPw(){
 // ════════════════════════════════════════════
 //  DATA
 // ════════════════════════════════════════════
-let ROOMS={},BK={},CH={},CM={},MS={};
+let ROOMS={},BK={},CH={},CM={},MS={},BLK={};  // BLK=ブロック予約（販売不可・占有扱い。BKと分離＝入金/会計を汚染しない）
 let curM=null,payM=null,opsFilt='all',cF={props:new Set(['all']),states:new Set(['ci_wait','co_wait','vc_wait']),cleaners:new Set(['all'])};
 let _opsPrevSel='__manual__'; // 運営タブの「前回基準」選択値（デフォルト='__manual__'=朝のスナップ／手動スナップ。'__latest__'=履歴の最新, ISO時刻=その時点）
 let invItems=[];
@@ -1441,7 +1441,7 @@ function normDate(s){
 //  PARSE BOOKINGS
 // ════════════════════════════════════════════
 function parseBookings(){
-  ROOMS={};BK={};_cancelledIds=new Set();
+  ROOMS={};BK={};BLK={};_cancelledIds=new Set();
   _bkTexts.forEach(txt=>{
     parseCSV(txt).forEach(r=>{
       const st=(r['状態']||'').trim();
@@ -1449,6 +1449,15 @@ function parseBookings(){
       const isCancel=!isConfirmed;
       const salesAmt=excl(r['販売']);
       const netAmt=excl(r['受取金']);
+      // ブロック=販売不可（週末確認等で「占有」として扱う・2026-07-10）
+      // BKには入れない（入金管理・会計・KPIを汚染しないため）。_cancelledIdsにも入れない。
+      // 最新CSVを正とする（parseBookings冒頭でBLKリセット済＝解除されたブロックは消える）
+      if(st==='ブロックされた'){
+        const btag=(r['ルームタイプメニュー']||r['部屋番号']||'').trim();
+        const bci=normDate(r['チェックイン']),bco=normDate(r['チェックアウト']);
+        if(btag&&bci&&bco){(BLK[btag]=BLK[btag]||[]).push({id:(r['チャンネル予約ID']||r['AirHost予約ID']||'').trim(),ci:bci,co:bco});}
+        return;
+      }
       if(isCancel){
         if(salesAmt<=0&&netAmt<=0){
           // 金額なしキャンセル：IDを記録してBKから削除
@@ -4367,8 +4376,8 @@ function loadCSVs(){
 }
 function resetAllBookings(){
   if(!confirm('全予約・清掃データをリセットしますか？\nこの操作は取り消せません。'))return;
-  BK={};ROOMS={};CH={};CM={};MS={};
-  if(fbReady)fbWrite('bookings',{BK:{},ROOMS:{},CH:{},CM:{},meta:'リセット済み'});
+  BK={};ROOMS={};CH={};CM={};MS={};BLK={};
+  if(fbReady)fbWrite('bookings',{BK:{},ROOMS:{},CH:{},CM:{},BLK:{},meta:'リセット済み'});
   renderOpsTabs();renderClean();renderPayTab();
   alert('リセットしました。全期間のCSVをアップロードしてください。');
 }
@@ -4727,17 +4736,28 @@ function renderWeekend(){
   if(lbl)lbl.textContent=`${wkMD(satStr)}(${wkWD(satStr)}) 〜 ${wkMD(sunStr)}(${wkWD(sunStr)})`;
   if(typeof ROOMS==='undefined'||!ROOMS||!Object.keys(ROOMS).length){el.innerHTML='<div style="font-size:.82em;color:var(--t3);padding:10px 2px">データがまだ読み込まれていません。CSVを取り込んでから再表示してください。</div>';return;}
   // 日曜に同建物で稼働するクリーナー（建物→クリーナー集合）
+  // 「実際の清掃日＝対象日曜」のタスク(CH)だけを使う（2026-07-10修正）。
+  // 旧実装の getClr は CM（次回チェックイン日キー・清掃日は別日あり得る＋旧取込の残骸が残る）を
+  // 先に見るため、前日に清掃した人や過去の清掃者が「日曜稼働」として混入していた。
+  const sunSlash=sunStr.replace(/-/g,'/');
   const sunByBld={};
-  Object.keys(ROOMS).forEach(tag=>{
-    const c=getClr(tag,sunStr);
-    if(c&&c!=='未割当'){const b=wkBuilding(tag);(sunByBld[b]=sunByBld[b]||new Set()).add(c);}
+  Object.keys(CH).forEach(tag=>{
+    (CH[tag]||[]).forEach(e=>{
+      if(e.d===sunSlash&&e.c&&e.c!=='未割当'){const b=wkBuilding(tag);(sunByBld[b]=sunByBld[b]||new Set()).add(e.c);}
+    });
   });
-  // 部屋ごとの占有判定（確認済み予約のみ・キャンセル料フラグは除外）
+  // 部屋ごとの占有判定（確認済み予約＋ブロック・キャンセル料フラグは除外）
   const rows=[];
   Object.keys(ROOMS).forEach(tag=>{
     let satOcc=false,sunOcc=false;
     (BK[tag]||[]).forEach(b=>{
       if(b.cancel)return;
+      const ci=new Date(b.ci),co=new Date(b.co);
+      if(ci<=satD&&co>satD)satOcc=true;
+      if(ci<=sunD&&co>sunD)sunOcc=true;
+    });
+    // ブロック=販売不可も占有として扱う（2026-07-10修正・空室として売れないため）
+    (BLK[tag]||[]).forEach(b=>{
       const ci=new Date(b.ci),co=new Date(b.co);
       if(ci<=satD&&co>satD)satOcc=true;
       if(ci<=sunD&&co>sunD)sunOcc=true;
@@ -5197,7 +5217,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260709;
+const APP_VERSION = 20260710;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -5317,13 +5337,14 @@ function initFirebase(){
       const val = snap.val();
       if(val){
         // 差分書き込みの基準（Firebase上の現状）を更新（saveBookingsToFbの差分update用）
-        try{ _lastBookingsSnap = JSON.parse(JSON.stringify({BK:val.BK||{},ROOMS:val.ROOMS||{},CH:val.CH||{},CM:val.CM||{}})); }catch(e){}
+        try{ _lastBookingsSnap = JSON.parse(JSON.stringify({BK:val.BK||{},ROOMS:val.ROOMS||{},CH:val.CH||{},CM:val.CM||{},BLK:val.BLK||{}})); }catch(e){}
         // Restore BK and ROOMS from Firebase
         const stored = val;
         if(stored.BK) { Object.assign(BK, stored.BK); }
         if(stored.ROOMS) { Object.assign(ROOMS, stored.ROOMS); }
         if(stored.CH) { Object.assign(CH, stored.CH); }
         if(stored.CM) { Object.assign(CM, stored.CM); }
+        if(stored.BLK) { Object.assign(BLK, stored.BLK); }
         // 過去のバグで作られたゴースト部屋（例:「1003」）を削除して本来のタグに統合
         if(cleanupGhostRooms()|cleanupOrphanRooms()){
           // クリーンアップが行われたらFirebaseに書き戻して全端末で同期
@@ -5583,9 +5604,9 @@ function saveBookingsToFb(withMeta){
     cleanCH[tag]=(CH[tag]||[]).filter(c=>{if(seen.has(c.d))return false;seen.add(c.d);return true;});
   });
   try{
-    const cur = sanitizeFbKeys({ BK, ROOMS, CH: cleanCH, CM });
+    const cur = sanitizeFbKeys({ BK, ROOMS, CH: cleanCH, CM, BLK });
     const updates = {};
-    ['BK','ROOMS','CH','CM'].forEach(sec=>{
+    ['BK','ROOMS','CH','CM','BLK'].forEach(sec=>{
       const c = cur[sec]||{}, prev = _lastBookingsSnap[sec]||{};
       for(const key in c){
         if(JSON.stringify(c[key]) !== JSON.stringify(prev[key])) updates[sec+'/'+key] = c[key];
