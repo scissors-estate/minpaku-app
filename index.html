@@ -1062,7 +1062,7 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6',BK_HIST_KEY='mp_bkhist6',MS_HIST_KEY='mp_mshist6',ADJ_KEY='mp_adj6',BED_KEY='mp_room_beds6',SUPPLY_PRICE_KEY='mp_supply_price6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6',BK_HIST_KEY='mp_bkhist6',MS_HIST_KEY='mp_mshist6',ADJ_KEY='mp_adj6',BED_KEY='mp_room_beds6',SUPPLY_PRICE_KEY='mp_supply_price6',ROOM_ALIAS_KEY='mp_room_alias6';
 const HIST_MAX=14; // 履歴の最大保持件数（肥大化防止のため30→14に削減）
 // 予約スナップに含める下限日：チェックアウトが「今日−35日」以降の予約だけ保存。
 // 現在宿泊中の延泊も拾える／泊まり終わった予約を誤キャンセル検知しない／サイズ激減。
@@ -1338,6 +1338,7 @@ function checkPw(){
 //  DATA
 // ════════════════════════════════════════════
 let ROOMS={},BK={},CH={},CM={},MS={},BLK={};  // BLK=ブロック予約（販売不可・占有扱い。BKと分離＝入金/会計を汚染しない）
+let _csvSeenTags=new Set();  // 今回の予約CSVに登場したAirHost上の生タグ（部屋統合のブロック交差判定に使用）
 let curM=null,payM=null,opsFilt='all',cF={props:new Set(['all']),states:new Set(['ci_wait','co_wait','vc_wait']),cleaners:new Set(['all'])};
 let _opsPrevSel='__manual__'; // 運営タブの「前回基準」選択値（デフォルト='__manual__'=朝のスナップ／手動スナップ。'__latest__'=履歴の最新, ISO時刻=その時点）
 let invItems=[];
@@ -1441,7 +1442,7 @@ function normDate(s){
 //  PARSE BOOKINGS
 // ════════════════════════════════════════════
 function parseBookings(){
-  ROOMS={};BK={};BLK={};_cancelledIds=new Set();
+  ROOMS={};BK={};BLK={};_cancelledIds=new Set();_csvSeenTags=new Set();
   _bkTexts.forEach(txt=>{
     parseCSV(txt).forEach(r=>{
       const st=(r['状態']||'').trim();
@@ -1454,6 +1455,7 @@ function parseBookings(){
       // 最新CSVを正とする（parseBookings冒頭でBLKリセット済＝解除されたブロックは消える）
       if(st==='ブロックされた'){
         const btag=(r['ルームタイプメニュー']||r['部屋番号']||'').trim();
+        if(btag)_csvSeenTags.add(btag);   // BLKは生タグのまま保持→parseBookings末尾で統合グループを交差処理
         const bci=normDate(r['チェックイン']),bco=normDate(r['チェックアウト']);
         if(btag&&bci&&bco){(BLK[btag]=BLK[btag]||[]).push({id:(r['チャンネル予約ID']||r['AirHost予約ID']||'').trim(),ci:bci,co:bco});}
         return;
@@ -1467,7 +1469,9 @@ function parseBookings(){
         }
         // キャンセル料あり：入金管理用に取込（_cancelledIdsには入れない）
       }
-      const tag=(r['ルームタイプメニュー']||r['部屋番号']||'').trim();
+      const rawTag=(r['ルームタイプメニュー']||r['部屋番号']||'').trim();
+      if(rawTag)_csvSeenTags.add(rawTag);
+      const tag=aliasOf(rawTag);   // 🔗 部屋統合: 正規タグへ変換（新旧リスティングを1部屋に）
       const prop=(r['物件名']||'').trim();
       if(!tag||!prop)return;
       ROOMS[tag]=prop;
@@ -1487,6 +1491,7 @@ function parseBookings(){
     });
   });
   Object.keys(BK).forEach(t=>BK[t].sort((a,b)=>a.ci.localeCompare(b.ci)));
+  normalizeParsedBlocks();   // 🔗 部屋統合: ブロックはグループ交差のみ本物として正規タグへ
 }
 
 // 過去のCSV解析バグで作られた「数字のみのタグ」部屋（例:「1003」）を、
@@ -1588,16 +1593,16 @@ function parseCleaning(){
       // 部屋タイプ列を最優先（清掃CSV側の正規タグとして信頼）
       // ROOMSに存在しなくてもOK（後でROOMSに追加される）
       if(roomType){
-        tag=roomType;
+        tag=aliasOf(roomType);
       } else {
         // 部屋タイプが空の場合のみ、物件名+部屋番号で既存タグを検索→部屋番号fallback
         const existingTag=Object.keys(ROOMS).find(t=>ROOMS[t]===prop&&t.endsWith(roomNum));
-        tag=existingTag||roomNum;
+        tag=aliasOf(existingTag||roomNum);
       }
     } else {
       const rp=(r['ルーム']||'').trim();if(!rp)return;
       const parts=rp.split('/');
-      prop=parts[0]||'';tag=parts[1]||parts[0]||'';
+      prop=parts[0]||'';tag=aliasOf(parts[1]||parts[0]||'');
     }
     if(!tag)return;
     if(!ROOMS[tag]&&prop)ROOMS[tag]=prop;
@@ -1625,6 +1630,207 @@ function parseCleaning(){
     });
     CH[tag].sort((a,b)=>a.d.localeCompare(b.d));
   });
+}
+
+
+// ════════════════════════════════════════════
+//  🔗 部屋統合（新旧リスティング・2026-07-22）
+//  旅館業許可の取り直し等でAirHost上のリスティングが新旧2つに分かれても、
+//  アプリ内では1部屋として扱うためのマッピング {別名タグ: 正規タグ}（全端末で共有）。
+//  例: {'梅島103_旧':'梅島103','梅島103_新':'梅島103'}
+//  ・予約(BK)は予約IDで正規タグへマージ＝同一予約の二重計上を解消
+//  ・ブロック(BLK)は「グループの全リスティングが同時に塞いでいる日」だけを本物として採用
+//    （旧の空き日全ブロック／新の予約日ミラーブロックは片側だけ＝実態は稼働or販売中のため無視）
+// ════════════════════════════════════════════
+function getRoomAliases(){ return S.get(ROOM_ALIAS_KEY)||{}; }
+function aliasOf(tag){ const a=getRoomAliases(); return a[tag]||tag; }
+function _adAdd(ds,n){ const d=new Date(ds+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _blkDays(list,capDays){ // ブロック期間[ci,co)を日付集合へ展開
+  const s=new Set();
+  (list||[]).forEach(b=>{ let d=b.ci,g=0; while(d<b.co&&g++<(capDays||800)){ s.add(d); d=_adAdd(d,1); } });
+  return s;
+}
+function _daysToBlocks(days){ // 日付集合→[{ci,co(排他)}]（連続日をまとめる）
+  const arr=[...days].sort();
+  const out=[];
+  arr.forEach(d=>{
+    const last=out[out.length-1];
+    if(last&&last.co===d)last.co=_adAdd(d,1);
+    else out.push({id:'',ci:d,co:_adAdd(d,1)});
+  });
+  return out;
+}
+function _intersectBlockLists(lists){
+  if(!lists.length)return[];
+  const sets=lists.map(l=>_blkDays(l));
+  const inter=new Set([...sets[0]].filter(d=>sets.every(x=>x.has(d))));
+  return _daysToBlocks(inter);
+}
+// parseBookings末尾: 生タグのままのBLKを、統合グループは「交差」で正規タグへ寄せる。
+// 「今回CSVに登場したがブロック0件」のメンバーがいれば交差は空＝販売可能で正しい。
+// （エッジ: グループの1リスティングだけCSVに登場した場合はそのブロックをそのまま採用）
+function normalizeParsedBlocks(){
+  const aliases=getRoomAliases();
+  if(!Object.keys(aliases).length)return;
+  const out={};
+  const grouped=new Set();
+  [...new Set(Object.values(aliases))].forEach(canon=>{
+    const members=[canon,...Object.keys(aliases).filter(a=>aliases[a]===canon)]
+      .filter(t=>_csvSeenTags.has(t));
+    members.forEach(t=>grouped.add(t));
+    if(!members.length)return;
+    const merged=members.length===1?(BLK[members[0]]||[]).slice():_intersectBlockLists(members.map(t=>BLK[t]||[]));
+    if(merged.length)out[canon]=merged;
+  });
+  Object.keys(BLK).forEach(t=>{ if(!grouped.has(t)&&!(t in out))out[t]=BLK[t]; });
+  BLK=out;
+}
+// Firebase読込済み・過去取込済みデータの正規化（冪等）。統合が行われたら true（呼び出し側で保存推奨）
+function applyRoomAliases(){
+  const aliases=getRoomAliases();
+  const names=Object.keys(aliases).filter(a=>aliases[a]&&aliases[a]!==a);
+  if(!names.length)return false;
+  let changed=false;
+  names.forEach(alias=>{
+    const canon=aliases[alias];
+    if(ROOMS[alias]!==undefined){ if(ROOMS[canon]===undefined)ROOMS[canon]=ROOMS[alias]; delete ROOMS[alias]; changed=true; }
+    if(BK[alias]!==undefined){
+      if(!BK[canon])BK[canon]=[];
+      (BK[alias]||[]).forEach(b=>{
+        const dup=b.id?BK[canon].some(x=>x.id===b.id):BK[canon].some(x=>x.ci===b.ci&&x.co===b.co&&x.g===b.g);
+        if(!dup)BK[canon].push(b);
+      });
+      BK[canon].sort((a,b)=>a.ci.localeCompare(b.ci));
+      delete BK[alias];changed=true;
+    }
+    if(CH[alias]!==undefined){
+      if(!CH[canon])CH[canon]=[];
+      (CH[alias]||[]).forEach(c=>{ if(!CH[canon].some(c2=>c2.d===c.d))CH[canon].push(c); });
+      CH[canon].sort((a,b)=>a.d.localeCompare(b.d));
+      delete CH[alias];changed=true;
+    }
+  });
+  // CM: キー=「YYYY-MM-DD_タグ」→ タグ部分を正規化
+  Object.keys(CM||{}).forEach(k=>{
+    const tag=k.slice(11);
+    const canon=aliases[tag];
+    if(!canon||canon===tag)return;
+    const nk=k.slice(0,11)+canon;
+    if(!(nk in CM))CM[nk]=CM[k];
+    delete CM[k];changed=true;
+  });
+  // BLK: 別名キーが残っていたら（統合前の保存データ）グループ交差で正規タグへ
+  const blkAlias=names.filter(a=>BLK[a]!==undefined);
+  if(blkAlias.length){
+    [...new Set(blkAlias.map(a=>aliases[a]))].forEach(canon=>{
+      const members=[canon,...names.filter(a=>aliases[a]===canon)].filter(t=>BLK[t]!==undefined);
+      const merged=members.length===1?(BLK[members[0]]||[]).slice():_intersectBlockLists(members.map(t=>BLK[t]||[]));
+      members.forEach(t=>{ if(t!==canon)delete BLK[t]; });
+      if(merged.length)BLK[canon]=merged; else delete BLK[canon];
+    });
+    changed=true;
+  }
+  return changed;
+}
+// 🔔 統合部屋のお知らせ: ①両リスティングともブロック＆予約なしの未来日（=旧キャンセル後の解除待ち候補）
+//                       ②同一部屋で日程が重なる実予約（=ダブルブッキングの可能性・全部屋対象）
+function computeAliasNotices(){
+  const res={unblock:[],doubles:[]};
+  const today=localDateStr();
+  try{
+    [...new Set(Object.values(getRoomAliases()))].forEach(tag=>{
+      const bkList=(BK[tag]||[]).filter(b=>!b.cancel);
+      const days=new Set();
+      (BLK[tag]||[]).forEach(b=>{
+        let d=b.ci<today?today:b.ci,g=0;
+        while(d<b.co&&g++<400){
+          if(!bkList.some(k=>k.ci<=d&&d<k.co))days.add(d);
+          d=_adAdd(d,1);
+        }
+      });
+      if(days.size)res.unblock.push({tag,ranges:_daysToBlocks(days)});
+    });
+    Object.keys(BK).forEach(tag=>{
+      const list=(BK[tag]||[]).filter(b=>!b.cancel&&b.co>=today).sort((a,b)=>a.ci.localeCompare(b.ci));
+      for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
+        if(list[j].ci>=list[i].co)break;
+        res.doubles.push({tag,a:list[i],b:list[j]});
+      }
+    });
+  }catch(e){ console.warn('computeAliasNotices error:',e); }
+  return res;
+}
+function aliasNoticeHTML(){
+  try{
+    const n=computeAliasNotices();
+    if(!n.unblock.length&&!n.doubles.length)return'';
+    const e=x=>String(x==null?'':x).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+    const fmtR=r=>{const to=_adAdd(r.co,-1);return r.ci===to?r.ci.slice(5).replace('-','/'):r.ci.slice(5).replace('-','/')+'〜'+to.slice(5).replace('-','/');};
+    let h='';
+    if(n.doubles.length){
+      h+=`<div class="sec" style="border:2px solid var(--red);background:#fff5f5;margin-bottom:10px">
+        <div style="font-weight:700;color:var(--red);font-size:.92em">🚨 ダブルブッキングの可能性（${n.doubles.length}件）</div>
+        ${n.doubles.map(d=>`<div style="font-size:.8em;margin-top:5px"><b>${e(d.tag)}</b>：${d.a.ci.slice(5).replace('-','/')}〜${d.a.co.slice(5).replace('-','/')}「${e(d.a.g)}」と ${d.b.ci.slice(5).replace('-','/')}〜${d.b.co.slice(5).replace('-','/')}「${e(d.b.g)}」が重なっています。AirHostで確認してください</div>`).join('')}
+      </div>`;
+    }
+    if(n.unblock.length){
+      h+=`<div class="sec" style="border:2px solid var(--orange);background:#fffaf0;margin-bottom:10px">
+        <div style="font-weight:700;color:var(--orange);font-size:.92em">🔓 ブロック解除が必要かもしれない日</div>
+        <div style="font-size:.72em;color:var(--t3);margin-top:3px">新旧どちらのリスティングでもブロックされ、予約が入っていない日です。旧側でキャンセルが出た日なら、新リスティングのブロックを解除すると販売を再開できます（意図的な閉鎖日なら対応不要）。</div>
+        ${n.unblock.map(u=>`<div style="font-size:.8em;margin-top:5px"><b>${e(u.tag)}</b>：${u.ranges.map(fmtR).join('、 ')}</div>`).join('')}
+      </div>`;
+    }
+    return h;
+  }catch(e){ console.warn('aliasNoticeHTML error:',e); return''; }
+}
+// 部屋管理: 統合設定セクション
+function aliasSectionHTML(){
+  const aliases=getRoomAliases();
+  const pairs=Object.keys(aliases).sort();
+  const tags=Object.keys(ROOMS).sort();
+  const opts=()=>['<option value="">選択…</option>',...tags.map(t=>`<option value="${t}">${t}</option>`)].join('');
+  return`<div style="margin-bottom:12px;border:2px solid #b7aef0;border-radius:12px;overflow:hidden">
+    <div onclick="togRmBldg('bldg_alias')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#f4f2ff;cursor:pointer;user-select:none">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="bldg_alias_arr" style="font-size:.8em;color:#5b4dbe">▶</span>
+        <span style="font-weight:700;font-size:.95em">🔗 部屋の統合（新旧リスティング）</span>
+        <span class="pill">${pairs.length}件</span>
+      </div>
+      <span style="font-size:.72em;color:#5b4dbe">許可取り直し等でAirHost上2部屋 → アプリ内1部屋</span>
+    </div>
+    <div id="bldg_alias" style="padding:12px;display:none">
+      <div style="font-size:.75em;color:var(--t3);margin-bottom:10px">統合元（AirHost側のリスティング名）→ 統合先（アプリで扱う部屋名）。予約は予約IDで統合先にまとまり二重計上が解消されます。ブロックは「両リスティングとも塞がっている日」だけ有効になります。</div>
+      ${pairs.length?pairs.map(a=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:.85em"><span class="room-tag">${a}</span><span>→</span><span class="room-tag">${aliases[a]}</span><button data-edit onclick="delRoomAlias('${a}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.85em">解除</button></div>`).join(''):'<div style="font-size:.8em;color:var(--t3);margin-bottom:8px">統合設定はありません</div>'}
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px">
+        <select id="aliasFrom" style="border:1px solid var(--b);border-radius:6px;padding:5px 8px;font-size:.82em">${opts()}</select>
+        <span style="font-size:.85em">を</span>
+        <select id="aliasTo" style="border:1px solid var(--b);border-radius:6px;padding:5px 8px;font-size:.82em">${opts()}</select>
+        <span style="font-size:.85em">に統合</span>
+        <button data-edit onclick="addRoomAlias()" style="background:var(--p);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:.82em;font-weight:600">統合する</button>
+      </div>
+    </div>
+  </div>`;
+}
+function addRoomAlias(){
+  const from=(document.getElementById('aliasFrom')||{}).value,to=(document.getElementById('aliasTo')||{}).value;
+  if(!from||!to){alert('統合元と統合先を選択してください');return;}
+  if(from===to){alert('統合元と統合先が同じです');return;}
+  const aliases=getRoomAliases();
+  if(aliases[to]){alert(`「${to}」は既に「${aliases[to]}」への統合元です。統合先には指定できません`);return;}
+  if(Object.values(aliases).includes(from)){alert(`「${from}」は他の統合の統合先になっています。先にそちらを解除してください`);return;}
+  if(!confirm(`「${from}」の予約・清掃データを「${to}」に統合します。\n（同じ予約IDは1件にまとまり、二重計上が解消されます）\n\nよろしいですか？`))return;
+  aliases[from]=to;
+  S.set(ROOM_ALIAS_KEY,aliases);
+  if(applyRoomAliases()){ try{saveBookingsToFb();}catch(e){} }
+  computeMS();renderOps();renderRoomMgmt();
+  try{buzz(50);}catch(e){}
+}
+function delRoomAlias(alias){
+  if(!confirm(`「${alias}」の統合設定を解除しますか？\n※統合済みの過去データは分離されません（次回のCSV取込から「${alias}」が別部屋として扱われます）`))return;
+  const aliases=getRoomAliases();
+  delete aliases[alias];
+  S.set(ROOM_ALIAS_KEY,aliases);
+  computeMS();renderOps();renderRoomMgmt();
 }
 
 // ════════════════════════════════════════════
@@ -2382,7 +2588,7 @@ function renderOps(){
   </div></div>`;
 
   // ③ 表示順変更
-  el.innerHTML=kpiH+wfH+expH+otaH+cmpH+roomH;
+  el.innerHTML=aliasNoticeHTML()+kpiH+wfH+expH+otaH+cmpH+roomH;
   renderUtilGrid();
 }
 
@@ -4276,6 +4482,7 @@ function loadCSVs(){
     // マージ後にゴースト部屋（過去のバグ由来）を再度掃除
     cleanupGhostRooms();
     cleanupOrphanRooms();  // 清掃CSVにない & 予約も清掃もない部屋を削除
+    applyRoomAliases();    // 🔗 部屋統合: 過去取込分（旧タグ）を予約IDでマージ＝二重計上を解消
 
     // ── CSV差分レポート（新規予約・キャンセル・変更検出） ──
     // ※ 差分の基準は「全端末で共有する予約履歴(BK_HIST_KEY = Firebase bkHistory 同期)」の最新スナップを使う。
@@ -5153,6 +5360,7 @@ function renderRoomMgmt(){
   el.innerHTML=`<div class="sec">
     <h2>🏠 部屋管理 <span class="pill">${allTags.length}部屋</span></h2>
     <div style="font-size:.78em;color:var(--t3);margin-bottom:12px">家賃は税込で入力。適用開始月を指定すると月ごとに自動切替されます。</div>
+    ${aliasSectionHTML()}
     ${officeSection}
     ${serviceSection}
     ${buildingHTML}
@@ -5217,7 +5425,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260710;
+const APP_VERSION = 20260722;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -5346,7 +5554,7 @@ function initFirebase(){
         if(stored.CM) { Object.assign(CM, stored.CM); }
         if(stored.BLK) { Object.assign(BLK, stored.BLK); }
         // 過去のバグで作られたゴースト部屋（例:「1003」）を削除して本来のタグに統合
-        if(cleanupGhostRooms()|cleanupOrphanRooms()){
+        if(cleanupGhostRooms()|cleanupOrphanRooms()|applyRoomAliases()){
           // クリーンアップが行われたらFirebaseに書き戻して全端末で同期
           try{ saveBookingsToFb(); }catch(e){ console.warn('cleanup save failed', e); }
         }
@@ -5460,6 +5668,16 @@ function initFirebase(){
         if(document.getElementById('roomMgmtPane')&&document.getElementById('roomMgmtPane').classList.contains('on'))renderRoomMgmt();
       }
       try{ checkAutoSnap(); }catch(e){}
+    });
+    // 🔗 部屋統合マッピング（新旧リスティング）: 全端末で共有
+    fbDB.ref('room_alias').on('value', snap => {
+      const val = snap.val();
+      _origSset(ROOM_ALIAS_KEY, val || {});
+      try{
+        if(applyRoomAliases()){ saveBookingsToFb(); }
+        computeMS();renderOps();
+        if(document.getElementById('roomMgmtPane')&&document.getElementById('roomMgmtPane').classList.contains('on'))renderRoomMgmt();
+      }catch(e){ console.warn('room_alias apply error:', e); }
     });
     fbDB.ref('bb_notes').on('value', snap => {
       const val = snap.val();
@@ -5711,6 +5929,7 @@ S.set = function(k, v){
   if(k === BB_KEY)       fbWrite('bb_notes', v);
   if(k === ADJ_KEY)      fbWrite('adjustments', v);
   if(k === 'mp_users6')  fbWrite('users', v);
+  if(k === ROOM_ALIAS_KEY) fbWrite('room_alias', v);
 };
 
 // ⑬ User management functions
