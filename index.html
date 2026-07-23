@@ -1339,6 +1339,8 @@ function checkPw(){
 // ════════════════════════════════════════════
 let ROOMS={},BK={},CH={},CM={},MS={},BLK={};  // BLK=ブロック予約（販売不可・占有扱い。BKと分離＝入金/会計を汚染しない）
 let _csvSeenTags=new Set();  // 今回の予約CSVに登場したAirHost上の生タグ（部屋統合のブロック交差判定に使用）
+let _cancelledInfo={};       // 金額なしキャンセル行の詳細 {id:{g,ci,co,tag,prop,s,net}}（「取込の間に予約→キャンセル」の検出用）
+let _autoSnapSynced=false;   // Firebaseの共有auto_snap_dateを受信済みか（受信前の朝スナップ誤上書き防止）
 let curM=null,payM=null,opsFilt='all',cF={props:new Set(['all']),states:new Set(['ci_wait','co_wait','vc_wait']),cleaners:new Set(['all'])};
 let _opsPrevSel='__manual__'; // 運営タブの「前回基準」選択値（デフォルト='__manual__'=朝のスナップ／手動スナップ。'__latest__'=履歴の最新, ISO時刻=その時点）
 let invItems=[];
@@ -1445,7 +1447,7 @@ function normDate(s){
 //  PARSE BOOKINGS
 // ════════════════════════════════════════════
 function parseBookings(){
-  ROOMS={};BK={};BLK={};_cancelledIds=new Set();_csvSeenTags=new Set();
+  ROOMS={};BK={};BLK={};_cancelledIds=new Set();_csvSeenTags=new Set();_cancelledInfo={};
   _bkTexts.forEach(txt=>{
     parseCSV(txt).forEach(r=>{
       const st=(r['状態']||'').trim();
@@ -1467,7 +1469,15 @@ function parseBookings(){
         if(salesAmt<=0&&netAmt<=0){
           // 金額なしキャンセル：IDを記録してBKから削除
           const cid=(r['チャンネル予約ID']||r['AirHost予約ID']||'').trim();
-          if(cid)_cancelledIds.add(cid);
+          if(cid){
+            _cancelledIds.add(cid);
+            // 「取込の間に予約→キャンセル」まで完結した予約は前回・今回どちらのスナップにも
+            // 現れず変動レポートから消えるため、CSVのキャンセル行から表示用の情報を拾っておく
+            _cancelledInfo[cid]={g:(r['ゲスト名']||r['宿泊者名']||'').trim(),
+              ci:normDate(r['チェックイン']),co:normDate(r['チェックアウト']),
+              tag:aliasOf((r['ルームタイプメニュー']||r['部屋番号']||'').trim()),
+              prop:(r['物件名']||'').trim(),s:(r['予約サイト']||'').trim(),net:0};
+          }
           return;
         }
         // キャンセル料あり：入金管理用に取込（_cancelledIdsには入れない）
@@ -4512,14 +4522,23 @@ function loadCSVs(){
       // フルBKと比較すると過去予約が誤って「新規」になるため必須。
       const _dcut=snapCutoff();
       Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id&&b.co&&b.co>=_dcut)newIdMap.set(b.id,{...b,tag});}));
-      // 新規：今回あって前回ない
-      newIdMap.forEach((b,id)=>{if(!prevIdMap.has(id))_diffNew.push(b);});
+      // 新規：今回あって前回ない（既にキャンセル料ありでキャンセル済のものは「キャンセル」側へ）
+      newIdMap.forEach((b,id)=>{if(!prevIdMap.has(id)){b.cancel?_diffCancelled.push({...b,feeCancel:true}):_diffNew.push(b);}});
       // キャンセル：前回あって今回ない
       prevIdMap.forEach((b,id)=>{if(!newIdMap.has(id)&&b&&b.co&&b.co>=_dcut)_diffCancelled.push(b);});
-      // 変更：同IDで日程・人数が変わった
+      // キャンセル：同IDが「キャンセル料あり」キャンセルに変わった（BKには残るが実態はキャンセル）
+      prevIdMap.forEach((b,id)=>{const nb=newIdMap.get(id);if(nb&&nb.cancel&&!b.cancel)_diffCancelled.push({...nb,feeCancel:true});});
+      // 取込の間に「予約→キャンセル」まで完結した予約（前回・今回どちらのスナップにも無い）
+      Object.keys(_cancelledInfo).forEach(id=>{
+        if(prevIdMap.has(id)||newIdMap.has(id))return;
+        const info=_cancelledInfo[id];
+        if(info.co&&info.co>=_dcut)_diffCancelled.push({...info,id,ephemeral:true});
+      });
+      // 変更：同IDで日程・人数が変わった（キャンセルへ変わったものは上で処理済み）
       prevIdMap.forEach((prevB,id)=>{
         const newB=newIdMap.get(id);
         if(!newB)return;
+        if(newB.cancel&&!prevB.cancel)return;
         const chgs=[];
         if(_dpad(prevB.ci)!==_dpad(newB.ci)||_dpad(prevB.co)!==_dpad(newB.co))chgs.push({type:'日程',from:`${prevB.ci}〜${prevB.co}`,to:`${newB.ci}〜${newB.co}`});
         if((prevB.n||1)!==(newB.n||1))chgs.push({type:'人数',from:`${prevB.n||1}名`,to:`${newB.n||1}名`});
@@ -4536,7 +4555,7 @@ function loadCSVs(){
     // 今回のBK状態をlocalStorageに保存（次回取込時の比較ベースになる）
     const _newBkSnap={};
     const _snapCut=snapCutoff();
-    Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id&&b.co&&b.co>=_snapCut)_newBkSnap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag,net:b.net||0,s:b.s};}));
+    Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id&&b.co&&b.co>=_snapCut)_newBkSnap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag,net:b.net||0,s:b.s,cancel:!!b.cancel};}));
     S.set(PREV_BK_SNAP_KEY,_newBkSnap);
 
     // 変動が無いとき（同じCSVの取込み直し等）は履歴を作らない＝無駄な重複を防ぐ。
@@ -4545,7 +4564,7 @@ function loadCSVs(){
 
     // 予約履歴に追加（最大HIST_MAX件・古いものから自動削除）
     if(_saveHist){
-      const _bkHistEntry={isoTs:new Date().toISOString(),ts:fmtHistTs(new Date()),snap:_newBkSnap};
+      const _bkHistEntry={isoTs:new Date().toISOString(),ts:fmtHistTs(new Date()),snap:_newBkSnap,ephemCancels:_diffCancelled.filter(x=>x.ephemeral)};
       const _bkHist=(S.get(BK_HIST_KEY)||[]).filter(h=>h&&h.isoTs);
       _bkHist.push(_bkHistEntry);
       while(_bkHist.length>HIST_MAX)_bkHist.shift();
@@ -4633,17 +4652,25 @@ function populateDiffSelects(forceReset){
 function resetDiffSel(){populateDiffSelects(true);renderDiffTab();}
 
 // 2つのスナップショットから差分を計算
-function computeDiff(prevSnap,newSnap){
+function computeDiff(prevSnap,newSnap,ephemCancels){
   const prevIdMap=new Map(Object.entries(prevSnap||{}));
   const newIdMap=new Map(Object.entries(newSnap||{}));
   const dN=[],dC=[],dCh=[];
   // 完了して35日以上たった予約は、スナップ絞り込みで自然に消えるだけ。
   // 本当のキャンセルではないので「キャンセル」には出さない（誤検知防止）。
   const _ccut=snapCutoff();
-  newIdMap.forEach((b,id)=>{if(!prevIdMap.has(id))dN.push({...b,id});});
+  newIdMap.forEach((b,id)=>{if(!prevIdMap.has(id)){b.cancel?dC.push({...b,id,feeCancel:true}):dN.push({...b,id});}});
   prevIdMap.forEach((b,id)=>{if(!newIdMap.has(id)&&b&&b.co&&b.co>=_ccut)dC.push({...b,id});});
+  prevIdMap.forEach((b,id)=>{const nb=newIdMap.get(id);if(nb&&nb.cancel&&!b.cancel)dC.push({...nb,id,feeCancel:true});});
+  // 取込の間に「予約→キャンセル」まで完結した分（取込時に記録済み）を合流
+  (ephemCancels||[]).forEach(e=>{
+    if(!e||!e.id||prevIdMap.has(e.id)||newIdMap.has(e.id))return;
+    if(dC.some(x=>x.id===e.id))return;
+    if(e.co&&e.co>=_ccut)dC.push({...e});
+  });
   prevIdMap.forEach((prevB,id)=>{
     const newB=newIdMap.get(id);if(!newB)return;
+    if(newB.cancel&&!prevB.cancel)return;
     const chgs=[];
     if(prevB.ci!==newB.ci||prevB.co!==newB.co)chgs.push({type:'日程',from:`${prevB.ci}〜${prevB.co}`,to:`${newB.ci}〜${newB.co}`});
     if((prevB.n||1)!==(newB.n||1))chgs.push({type:'人数',from:`${prevB.n||1}名`,to:`${newB.n||1}名`});
@@ -4663,7 +4690,7 @@ function computeDiff(prevSnap,newSnap){
 function getLiveBkSnap(){
   const snap={};
   const _cut=snapCutoff();
-  Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id&&b.co&&b.co>=_cut)snap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag,net:b.net||0,s:b.s};}));
+  Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(b=>{if(b.id&&b.co&&b.co>=_cut)snap[b.id]={ci:b.ci,co:b.co,n:b.n||1,g:b.g,prop:b.prop,tag,net:b.net||0,s:b.s,cancel:!!b.cancel};}));
   return snap;
 }
 
@@ -4693,7 +4720,11 @@ function renderDiffTab(){
   const getSnap=v=>v==='__live__'?getLiveBkSnap():(hist.find(h=>h.isoTs===v)?.snap||{});
   const baseLabel=baseVal==='__live__'?'現在':(hist.find(h=>h.isoTs===baseVal)?.ts||baseVal);
   const compLabel=compVal==='__live__'?'現在':(hist.find(h=>h.isoTs===compVal)?.ts||compVal);
-  const diff=computeDiff(getSnap(baseVal),getSnap(compVal));
+  // 「取込の間に予約→キャンセル」は各取込の履歴エントリに記録されている＝比較期間に該当する分だけ合流
+  const baseIso=baseVal==='__live__'?'9999-99-99':baseVal;
+  const compIso=compVal==='__live__'?'9999-99-99':compVal;
+  const _ephem=hist.filter(h=>h.isoTs>baseIso&&h.isoTs<=compIso).flatMap(h=>h.ephemCancels||[]);
+  const diff=computeDiff(getSnap(baseVal),getSnap(compVal),_ephem);
   if(tsEl)tsEl.textContent=`比較：${baseLabel} → ${compLabel}`;
   if(bodyEl)bodyEl.innerHTML=buildDiffHtml(diff.n,diff.c,diff.ch)||'<div style="text-align:center;color:var(--t3);padding:40px 0;font-size:.88em">この期間の変動はありません。</div>';
 }
@@ -4725,7 +4756,7 @@ function buildDiffHtml(newBks,cancelledBks,changedBks){
       <div style="display:flex;flex-direction:column;gap:5px">`;
     cancelledBks.forEach(b=>{
       html+=`<div style="background:#fff5f5;border-radius:7px;padding:8px 10px;font-size:.8em;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
-        <div><span style="font-weight:600">${b.prop||b.tag}</span><span style="color:var(--t3);margin:0 3px">·</span><span style="color:var(--t2)">${fmtD(b.ci)}〜${fmtD(b.co)}</span><span style="margin-left:5px">${b.g||'不明'}</span>${siteTag(b.s,'cancel')}</div>
+        <div><span style="font-weight:600">${b.prop||b.tag}</span><span style="color:var(--t3);margin:0 3px">·</span><span style="color:var(--t2)">${fmtD(b.ci)}〜${fmtD(b.co)}</span><span style="margin-left:5px">${b.g||'不明'}</span>${siteTag(b.s,'cancel')}${b.ephemeral?'<span style="background:#fff0f0;color:#c62828;border:1px solid #f3b0b0;border-radius:4px;padding:1px 5px;margin-left:4px;font-size:.85em">前回取込後に予約→キャンセル</span>':''}${b.feeCancel?'<span style="background:#fff3e0;color:#e65100;border:1px solid #f0c58e;border-radius:4px;padding:1px 5px;margin-left:4px;font-size:.85em">キャンセル料あり</span>':''}</div>
         <div style="color:var(--t3);text-decoration:line-through;white-space:nowrap">¥${(b.net||0).toLocaleString()}</div>
       </div>`;
     });
@@ -4793,8 +4824,13 @@ function checkAutoSnap(){
   // 現在のMSに有効な exp.tot が入っているかチェック（家賃等のデータがロード済みか）
   const currentValid=Object.keys(MS).some(mk=>MS[mk]&&MS[mk].exp&&(MS[mk].exp.tot||0)>0);
   if(!currentValid) return; // データ未ロード → 後続のリスナーから再呼出される
+  // 🛡 Firebase接続時は共有のauto_snap_dateを受信するまで保存判定をしない（2026-07-23）。
+  //   開いた直後は日付(数バイト)がスナップ本体(大きい)より先に届くため、
+  //   「日付は今日だがローカルにスナップ未着」→昼や夕方の値で誤上書きしていた(7/22に12:10・17:13の上書きを実測)
+  if(fbReady && !_autoSnapSynced) return;
   const lastDate=S.get(AUTO_SNAP_KEY)||'';
   const existing=S.get(SNAP_KEY);
+  if(lastDate===todayStr && !(existing&&existing.data)) return;  // 今日の分は誰かが取得済み（共有側にある）。ローカル未着なだけ→絶対に上書きしない
   if(lastDate===todayStr && existing && existing.data){
     // 今日のスナップが既にある → 壊れていないかチェック
     const exValid=Object.keys(existing.data).some(mk=>{
@@ -5438,7 +5474,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260722.2;
+const APP_VERSION = 20260723;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -5671,6 +5707,7 @@ function initFirebase(){
     fbDB.ref('auto_snap_date').on('value', snap => {
       const val = snap.val();
       if(val) _origSset(AUTO_SNAP_KEY, val);
+      _autoSnapSynced=true;   // 共有日付を受信＝ここで初めて朝スナップの保存判定を解禁
       checkAutoSnap();
     });
     fbDB.ref('room_open').on('value', snap => {
