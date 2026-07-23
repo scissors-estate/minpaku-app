@@ -4527,7 +4527,10 @@ function loadCSVs(){
       // キャンセル：前回あって今回ない
       prevIdMap.forEach((b,id)=>{if(!newIdMap.has(id)&&b&&b.co&&b.co>=_dcut)_diffCancelled.push(b);});
       // キャンセル：同IDが「キャンセル料あり」キャンセルに変わった（BKには残るが実態はキャンセル）
-      prevIdMap.forEach((b,id)=>{const nb=newIdMap.get(id);if(nb&&nb.cancel&&!b.cancel)_diffCancelled.push({...nb,feeCancel:true});});
+      // ※基準スナップがcancelフラグ導入(v20260723)前の旧形式だと、大昔の料ありキャンセルまで
+      //   「今キャンセルされた」ように誤表示されるため、フラグ付きスナップが基準の時だけ判定
+      const _prevHasCancelInfo=Object.values(_prevBkSnap||{}).some(v=>v&&('cancel' in v));
+      if(_prevHasCancelInfo)prevIdMap.forEach((b,id)=>{const nb=newIdMap.get(id);if(nb&&nb.cancel&&!b.cancel)_diffCancelled.push({...nb,feeCancel:true});});
       // 取込の間に「予約→キャンセル」まで完結した予約（前回・今回どちらのスナップにも無い）
       Object.keys(_cancelledInfo).forEach(id=>{
         if(prevIdMap.has(id)||newIdMap.has(id))return;
@@ -4661,7 +4664,9 @@ function computeDiff(prevSnap,newSnap,ephemCancels){
   const _ccut=snapCutoff();
   newIdMap.forEach((b,id)=>{if(!prevIdMap.has(id)){b.cancel?dC.push({...b,id,feeCancel:true}):dN.push({...b,id});}});
   prevIdMap.forEach((b,id)=>{if(!newIdMap.has(id)&&b&&b.co&&b.co>=_ccut)dC.push({...b,id});});
-  prevIdMap.forEach((b,id)=>{const nb=newIdMap.get(id);if(nb&&nb.cancel&&!b.cancel)dC.push({...nb,id,feeCancel:true});});
+  // 基準スナップがcancelフラグ導入前(v20260723)の旧形式なら遷移判定はしない（過去の料ありキャンセルの誤表示防止）
+  const _prevHasCancelInfo=Object.values(prevSnap||{}).some(v=>v&&('cancel' in v));
+  if(_prevHasCancelInfo)prevIdMap.forEach((b,id)=>{const nb=newIdMap.get(id);if(nb&&nb.cancel&&!b.cancel)dC.push({...nb,id,feeCancel:true});});
   // 取込の間に「予約→キャンセル」まで完結した分（取込時に記録済み）を合流
   (ephemCancels||[]).forEach(e=>{
     if(!e||!e.id||prevIdMap.has(e.id)||newIdMap.has(e.id))return;
@@ -5474,7 +5479,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260723;
+const APP_VERSION = 20260723.1;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
