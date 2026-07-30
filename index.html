@@ -1476,7 +1476,8 @@ function parseBookings(){
             _cancelledInfo[cid]={g:(r['ゲスト名']||r['宿泊者名']||'').trim(),
               ci:normDate(r['チェックイン']),co:normDate(r['チェックアウト']),
               tag:aliasOf((r['ルームタイプメニュー']||r['部屋番号']||'').trim()),
-              prop:(r['物件名']||'').trim(),s:(r['予約サイト']||'').trim(),net:0};
+              prop:(r['物件名']||'').trim(),s:(r['予約サイト']||'').trim(),net:0,
+              bookedAt:(r['予約日']||'').trim()};
           }
           return;
         }
@@ -4532,10 +4533,18 @@ function loadCSVs(){
       const _prevHasCancelInfo=Object.values(_prevBkSnap||{}).some(v=>v&&('cancel' in v));
       if(_prevHasCancelInfo)prevIdMap.forEach((b,id)=>{const nb=newIdMap.get(id);if(nb&&nb.cancel&&!b.cancel)_diffCancelled.push({...nb,feeCancel:true});});
       // 取込の間に「予約→キャンセル」まで完結した予約（前回・今回どちらのスナップにも無い）
+      // ⚠ここは過去の全キャンセルを拾いやすい（キャンセルはスナップに乗らない為）。
+      //   「予約日が前回取込より後」＝今回の取込間隔の中で予約が入ったもの、に限定する（誤検出182件対策・2026-07-30）
+      const _prevImportTs=_bkHistArr.length?_bkHistArr[_bkHistArr.length-1].isoTs:null;
+      const _prevImportMs=_prevImportTs?Date.parse(_prevImportTs):null;
       Object.keys(_cancelledInfo).forEach(id=>{
         if(prevIdMap.has(id)||newIdMap.has(id))return;
         const info=_cancelledInfo[id];
-        if(info.co&&info.co>=_dcut)_diffCancelled.push({...info,id,ephemeral:true});
+        if(!info.co||info.co<_dcut)return;
+        if(!_prevImportMs||!info.bookedAt)return;      // 初回取込 or 予約日不明は出さない（安全側）
+        const bt=Date.parse(info.bookedAt);
+        if(isNaN(bt)||bt<_prevImportMs)return;         // 前回取込より前に入った予約＝過去のキャンセル→除外
+        _diffCancelled.push({...info,id,ephemeral:true});
       });
       // 変更：同IDで日程・人数が変わった（キャンセルへ変わったものは上で処理済み）
       prevIdMap.forEach((prevB,id)=>{
@@ -4671,6 +4680,7 @@ function computeDiff(prevSnap,newSnap,ephemCancels){
   (ephemCancels||[]).forEach(e=>{
     if(!e||!e.id||prevIdMap.has(e.id)||newIdMap.has(e.id))return;
     if(dC.some(x=>x.id===e.id))return;
+    if(!e.bookedAt)return;   // 予約日を持たない＝v20260730以前の誤って肥大化した履歴データ→無視
     if(e.co&&e.co>=_ccut)dC.push({...e});
   });
   prevIdMap.forEach((prevB,id)=>{
@@ -4749,7 +4759,7 @@ function buildDiffHtml(newBks,cancelledBks,changedBks){
       <div style="display:flex;flex-direction:column;gap:5px">`;
     newBks.forEach(b=>{
       html+=`<div style="background:#f3fff5;border-radius:7px;padding:8px 10px;font-size:.8em;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
-        <div><span style="font-weight:600">${b.prop||b.tag}</span><span style="color:var(--t3);margin:0 3px">·</span><span style="color:var(--t2)">${fmtD(b.ci)}〜${fmtD(b.co)}</span><span style="margin-left:5px">${b.g||'不明'}</span>${siteTag(b.s,'new')}</div>
+        <div><span style="font-weight:600">${b.tag||b.prop}</span><span style="color:var(--t3);margin:0 3px">·</span><span style="color:var(--t2)">${fmtD(b.ci)}〜${fmtD(b.co)}</span><span style="margin-left:5px">${b.g||'不明'}</span>${siteTag(b.s,'new')}</div>
         <div style="color:var(--green);font-weight:700;white-space:nowrap">¥${(b.net||0).toLocaleString()}</div>
       </div>`;
     });
@@ -4761,7 +4771,7 @@ function buildDiffHtml(newBks,cancelledBks,changedBks){
       <div style="display:flex;flex-direction:column;gap:5px">`;
     cancelledBks.forEach(b=>{
       html+=`<div style="background:#fff5f5;border-radius:7px;padding:8px 10px;font-size:.8em;display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
-        <div><span style="font-weight:600">${b.prop||b.tag}</span><span style="color:var(--t3);margin:0 3px">·</span><span style="color:var(--t2)">${fmtD(b.ci)}〜${fmtD(b.co)}</span><span style="margin-left:5px">${b.g||'不明'}</span>${siteTag(b.s,'cancel')}${b.ephemeral?'<span style="background:#fff0f0;color:#c62828;border:1px solid #f3b0b0;border-radius:4px;padding:1px 5px;margin-left:4px;font-size:.85em">前回取込後に予約→キャンセル</span>':''}${b.feeCancel?'<span style="background:#fff3e0;color:#e65100;border:1px solid #f0c58e;border-radius:4px;padding:1px 5px;margin-left:4px;font-size:.85em">キャンセル料あり</span>':''}</div>
+        <div><span style="font-weight:600">${b.tag||b.prop}</span><span style="color:var(--t3);margin:0 3px">·</span><span style="color:var(--t2)">${fmtD(b.ci)}〜${fmtD(b.co)}</span><span style="margin-left:5px">${b.g||'不明'}</span>${siteTag(b.s,'cancel')}${b.ephemeral?'<span style="background:#fff0f0;color:#c62828;border:1px solid #f3b0b0;border-radius:4px;padding:1px 5px;margin-left:4px;font-size:.85em">前回取込後に予約→キャンセル</span>':''}${b.feeCancel?'<span style="background:#fff3e0;color:#e65100;border:1px solid #f0c58e;border-radius:4px;padding:1px 5px;margin-left:4px;font-size:.85em">キャンセル料あり</span>':''}</div>
         <div style="color:var(--t3);text-decoration:line-through;white-space:nowrap">¥${(b.net||0).toLocaleString()}</div>
       </div>`;
     });
@@ -4775,7 +4785,7 @@ function buildDiffHtml(newBks,cancelledBks,changedBks){
       const chgLines=b.chgs.map(c=>`<div style="color:var(--t2);margin-top:3px;padding-left:4px;border-left:2px solid var(--orange)"><span style="font-weight:600;color:var(--orange)">${c.type}</span>　<span style="text-decoration:line-through;color:var(--t3)">${fmtD(c.from)||c.from}</span> → <span style="font-weight:600">${fmtD(c.to)||c.to}</span></div>`).join('');
       html+=`<div style="background:#fff9f0;border-radius:7px;padding:8px 10px;font-size:.8em">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
-          <div><span style="font-weight:600">${b.prop||b.tag}</span><span style="color:var(--t3);margin:0 3px">·</span><span style="margin-left:2px">${b.g||'不明'}</span>${siteTag(b.s,'change')}</div>
+          <div><span style="font-weight:600">${b.tag||b.prop}</span><span style="color:var(--t3);margin:0 3px">·</span><span style="margin-left:2px">${b.g||'不明'}</span>${siteTag(b.s,'change')}</div>
         </div>
         ${chgLines}
       </div>`;
@@ -5479,7 +5489,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260723.1;
+const APP_VERSION = 20260730;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
