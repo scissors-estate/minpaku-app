@@ -175,6 +175,17 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .rs-lbl{font-size:.65em;color:var(--t3);font-weight:600;text-transform:uppercase;margin-bottom:2px}
 .rs-val{font-size:.9em;font-weight:700;font-family:ui-monospace,monospace;word-break:break-all}
 .rs-sub{font-size:.63em;color:var(--t3);margin-top:1px}
+/* 予約明細（部屋別詳細・2026-08-03）＝件数だけでなく OTA/日程/泊数/ゲスト名 を出す */
+.bk-list{margin:0 0 9px}
+.bk-list-hd{font-size:.65em;color:var(--t3);font-weight:600;margin-bottom:4px}
+.bk-item{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:5px 8px;border:1px solid var(--b2);border-radius:7px;background:#fff;margin-bottom:4px}
+.bk-item.cx{background:#fff7f7;border-color:#ffcdd2}
+.bk-ota{display:inline-block;color:#fff;font-size:.62em;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.02em;white-space:nowrap}
+.bk-date{font-size:.76em;font-weight:700;font-family:ui-monospace,monospace;white-space:nowrap}
+.bk-nights{font-size:.68em;color:var(--t3);font-weight:600}
+.bk-guest{font-size:.76em;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.bk-pax{font-size:.68em;color:var(--t3);white-space:nowrap;margin-left:auto}
+.bk-cx{font-size:.62em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px}
 
 /* ③ UTILITY */
 .util-section{margin-top:10px}
@@ -1949,9 +1960,12 @@ function computeMS(){
         const np=sp-cp-clp;
         tgt.sales+=sp;tgt.comm+=cp;tgt.cl+=clp;tgt.net+=np;tgt.days+=nights;
         if(isFirst){tgt.gu+=bk.n||0;tgt.cnt++;}
-        if(!ms.rooms[tag])ms.rooms[tag]={tag,prop:ROOMS[tag]||'',isSub,sales:0,comm:0,cl:0,net:0,days:0,cnt:0,gu:0,rent:0,util:0,grossProfit:0};
+        if(!ms.rooms[tag])ms.rooms[tag]={tag,prop:ROOMS[tag]||'',isSub,sales:0,comm:0,cl:0,net:0,days:0,cnt:0,gu:0,rent:0,util:0,grossProfit:0,bks:[]};
         const rm=ms.rooms[tag];
+        if(!rm.bks)rm.bks=[];
         rm.sales+=sp;rm.comm+=cp;rm.cl+=clp;rm.net+=np;rm.days+=nights;
+        // 部屋別詳細に出す予約明細（チェックイン月に1件だけ積む＝cntと件数が一致する）
+        if(isFirst)rm.bks.push({ci:bk.ci,co:bk.co,nights:totN,g:bk.g||'',s:bk.s||'',n:bk.n||0,cancel:!!bk.cancel});
         if(isFirst){rm.cnt++;rm.gu+=bk.n||0;}
         const ota=bk.s||'不明';
         const otaKey=ota.replace(/[.#$/\[\]]/g,'_'); // Firebase非対応キーを置換
@@ -2002,7 +2016,7 @@ function computeMS(){
       // 稼働ゼロの部屋も「部屋別詳細」に表示する（0件/¥0・家賃のみ計上）。
       //   月の合計値（粗利・原価）は変えないよう、totalRoomUtil等は触らず下のrent計上は従来どおり。
       ms.rooms[t]={tag:t,prop:ROOMS[t]||'',isSub:(ROOMS[t]||'').includes('代行'),
-        sales:0,comm:0,cl:0,net:0,days:0,cnt:0,gu:0,rent,util:0,grossProfit:0-rent};
+        sales:0,comm:0,cl:0,net:0,days:0,cnt:0,gu:0,rent,util:0,grossProfit:0-rent,bks:[]};
       if(rent>0){
         totalRoomRent+=rent;
         (ROOMS[t]||'').includes('代行')?emptySRent+=rent:emptyDRent+=rent;
@@ -2601,6 +2615,7 @@ function renderOps(){
             <div class="rs"><div class="rs-lbl">平均単価</div><div class="rs-val">${fmtF(unitP)}</div><div class="rs-sub">売上÷稼働${rm.days}日</div></div>
             <div class="rs"><div class="rs-lbl">清掃費</div><div class="rs-val" style="color:var(--orange)">${fmtF(rm.cl)}</div></div>
           </div>
+          ${bkListHTML(rm.bks)}
           <div class="wf-row main" style="font-size:.8em"><span class="wf-lbl">売上</span><span class="wf-val neutral">${fmtF(rm.sales)}</span></div>
           <div class="wf-row sub" style="font-size:.8em"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--red)">- コミッション</span><span class="wf-val minus">-${fmtF(rm.comm)}</span></div>
           <div class="wf-row sub" style="font-size:.8em"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--red)">- 家賃</span><span class="wf-val minus">-${fmtF(rm.rent)}${rm.rent===0?'<span style="font-size:.75em;color:var(--t3)"> (未設定)</span>':''}</span></div>
@@ -2614,6 +2629,23 @@ function renderOps(){
   // ③ 表示順変更
   el.innerHTML=aliasNoticeHTML()+kpiH+wfH+expH+otaH+cmpH+roomH;
   renderUtilGrid();
+}
+
+// 部屋別詳細の予約明細（2026-08-03）。OTA／日程＋泊数／ゲスト名／人数を1行で出す。
+function bkListHTML(bks){
+  if(!bks||!bks.length)return'';
+  const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
+  const md=s=>{const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?(+m[2])+'/'+(+m[3]):String(s||'');};
+  const rows=bks.slice().sort((a,b)=>String(a.ci).localeCompare(String(b.ci))).map(b=>{
+    const bg=b.s==='Airbnb'?'#FF5A5F':b.s==='Booking.com'?'#003580':'#90A4AE';
+    return`<div class="bk-item${b.cancel?' cx':''}">
+      <span class="bk-ota" style="background:${bg}">${esc(b.s||'不明')}</span>
+      <span class="bk-date">${md(b.ci)}〜${md(b.co)}<span class="bk-nights">（${b.nights}泊）</span></span>
+      <span class="bk-guest">${esc(b.g)||'<span style="color:var(--t3)">（名前なし）</span>'}${b.cancel?'<span class="bk-cx">キャンセル料</span>':''}</span>
+      <span class="bk-pax">${b.n||0}名</span>
+    </div>`;
+  }).join('');
+  return`<div class="bk-list"><div class="bk-list-hd">予約明細（${bks.length}件）</div>${rows}</div>`;
 }
 
 function mkChart(d,s){
@@ -5489,7 +5521,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260730;
+const APP_VERSION = 20260803;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
