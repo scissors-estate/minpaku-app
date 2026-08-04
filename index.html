@@ -496,8 +496,42 @@ body.view-bookchg #diffPane [data-edit]{display:none !important}
 .cs-table tr.cs-foot td:first-child{text-align:left}
 .cs-price-group{border-left:3px solid #ddd;padding-left:13px}
 .cs-price-group.cover{border-color:#2aa564}.cs-price-group.towel{border-color:#e0972b}
+.cs-price-group.labor{border-color:#c0392b}.cs-price-group.model{border-color:#6d5ce7}
 .cs-price-group .cs-gname{font-size:.8em;font-weight:700;margin-bottom:7px}
 .cs-price-group.cover .cs-gname{color:#1f9d57}.cs-price-group.towel .cs-gname{color:#e08a2b}
+.cs-price-group.labor .cs-gname{color:#c0392b}.cs-price-group.model .cs-gname{color:#6d5ce7}
+/* 清掃収支・時間（2026-08-03） */
+.cs-th-min{background:#6d5ce7}
+.cs-table td.cs-c-min{text-align:right;font-weight:700;color:#4a3ac0;font-variant-numeric:tabular-nums;white-space:nowrap;background:#f0edff}
+/* 目線移動を減らす：部屋名の列を広げすぎない＋1行おきの薄い縞＋ホバーで行全体を強調 */
+.cs-th-room{width:34%}
+.cs-th-min,.cs-th-total{width:17%}
+.cs-th-src{width:16%}
+.cs-table tr.cs-row:nth-of-type(4n+3) td{background-image:linear-gradient(rgba(109,92,231,.04),rgba(109,92,231,.04))}
+.cs-table tr.cs-row:hover td{background-image:linear-gradient(rgba(109,92,231,.13),rgba(109,92,231,.13));filter:none}
+.cs-dblock{max-width:330px}
+.cs-period-list{display:flex;flex-direction:column;gap:6px;margin-bottom:7px}
+.cs-period{display:flex;align-items:center;gap:6px;font-size:.78em}
+.cs-period input{padding:5px 7px;border:1px solid var(--b);border-radius:6px;font-size:1em;font-family:inherit}
+.cs-period-x{border:none;background:none;color:#c0392b;cursor:pointer;font-size:1em;padding:2px 5px}
+.cs-period-add{border:1px dashed var(--b);background:none;border-radius:7px;padding:5px 11px;font-size:.78em;color:var(--t2);cursor:pointer;font-family:inherit}
+.cs-period-add:hover{border-color:#c0392b;color:#c0392b}
+.cs-price-group.period{border-color:#e07b39}
+.cs-price-group.period .cs-gname{color:#c86a2b}
+.cs-prem{display:inline-block;margin-left:6px;font-size:.85em;background:#fdeee0;color:#b3651c;border-radius:4px;padding:1px 6px}
+.cs-dblock.cs-time .cs-dh{color:#4a3ac0}
+.cs-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:13px}
+@media(min-width:760px){.cs-kpis{grid-template-columns:repeat(4,1fr)}}
+.cs-kpi{background:#f6f4ff;border:1px solid #e0daf8;border-radius:10px;padding:10px 12px}
+.cs-kl{font-size:.7em;color:#8a8ea3;font-weight:700;margin-bottom:3px}
+.cs-kv{font-size:1.25em;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
+.cs-ks{font-size:.68em;color:#9aa0b5;margin-top:2px}
+.cs-solo{margin-top:13px;border:1px solid #f0d8a8;background:#fffaf0;border-radius:10px;overflow:hidden}
+.cs-solo>summary{cursor:pointer;padding:11px 14px;font-size:.85em;color:#8a6516;font-weight:600}
+.cs-solo-note{font-size:.75em;color:#9c7a3a;padding:0 14px 9px;line-height:1.8}
+.cs-solo-table{width:100%;border-collapse:collapse;font-size:.8em}
+.cs-solo-table th{background:#f5ecd8;color:#8a6516;padding:6px 10px;text-align:left;font-size:.9em;white-space:nowrap}
+.cs-solo-table td{padding:6px 10px;border-top:1px solid #f2e6cd;white-space:nowrap}
 .cs-price-row{display:flex;gap:13px;flex-wrap:wrap}
 .cs-price-row label{font-size:.78em;color:#666;display:flex;flex-direction:column;gap:4px}
 .cs-price-row input{width:78px;padding:6px 8px;border:1px solid var(--b);border-radius:6px;font-size:1em}
@@ -621,9 +655,15 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
       <summary style="cursor:pointer;padding:11px 14px;font-size:.85em;font-weight:700;color:var(--t2)">🛠 単価設定（白光・1枚あたり税別）— タップで開く</summary>
       <div id="supplyPriceInputs" style="display:flex;gap:22px;flex-wrap:wrap;padding:4px 16px 14px"></div>
     </details>
+    <details class="cs-price-box" data-edit>
+      <summary style="cursor:pointer;padding:11px 14px;font-size:.85em;font-weight:700;color:var(--t2)">💰 時給・清掃時間の設定 — タップで開く</summary>
+      <div id="laborInputs" style="display:flex;gap:22px;flex-wrap:wrap;padding:4px 16px 14px"></div>
+    </details>
     <div id="cleanSumContent"></div>
     <div style="margin-top:14px;font-size:.75em;color:var(--t3);line-height:1.8">
-      ・チェックアウト月で集計（清掃・カバー/タオル交換はチェックアウト後の1回）。金額はすべて<b>税別</b>。<br>
+      ・<b>清掃収支＝清掃費（ゲスト請求）− リネン代 − 人件費</b>。人件費は清掃履歴の「担当者×日」から算出。<br>
+      ・時給は<b>日曜・祝日（振替休日も自動判定）と指定期間が割増</b>、それ以外は基本。設定は上の「💰時給・清掃時間の設定」から。<br>
+      ・<b>清掃時間は実測ではなく想定値</b>（実働＝固定＋1件あたり×その日の件数）。実測に近づけるには勤怠の打刻との突合が必要。<br>
       ・カバー類の枚数＝清掃回数×ベッド台数（枕カバーはシングル1枚・ダブル2枚）／タオル＝宿泊人数×1枚。<br>
       ・ベッド台数は「部屋管理」タブで登録。キャンセル予約・事務所は含みません。行をタップすると内訳が開きます。
     </div>
@@ -1073,7 +1113,7 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
 // ════════════════════════════════════════════
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
-const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6',BK_HIST_KEY='mp_bkhist6',MS_HIST_KEY='mp_mshist6',ADJ_KEY='mp_adj6',BED_KEY='mp_room_beds6',SUPPLY_PRICE_KEY='mp_supply_price6',ROOM_ALIAS_KEY='mp_room_alias6';
+const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6',BK_HIST_KEY='mp_bkhist6',MS_HIST_KEY='mp_mshist6',ADJ_KEY='mp_adj6',BED_KEY='mp_room_beds6',SUPPLY_PRICE_KEY='mp_supply_price6',ROOM_ALIAS_KEY='mp_room_alias6',CLEAN_LABOR_KEY='mp_clean_labor6';
 const HIST_MAX=14; // 履歴の最大保持件数（肥大化防止のため30→14に削減）
 // 予約スナップに含める下限日：チェックアウトが「今日−35日」以降の予約だけ保存。
 // 現在宿泊中の延泊も拾える／泊まり終わった予約を誤キャンセル検知しない／サイズ激減。
@@ -5521,7 +5561,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260803;
+const APP_VERSION = 20260803.1;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -5796,6 +5836,14 @@ function initFirebase(){
       const val = snap.val();
       if(val){
         _origSset(SUPPLY_PRICE_KEY, val);
+        if(document.getElementById('cleanSumPane')&&document.getElementById('cleanSumPane').classList.contains('on'))renderCleanSum();
+      }
+    });
+    // 清掃の人件費設定（時給・時間モデル・2026-08-03）。受信はローカル反映のみ
+    fbDB.ref('cleaning_labor').on('value', snap => {
+      const val = snap.val();
+      if(val){
+        _origSset(CLEAN_LABOR_KEY, val);
         if(document.getElementById('cleanSumPane')&&document.getElementById('cleanSumPane').classList.contains('on'))renderCleanSum();
       }
     });
@@ -6852,6 +6900,150 @@ const SUPPLY_PRICE_ITEMS=[
   {key:'face',label:'フェイスタオル',grp:'towel'}
 ];
 function getSupplyPrices(){ return Object.assign({},SUPPLY_PRICE_DEF,S.get(SUPPLY_PRICE_KEY)||{}); }
+
+// ─── 清掃の人件費（2026-08-03） ───────────────────────────────
+// 清掃1件あたりの所要時間は「その人がその日に何件やったか」で大きく変わる。
+// 勤怠打刻×清掃履歴の実測分析(6〜7月・130日)の回帰から：
+//   1人1日の実働 = fixedMin(固定99分) + perMin(69分) × その日の件数
+// → 1件あたり = (fixedMin + perMin×n) ÷ n  … 1件だけの日は固定分を1件で背負う＝割高になる。
+// ★ここで出る時間は「実測」ではなく上式による【想定】。実測に置き換えるには勤怠の実打刻が要る。
+// 時給は 基本 / 割増（日曜・祝日・指定期間＝夏休み冬休み等）の2本立て。
+const CLEAN_LABOR_DEF={fixedMin:99,perMin:69,baseRate:1400,premRate:1550,periods:{}};
+function getCleanLabor(){
+  const s=S.get(CLEAN_LABOR_KEY)||{};
+  const num=(v,d)=>v!==undefined&&v!==null?v:d;
+  return {fixedMin:num(s.fixedMin,CLEAN_LABOR_DEF.fixedMin),
+          perMin:num(s.perMin,CLEAN_LABOR_DEF.perMin),
+          baseRate:num(s.baseRate,CLEAN_LABOR_DEF.baseRate),
+          premRate:num(s.premRate,CLEAN_LABOR_DEF.premRate),
+          periods:s.periods||{}};
+}
+function saveCleanLabor(key,val){
+  const v=Math.max(0,parseInt(val)||0);
+  const cur=S.get(CLEAN_LABOR_KEY)||{};
+  cur[key]=v;
+  _origSset(CLEAN_LABOR_KEY,cur);
+  fbUpdate('cleaning_labor',{[key]:v});   // 該当キーのみ差分update
+  renderCleanSum();
+}
+/** 日本の祝日（内閣府の規則どおり計算：固定日＋ハッピーマンデー＋春分秋分＋振替休日＋国民の休日） */
+const _JPH_CACHE={};
+function jpHolidays(year){
+  if(_JPH_CACHE[year])return _JPH_CACHE[year];
+  const H={};
+  const ymd=(m,d)=>year+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  const nthMon=(m,n)=>{
+    const first=new Date(year,m-1,1);
+    return ymd(m,1+((1-first.getDay()+7)%7)+(n-1)*7);
+  };
+  H[ymd(1,1)]='元日';
+  H[nthMon(1,2)]='成人の日';
+  H[ymd(2,11)]='建国記念の日';
+  H[ymd(2,23)]='天皇誕生日';
+  H[ymd(3,Math.floor(20.8431+0.242194*(year-1980)-Math.floor((year-1980)/4)))]='春分の日';
+  H[ymd(4,29)]='昭和の日';
+  H[ymd(5,3)]='憲法記念日';
+  H[ymd(5,4)]='みどりの日';
+  H[ymd(5,5)]='こどもの日';
+  H[nthMon(7,3)]='海の日';
+  H[ymd(8,11)]='山の日';
+  H[nthMon(9,3)]='敬老の日';
+  H[ymd(9,Math.floor(23.2488+0.242194*(year-1980)-Math.floor((year-1980)/4)))]='秋分の日';
+  H[nthMon(10,2)]='スポーツの日';
+  H[ymd(11,3)]='文化の日';
+  H[ymd(11,23)]='勤労感謝の日';
+  Object.keys(H).sort().forEach(d=>{   // 振替休日：日曜と重なったら翌日以降の空いている日
+    if(new Date(d+'T00:00:00').getDay()===0){
+      let n=_adAdd(d,1);
+      while(H[n])n=_adAdd(n,1);
+      H[n]='振替休日';
+    }
+  });
+  Object.keys(H).sort().forEach(d=>{   // 国民の休日：祝日に挟まれた平日
+    const mid=_adAdd(d,1),n2=_adAdd(d,2);
+    if(H[n2]&&!H[mid]&&new Date(mid+'T00:00:00').getDay()!==0)H[mid]='国民の休日';
+  });
+  _JPH_CACHE[year]=H;
+  return H;
+}
+/** その日が割増か。戻り値 {prem:true/false, why:'日曜'|'祝日名'|期間ラベル} */
+function premiumDay(ds,L){
+  L=L||getCleanLabor();
+  const d=_dpad(ds);
+  const dt=new Date(d+'T00:00:00');
+  if(dt.getDay()===0)return{prem:true,why:'日曜'};
+  const h=jpHolidays(dt.getFullYear())[d];
+  if(h)return{prem:true,why:h};
+  const ps=L.periods||{};
+  for(const k of Object.keys(ps)){
+    const p=ps[k];
+    if(p&&p.from&&p.to&&d>=p.from&&d<=p.to)return{prem:true,why:p.label||'指定期間'};
+  }
+  return{prem:false,why:''};
+}
+function rateForDate(ds,L){ L=L||getCleanLabor(); return premiumDay(ds,L).prem?L.premRate:L.baseRate; }
+// 割増期間（夏休み・冬休み等）の追加・削除。RTDBは配列が扱いにくいのでキー付きオブジェクトで持つ
+function addLaborPeriod(){
+  const cur=S.get(CLEAN_LABOR_KEY)||{};
+  if(!cur.periods)cur.periods={};
+  const id='p'+Date.now().toString(36);
+  const y=new Date().getFullYear();
+  cur.periods[id]={label:'夏休み',from:y+'-08-10',to:y+'-08-16'};
+  _origSset(CLEAN_LABOR_KEY,cur);
+  fbUpdate('cleaning_labor/periods',{[id]:cur.periods[id]});
+  renderCleanSum();
+}
+function saveLaborPeriod(id,field,val){
+  const cur=S.get(CLEAN_LABOR_KEY)||{};
+  if(!cur.periods||!cur.periods[id])return;
+  cur.periods[id][field]=val;
+  _origSset(CLEAN_LABOR_KEY,cur);
+  fbUpdate('cleaning_labor/periods/'+id,{[field]:val});
+  renderCleanSum();
+}
+function delLaborPeriod(id){
+  const cur=S.get(CLEAN_LABOR_KEY)||{};
+  if(!cur.periods||!cur.periods[id])return;
+  if(!confirm('この割増期間を削除しますか？'))return;
+  delete cur.periods[id];
+  _origSset(CLEAN_LABOR_KEY,cur);
+  fbUpdate('cleaning_labor/periods',{[id]:null});
+  renderCleanSum();
+}
+/** その月のCH（清掃実績）から、部屋ごとの人件費・所要時間を出す。
+ *  戻り値 {byRoom:{tag:{chCount,laborMin,laborCost}}, solo:[…1日1件だった清掃…], people:Set} */
+function buildLaborIndex(month){
+  const L=getCleanLabor();
+  const byRoom={},people=new Set(),recs=[];
+  Object.keys(CH||{}).forEach(tag=>{
+    (CH[tag]||[]).forEach(c=>{
+      const d=_dpad(c.d);
+      if(d.slice(0,7)!==month)return;
+      const who=(c.c||'').trim()||'未割当';
+      people.add(who);
+      recs.push({tag,d,who});
+    });
+  });
+  // (担当者×日)ごとの件数＝1件あたり時間の分母
+  const dayCnt={};
+  recs.forEach(r=>{const k=r.who+'|'+r.d;dayCnt[k]=(dayCnt[k]||0)+1;});
+  const solo=[];let premCnt=0;
+  recs.forEach(r=>{
+    const n=dayCnt[r.who+'|'+r.d]||1;
+    const min=(L.fixedMin+L.perMin*n)/n;          // 1件あたりの想定所要時間
+    const pd=premiumDay(r.d,L);                   // 日曜・祝日・指定期間なら割増時給
+    const rate=pd.prem?L.premRate:L.baseRate;
+    const cost=Math.round(rate*min/60);
+    if(pd.prem)premCnt++;
+    if(!byRoom[r.tag])byRoom[r.tag]={chCount:0,laborMin:0,laborCost:0,premCount:0};
+    const b=byRoom[r.tag];
+    b.chCount++;b.laborMin+=min;b.laborCost+=cost;if(pd.prem)b.premCount++;
+    if(n===1)solo.push({...r,min,cost,rate,why:pd.why,bldg:ROOMS[r.tag]||''});
+  });
+  solo.sort((a,b)=>a.d.localeCompare(b.d)||a.tag.localeCompare(b.tag));
+  return {byRoom,solo,people:[...people].sort(),premCnt,total:recs.length,
+          idealMin:(L.fixedMin+L.perMin*2)/2};    // 2件束ねたときの1件あたり（比較用）
+}
 function saveSupplyPrice(key,val){
   const v=Math.max(0,parseInt(val)||0);
   const cur=S.get(SUPPLY_PRICE_KEY)||{};
@@ -6889,6 +7081,7 @@ function buildCleanSumData(month){
   const p=getSupplyPrices();
   const beds=S.get(BED_KEY)||{};
   const officeTags=new Set(cfg.offices.map(o=>o.tag));
+  const lab=buildLaborIndex(month);
   const groups={};
   Object.keys(ROOMS).sort().forEach(tag=>{
     if(officeTags.has(tag))return;
@@ -6906,10 +7099,14 @@ function buildCleanSumData(month){
     const cover=kake+sheet+pil;
     const bath=guests*p.bath,face=guests*p.face;
     const towel=bath+face;
-    const total=cleanFee+cover+towel;
+    const linen=cover+towel;                       // リネン代＝カバー代＋タオル代
+    const lb=lab.byRoom[tag]||{chCount:0,laborMin:0,laborCost:0,premCount:0};
+    const net=cleanFee-linen-lb.laborCost;         // 清掃収支＝もらう清掃費 −リネン代 −人件費
+    const total=net;                               // 「合計」列は清掃収支に置き換え(2026-08-03)
     const bldg=ROOMS[tag]||'その他';
     if(!groups[bldg])groups[bldg]={name:bldg,rooms:[]};
-    groups[bldg].rooms.push({tag,cleanings,guests,cleanFee,sgl,dbl,coverQty,pillowQty,kake,sheet,pil,cover,bath,face,towel,total});
+    groups[bldg].rooms.push({tag,cleanings,guests,cleanFee,sgl,dbl,coverQty,pillowQty,kake,sheet,pil,cover,bath,face,towel,
+      linen,chCount:lb.chCount,laborMin:lb.laborMin,laborCost:lb.laborCost,premCount:lb.premCount||0,net,total});
   });
   return Object.keys(groups).sort().map(k=>groups[k]);
 }
@@ -6924,6 +7121,41 @@ function renderSupplyPriceInputs(){
     <div class="cs-price-group cover"><div class="cs-gname">カバー類</div><div class="cs-price-row">${grp('cover')}</div></div>
     <div class="cs-price-group towel"><div class="cs-gname">タオル類</div><div class="cs-price-row">${grp('towel')}</div></div>`;
 }
+/** 時給（基本／割増）と時間モデルの設定。割増＝日曜・祝日・指定期間（夏休み冬休み等） */
+function renderLaborInputs(){
+  const el=document.getElementById('laborInputs');
+  if(!el)return;
+  if(el.contains(document.activeElement))return;   // 入力中は再構築しない
+  const L=getCleanLabor();
+  const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const ps=L.periods||{};
+  const pRows=Object.keys(ps).sort().map(id=>{
+    const p=ps[id]||{};
+    return`<div class="cs-period">
+      <input type="text" value="${esc(p.label||'')}" placeholder="夏休み" style="width:88px"
+        onchange="saveLaborPeriod('${id}','label',this.value)">
+      <input type="date" value="${esc(p.from||'')}" onchange="saveLaborPeriod('${id}','from',this.value)">
+      <span>〜</span>
+      <input type="date" value="${esc(p.to||'')}" onchange="saveLaborPeriod('${id}','to',this.value)">
+      <button type="button" class="cs-period-x" onclick="delLaborPeriod('${id}')" title="削除">✕</button>
+    </div>`;
+  }).join('');
+  el.innerHTML=`
+    <div class="cs-price-group labor"><div class="cs-gname">時給（円）</div><div class="cs-price-row">
+      <label>基本<input type="number" min="0" step="10" value="${L.baseRate}" onchange="saveCleanLabor('baseRate',this.value)"></label>
+      <label>割増<input type="number" min="0" step="10" value="${L.premRate}" onchange="saveCleanLabor('premRate',this.value)"></label>
+      <span class="cs-note">割増になる日＝<b>日曜・祝日</b>（振替休日も自動判定）＋下の指定期間</span>
+    </div></div>
+    <div class="cs-price-group period"><div class="cs-gname">割増になる期間（夏休み・冬休みなど）</div>
+      <div class="cs-period-list">${pRows||'<span class="cs-note">まだありません</span>'}</div>
+      <button type="button" class="cs-period-add" onclick="addLaborPeriod()">＋ 期間を追加</button>
+    </div>
+    <div class="cs-price-group model"><div class="cs-gname">清掃時間モデル（分）</div><div class="cs-price-row">
+      <label>1日あたり固定<input type="number" min="0" value="${L.fixedMin}" onchange="saveCleanLabor('fixedMin',this.value)"></label>
+      <label>1件あたり<input type="number" min="0" value="${L.perMin}" onchange="saveCleanLabor('perMin',this.value)"></label>
+      <span class="cs-note">実働 = 固定 + 1件あたり × その日の件数（勤怠×清掃の実測分析6〜7月の回帰値が初期値）</span>
+    </div></div>`;
+}
 function csToggle(id,arwId){
   const d=document.getElementById(id);
   if(!d)return;
@@ -6932,11 +7164,23 @@ function csToggle(id,arwId){
   if(a)a.textContent=d.classList.contains('open')?'▼':'▶';
 }
 function _csDetailHTML(r){
+  const perMin=r.chCount?Math.round(r.laborMin/r.chCount):0;
+  const hrs=(r.laborMin/60);
   return`<div class="cs-dwrap">
-    <div class="cs-dblock cs-amt"><div class="cs-dh">金額の内訳（合計の中身）</div>
-      <div class="cs-drow"><span style="color:#2f6fd6">清掃費</span><span class="cs-amt-v">${fmtF(r.cleanFee)}</span></div>
-      <div class="cs-drow"><span style="color:#1f9d57">カバー代</span><span class="cs-amt-v">${fmtF(r.cover)}</span></div>
-      <div class="cs-drow"><span style="color:#e08a2b">タオル代</span><span class="cs-amt-v">${fmtF(r.towel)}</span></div>
+    <div class="cs-dblock cs-amt"><div class="cs-dh">清掃収支（もらう − かかる）</div>
+      <div class="cs-drow"><span style="color:#2f6fd6">清掃費（ゲスト請求）</span><span class="cs-amt-v">${fmtF(r.cleanFee)}</span></div>
+      <div class="cs-drow"><span style="color:#c0392b">− リネン代</span><span class="cs-amt-v">-${fmtF(r.linen)}</span></div>
+      <div class="cs-drow"><span style="color:#c0392b">− 人件費</span><span class="cs-amt-v">-${fmtF(r.laborCost)}</span></div>
+      <div class="cs-drow" style="border-top:1px solid var(--b);margin-top:3px;padding-top:3px">
+        <span style="font-weight:700">＝ 清掃収支</span>
+        <span class="cs-amt-v" style="font-weight:700;color:${r.net>=0?'#1f9d57':'#c0392b'}">${fmtF(r.net)}</span></div>
+    </div>
+    <div class="cs-dblock cs-time"><div class="cs-dh">清掃時間（想定）</div>
+      <div class="cs-drow"><span>1件あたり</span><span class="cs-amt-v" style="font-weight:700">${perMin}分</span></div>
+      <div class="cs-drow"><span>清掃実績</span><span class="cs-amt-v">${r.chCount}件</span></div>
+      <div class="cs-drow"><span>のべ時間</span><span class="cs-amt-v">${hrs.toFixed(1)}h</span></div>
+      <div class="cs-drow"><span>うち割増日</span><span class="cs-amt-v">${r.premCount||0}件</span></div>
+      <div class="cs-note">※実測ではなく「固定＋件数」モデルの想定値</div>
     </div>
     <div class="cs-dblock cs-bed"><div class="cs-dh">ベッド台数</div>
       <div class="cs-drow"><span>シングル</span><span class="cs-amt-v">${r.sgl} 台</span></div>
@@ -6955,13 +7199,15 @@ function _csDetailHTML(r){
   </div>`;
 }
 function _csSumRooms(rooms){
-  const z={cleanings:0,guests:0,cleanFee:0,sgl:0,dbl:0,coverQty:0,pillowQty:0,kake:0,sheet:0,pil:0,cover:0,bath:0,face:0,towel:0,total:0};
+  const z={cleanings:0,guests:0,cleanFee:0,sgl:0,dbl:0,coverQty:0,pillowQty:0,kake:0,sheet:0,pil:0,cover:0,bath:0,face:0,towel:0,
+           linen:0,chCount:0,laborMin:0,laborCost:0,premCount:0,net:0,total:0};
   rooms.forEach(r=>Object.keys(z).forEach(k=>z[k]+=r[k]||0));
   return z;
 }
 function renderCleanSum(){
   populateCleanSumMonths();
   renderSupplyPriceInputs();
+  renderLaborInputs();
   const sel=document.getElementById('cleanSumMonth');
   const el=document.getElementById('cleanSumContent');
   if(!sel||!el)return;
@@ -6969,35 +7215,66 @@ function renderCleanSum(){
   if(!month){el.innerHTML='<div class="nd">CSVを読み込むと集計が表示されます</div>';return;}
   const data=buildCleanSumData(month);
   if(!data.length){el.innerHTML='<div class="nd">CSVを読み込むと集計が表示されます</div>';return;}
+  const netCol=v=>`<td class="cs-c-total" style="color:${v>=0?'#1f9d57':'#c0392b'}">${fmtF(v)}</td>`;
+  const minCol=r=>`<td class="cs-c-min">${r.chCount?Math.round(r.laborMin/r.chCount)+'分':'—'}</td>`;
   let idx=0;
   let body='';
   data.forEach((b,bi)=>{
     const bsum=_csSumRooms(b.rooms);
     body+=`<tr class="cs-bld" onclick="csToggle('csBldDetail_${bi}','csBldArw_${bi}')">
       <td><span class="cs-arrow" id="csBldArw_${bi}">▶</span>🏢 ${b.name} <span class="cs-cnt">(${b.rooms.length}室)</span></td>
-      <td class="cs-c-total">${fmtF(bsum.total)}</td><td>${bsum.cleanings}回</td><td>${bsum.guests}人</td></tr>
-      <tr class="cs-detail" id="csBldDetail_${bi}"><td colspan="4">${_csDetailHTML(bsum)}</td></tr>`;
+      ${minCol(bsum)}${netCol(bsum.net)}<td>${bsum.cleanings}回</td><td>${bsum.guests}人</td></tr>
+      <tr class="cs-detail" id="csBldDetail_${bi}"><td colspan="5">${_csDetailHTML(bsum)}</td></tr>`;
     b.rooms.forEach(r=>{
       const i=idx++;
       body+=`<tr class="cs-row" onclick="csToggle('csDetail_${i}','csArw_${i}')">
         <td><span class="cs-arrow" id="csArw_${i}">▶</span>${r.tag}</td>
-        <td class="cs-c-total">${fmtF(r.total)}</td>
+        ${minCol(r)}${netCol(r.net)}
         <td class="cs-c-src">${r.cleanings}回</td>
         <td class="cs-c-src">${r.guests}人</td></tr>
-        <tr class="cs-detail" id="csDetail_${i}"><td colspan="4">${_csDetailHTML(r)}</td></tr>`;
+        <tr class="cs-detail" id="csDetail_${i}"><td colspan="5">${_csDetailHTML(r)}</td></tr>`;
     });
   });
   const gsum=_csSumRooms(data.flatMap(b=>b.rooms));
-  el.innerHTML=`<table class="cs-table">
-    <thead><tr><th class="cs-th-room">部屋 / 建物</th><th class="cs-th-total">合計</th><th class="cs-th-src">清掃<br>回数</th><th class="cs-th-src">宿泊<br>人数</th></tr></thead>
+  el.innerHTML=_csKpiHTML(gsum,month)+`<table class="cs-table">
+    <thead><tr><th class="cs-th-room">部屋 / 建物</th><th class="cs-th-min">1件あたり<br>の時間</th><th class="cs-th-total">清掃収支</th><th class="cs-th-src">清掃<br>回数</th><th class="cs-th-src">宿泊<br>人数</th></tr></thead>
     <tbody>${body}</tbody>
     <tfoot>
       <tr class="cs-foot" onclick="csToggle('csFootDetail','csFootArw')">
         <td><span class="cs-arrow" id="csFootArw">▶</span>全体合計</td>
-        <td>${fmtF(gsum.total)}</td><td>${gsum.cleanings}回</td><td>${gsum.guests}人</td></tr>
-      <tr class="cs-detail" id="csFootDetail"><td colspan="4">${_csDetailHTML(gsum)}</td></tr>
+        ${minCol(gsum)}${netCol(gsum.net)}<td>${gsum.cleanings}回</td><td>${gsum.guests}人</td></tr>
+      <tr class="cs-detail" id="csFootDetail"><td colspan="5">${_csDetailHTML(gsum)}</td></tr>
     </tfoot>
-  </table>`;
+  </table>`+_csSoloHTML(month);
+}
+/** 上部サマリ＝知りたい数字（収支と時間）を先に見せる */
+function _csKpiHTML(g,month){
+  const perMin=g.chCount?Math.round(g.laborMin/g.chCount):0;
+  const perNet=g.cleanings?Math.round(g.net/g.cleanings):0;
+  return`<div class="cs-kpis">
+    <div class="cs-kpi"><div class="cs-kl">清掃収支</div><div class="cs-kv" style="color:${g.net>=0?'#1f9d57':'#c0392b'}">${fmtF(g.net)}</div><div class="cs-ks">1件あたり ${fmtF(perNet)}</div></div>
+    <div class="cs-kpi"><div class="cs-kl">1件あたり時間</div><div class="cs-kv">${perMin}<span style="font-size:.6em">分</span></div><div class="cs-ks">のべ ${(g.laborMin/60).toFixed(1)}h ／ ${g.chCount}件</div></div>
+    <div class="cs-kpi"><div class="cs-kl">清掃費（もらう）</div><div class="cs-kv" style="color:#2f6fd6">${fmtF(g.cleanFee)}</div><div class="cs-ks">${g.cleanings}回ぶん</div></div>
+    <div class="cs-kpi"><div class="cs-kl">かかる費用</div><div class="cs-kv" style="color:#c0392b">${fmtF(g.linen+g.laborCost)}</div><div class="cs-ks">人件費 ${fmtF(g.laborCost)} ／ リネン ${fmtF(g.linen)}</div></div>
+  </div>`;
+}
+/** ⚡束ねる余地＝その日1件だけだった清掃。固定時間を1件で背負うので割高になる */
+function _csSoloHTML(month){
+  const lab=buildLaborIndex(month);
+  if(!lab.solo.length)return'';
+  const L=getCleanLabor();
+  const ideal=lab.idealMin;
+  const lossMin=lab.solo.reduce((a,s)=>a+(s.min-ideal),0);
+  const lossYen=lab.solo.reduce((a,s)=>a+Math.round((s.min-ideal)/60*s.rate),0);
+  const rows=lab.solo.map(s=>`<tr><td>${s.d.slice(5).replace('-','/')}${s.why?`<span class="cs-prem">${s.why}</span>`:''}</td>
+    <td>${s.who}</td><td>${s.tag}</td>
+    <td class="cs-c-src">${s.bldg||''}</td><td class="cs-c-min">${Math.round(s.min)}分</td></tr>`).join('');
+  return`<details class="cs-solo"><summary>⚡ 束ねる余地：<b>${lab.solo.length}件</b> が「その日1件だけ」
+    　—　2件束ねれば <b>${Math.round(lossMin)}分</b>（約 ${fmtF(lossYen)}）減らせる計算</summary>
+    <div class="cs-solo-note">1人が1日1件だけ清掃した日。移動・準備の固定時間（${L.fixedMin}分）を1件で背負うため
+      1件あたり${Math.round((L.fixedMin+L.perMin))}分になる。同じ日に2件やれば${Math.round(ideal)}分まで下がる。</div>
+    <table class="cs-solo-table"><thead><tr><th>日付</th><th>担当</th><th>部屋</th><th>建物</th><th>1件あたり</th></tr></thead>
+    <tbody>${rows}</tbody></table></details>`;
 }
 function dlCleanSumExcel(){
   const sel=document.getElementById('cleanSumMonth');
@@ -7005,16 +7282,17 @@ function dlCleanSumExcel(){
   const month=sel.value;
   const data=buildCleanSumData(month);
   const esc=v=>{v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
-  let csv='建物,部屋,合計(税別),清掃費(税別),カバー代(税別),タオル代(税別),清掃回数,宿泊人数,ベッド(シングル),ベッド(ダブル),掛けカバー枚数,シーツ枚数,枕カバー枚数,タオル枚数\n';
+  const pm=r=>r.chCount?Math.round(r.laborMin/r.chCount):'';
+  let csv='建物,部屋,1件あたり(分),清掃収支(税別),清掃費(税別),リネン代(税別),人件費(税別),清掃実績(件),割増日(件),カバー代(税別),タオル代(税別),清掃回数,宿泊人数,ベッド(シングル),ベッド(ダブル),掛けカバー枚数,シーツ枚数,枕カバー枚数,タオル枚数\n';
   data.forEach(b=>{
     b.rooms.forEach(r=>{
-      csv+=[esc(b.name),esc(r.tag),r.total,r.cleanFee,r.cover,r.towel,r.cleanings,r.guests,r.sgl,r.dbl,r.coverQty,r.coverQty,r.pillowQty,r.guests].join(',')+'\n';
+      csv+=[esc(b.name),esc(r.tag),pm(r),r.net,r.cleanFee,r.linen,r.laborCost,r.chCount,r.premCount||0,r.cover,r.towel,r.cleanings,r.guests,r.sgl,r.dbl,r.coverQty,r.coverQty,r.pillowQty,r.guests].join(',')+'\n';
     });
     const s=_csSumRooms(b.rooms);
-    csv+=[esc(b.name+' 小計'),'',s.total,s.cleanFee,s.cover,s.towel,s.cleanings,s.guests,'','','','','',''].join(',')+'\n';
+    csv+=[esc(b.name+' 小計'),'',pm(s),s.net,s.cleanFee,s.linen,s.laborCost,s.chCount,s.premCount||0,s.cover,s.towel,s.cleanings,s.guests,'','','','','',''].join(',')+'\n';
   });
   const g=_csSumRooms(data.flatMap(b=>b.rooms));
-  csv+=['全体合計','',g.total,g.cleanFee,g.cover,g.towel,g.cleanings,g.guests,'','','','','',''].join(',')+'\n';
+  csv+=['全体合計','',pm(g),g.net,g.cleanFee,g.linen,g.laborCost,g.chCount,g.premCount||0,g.cover,g.towel,g.cleanings,g.guests,'','','','','',''].join(',')+'\n';
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -7027,12 +7305,13 @@ function printCleanSum(){
   const month=sel.value;
   const data=buildCleanSumData(month);
   const yen=n=>'¥'+Math.round(n).toLocaleString();
+  const pm=r=>r.chCount?Math.round(r.laborMin/r.chCount)+'分':'—';
   let rows='';
   data.forEach(b=>{
     const s=_csSumRooms(b.rooms);
-    rows+=`<tr class="bld"><td>🏢 ${b.name}（${b.rooms.length}室）</td><td>${yen(s.total)}</td><td>${yen(s.cleanFee)}</td><td>${yen(s.cover)}</td><td>${yen(s.towel)}</td><td>${s.cleanings}回</td><td>${s.guests}人</td></tr>`;
+    rows+=`<tr class="bld"><td>🏢 ${b.name}（${b.rooms.length}室）</td><td>${pm(s)}</td><td>${yen(s.net)}</td><td>${yen(s.cleanFee)}</td><td>${yen(s.linen)}</td><td>${yen(s.laborCost)}</td><td>${s.cleanings}回</td><td>${s.guests}人</td></tr>`;
     b.rooms.forEach(r=>{
-      rows+=`<tr><td class="rm">${r.tag}</td><td>${yen(r.total)}</td><td>${yen(r.cleanFee)}</td><td>${yen(r.cover)}</td><td>${yen(r.towel)}</td><td>${r.cleanings}回</td><td>${r.guests}人</td></tr>`;
+      rows+=`<tr><td class="rm">${r.tag}</td><td>${pm(r)}</td><td>${yen(r.net)}</td><td>${yen(r.cleanFee)}</td><td>${yen(r.linen)}</td><td>${yen(r.laborCost)}</td><td>${r.cleanings}回</td><td>${r.guests}人</td></tr>`;
     });
   });
   const g=_csSumRooms(data.flatMap(b=>b.rooms));
@@ -7051,11 +7330,12 @@ function printCleanSum(){
     @media print{ body{padding:6px} @page{ size:A4; margin:8mm } }
   </style></head><body>
   <h1>🧺 清掃費まとめ　${month}</h1>
-  <div class="sub">金額はすべて税別。チェックアウト月で集計（清掃・交換はチェックアウト後の1回）。枕カバー＝シングル1枚・ダブル2枚／タオル＝宿泊人数×1枚。</div>
+  <div class="sub">金額はすべて税別。清掃収支＝清掃費（ゲスト請求）−リネン代−人件費。チェックアウト月で集計。
+    <b>1件あたりの時間は実測ではなく想定値</b>（実働＝固定＋1件あたり×その日の件数）。</div>
   <table>
-    <thead><tr><th>部屋 / 建物</th><th>合計</th><th>清掃費</th><th>カバー代</th><th>タオル代</th><th>清掃回数</th><th>宿泊人数</th></tr></thead>
+    <thead><tr><th>部屋 / 建物</th><th>1件あたり</th><th>清掃収支</th><th>清掃費</th><th>リネン代</th><th>人件費</th><th>清掃回数</th><th>宿泊人数</th></tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr><td>全体合計</td><td>${yen(g.total)}</td><td>${yen(g.cleanFee)}</td><td>${yen(g.cover)}</td><td>${yen(g.towel)}</td><td>${g.cleanings}回</td><td>${g.guests}人</td></tr></tfoot>
+    <tfoot><tr><td>全体合計</td><td>${pm(g)}</td><td>${yen(g.net)}</td><td>${yen(g.cleanFee)}</td><td>${yen(g.linen)}</td><td>${yen(g.laborCost)}</td><td>${g.cleanings}回</td><td>${g.guests}人</td></tr></tfoot>
   </table>
   <script>window.onload=()=>{window.print();}<\/script>
   </body></html>`;
