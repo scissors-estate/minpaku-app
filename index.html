@@ -518,6 +518,14 @@ body.view-bookchg #diffPane [data-edit]{display:none !important}
 .cs-period-add:hover{border-color:#c0392b;color:#c0392b}
 .cs-price-group.period{border-color:#e07b39}
 .cs-price-group.period .cs-gname{color:#c86a2b}
+.cs-price-group.move{border-color:#2b9ec8}.cs-price-group.move .cs-gname{color:#1f7fa3}
+.cs-price-group.checker{border-color:#8a8ea3}.cs-price-group.checker .cs-gname{color:#6b7085}
+.cs-price-group.area{border-color:#5b8f3a}.cs-price-group.area .cs-gname{color:#4a7a2e}
+.cs-area-list{display:grid;grid-template-columns:1fr;gap:5px;margin-bottom:6px}
+@media(min-width:620px){.cs-area-list{grid-template-columns:1fr 1fr}}
+.cs-area{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.78em}
+.cs-area-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cs-area select{padding:4px 6px;border:1px solid var(--b);border-radius:6px;font-size:1em;font-family:inherit;flex:0 0 auto}
 .cs-prem{display:inline-block;margin-left:6px;font-size:.85em;background:#fdeee0;color:#b3651c;border-radius:4px;padding:1px 6px}
 .cs-dblock.cs-time .cs-dh{color:#4a3ac0}
 .cs-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:13px}
@@ -663,6 +671,8 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
     <div style="margin-top:14px;font-size:.75em;color:var(--t3);line-height:1.8">
       ・<b>清掃収支＝清掃費（ゲスト請求）− リネン代 − 人件費</b>。人件費は清掃履歴の「担当者×日」から算出。<br>
       ・時給は<b>日曜・祝日（振替休日も自動判定）と指定期間が割増</b>、それ以外は基本。設定は上の「💰時給・清掃時間の設定」から。<br>
+      ・清掃時間＝<b>固定＋1件あたり×その日の件数＋移動</b>。同じ建物だけの日は移動ゼロ＝束ねた効果が数字に出ます。<br>
+      ・<b>両国・新宿は社員が清掃</b>する物件のため人件費を計上していません（エリア設定で変更可）。<br>
       ・<b>清掃時間は実測ではなく想定値</b>（実働＝固定＋1件あたり×その日の件数）。実測に近づけるには勤怠の打刻との突合が必要。<br>
       ・カバー類の枚数＝清掃回数×ベッド台数（枕カバーはシングル1枚・ダブル2枚）／タオル＝宿泊人数×1枚。<br>
       ・ベッド台数は「部屋管理」タブで登録。キャンセル予約・事務所は含みません。行をタップすると内訳が開きます。
@@ -5561,7 +5571,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260803.1;
+const APP_VERSION = 20260803.2;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -6908,7 +6918,17 @@ function getSupplyPrices(){ return Object.assign({},SUPPLY_PRICE_DEF,S.get(SUPPL
 // → 1件あたり = (fixedMin + perMin×n) ÷ n  … 1件だけの日は固定分を1件で背負う＝割高になる。
 // ★ここで出る時間は「実測」ではなく上式による【想定】。実測に置き換えるには勤怠の実打刻が要る。
 // 時給は 基本 / 割増（日曜・祝日・指定期間＝夏休み冬休み等）の2本立て。
-const CLEAN_LABOR_DEF={fixedMin:99,perMin:69,baseRate:1400,premRate:1550,periods:{}};
+// 定数は勤怠打刻×清掃履歴の実測(2026-06〜07/85人日)の回帰値。
+// 移動時間・チェック係・社員のみ物件を分離して当てはめ直した版（R2=0.51）。
+const CLEAN_LABOR_DEF={fixedMin:76,perMin:68,baseRate:1400,premRate:1550,
+  moveSame:15,moveCross:30,moveCar:20,periods:{},areas:{},checkers:'石井 歩'};
+// 建物→エリアの初期値（ユーザー確認済み 2026-08-03）。画面から変更可。
+const CLEAN_AREA_DEF={
+  '01_エルスタンザ亀有':'葛飾','02_SCハイツ':'葛飾','09_代行_SCハイツ':'葛飾',
+  '08_シャムロック':'葛飾','10_代行_シャムロック':'葛飾','06_代行_立石A':'葛飾',
+  '07_Belmont':'足立','05_鐘ヶ淵':'墨田車',
+  '03_両国塚田ビル':'社員のみ','04_パークサイド西新宿':'社員のみ'};
+const CLEAN_AREAS=['葛飾','足立','墨田車','社員のみ'];
 function getCleanLabor(){
   const s=S.get(CLEAN_LABOR_KEY)||{};
   const num=(v,d)=>v!==undefined&&v!==null?v:d;
@@ -6916,7 +6936,31 @@ function getCleanLabor(){
           perMin:num(s.perMin,CLEAN_LABOR_DEF.perMin),
           baseRate:num(s.baseRate,CLEAN_LABOR_DEF.baseRate),
           premRate:num(s.premRate,CLEAN_LABOR_DEF.premRate),
-          periods:s.periods||{}};
+          moveSame:num(s.moveSame,CLEAN_LABOR_DEF.moveSame),
+          moveCross:num(s.moveCross,CLEAN_LABOR_DEF.moveCross),
+          moveCar:num(s.moveCar,CLEAN_LABOR_DEF.moveCar),
+          periods:s.periods||{},areas:s.areas||{},checkers:s.checkers||''};
+}
+function areaOfBldg(b,L){ L=L||getCleanLabor(); return (L.areas&&L.areas[b])||CLEAN_AREA_DEF[b]||'葛飾'; }
+/** その日に訪れた建物からの移動時間。同じ建物だけなら0＝束ねる効果がここに出る */
+function travelMin(bldgs,L){
+  L=L||getCleanLabor();
+  const areas=bldgs.map(b=>areaOfBldg(b,L));
+  let t=0;
+  if(bldgs.length>1){
+    t+=(bldgs.length-1)*L.moveSame;
+    const uniq=[...new Set(areas)];
+    if(uniq.filter(a=>a==='葛飾'||a==='足立').length>1)t+=(L.moveCross-L.moveSame);  // 区またぎ1回ぶん
+  }
+  if(areas.includes('墨田車'))t+=L.moveCar;   // 集合→社員の車
+  return t;
+}
+/** チェック係（見回りで出勤するので「1日1件」が束ねる余地に当たらない人） */
+function isChecker(name,L){
+  L=L||getCleanLabor();
+  const list=String(L.checkers||'').split(/[,、\s]+/).map(s=>s.trim()).filter(Boolean);
+  const n=String(name||'').replace(/[\s　]/g,'');
+  return list.some(x=>n.includes(x.replace(/[\s　]/g,'')));
 }
 function saveCleanLabor(key,val){
   const v=Math.max(0,parseInt(val)||0);
@@ -7010,6 +7054,22 @@ function delLaborPeriod(id){
   fbUpdate('cleaning_labor/periods',{[id]:null});
   renderCleanSum();
 }
+function saveBldgArea(bldg,val){
+  const cur=S.get(CLEAN_LABOR_KEY)||{};
+  if(!cur.areas)cur.areas={};
+  cur.areas[bldg]=val;
+  _origSset(CLEAN_LABOR_KEY,cur);
+  const safe=bldg.replace(/[.#$/\[\]]/g,'_');
+  fbUpdate('cleaning_labor/areas',{[safe]:val});
+  renderCleanSum();
+}
+function saveCheckers(val){
+  const cur=S.get(CLEAN_LABOR_KEY)||{};
+  cur.checkers=String(val||'').trim();
+  _origSset(CLEAN_LABOR_KEY,cur);
+  fbUpdate('cleaning_labor',{checkers:cur.checkers});
+  renderCleanSum();
+}
 /** その月のCH（清掃実績）から、部屋ごとの人件費・所要時間を出す。
  *  戻り値 {byRoom:{tag:{chCount,laborMin,laborCost}}, solo:[…1日1件だった清掃…], people:Set} */
 function buildLaborIndex(month){
@@ -7021,28 +7081,44 @@ function buildLaborIndex(month){
       if(d.slice(0,7)!==month)return;
       const who=(c.c||'').trim()||'未割当';
       people.add(who);
-      recs.push({tag,d,who});
+      recs.push({tag,d,who,bldg:ROOMS[tag]||''});
     });
   });
-  // (担当者×日)ごとの件数＝1件あたり時間の分母
-  const dayCnt={};
-  recs.forEach(r=>{const k=r.who+'|'+r.d;dayCnt[k]=(dayCnt[k]||0)+1;});
-  const solo=[];let premCnt=0;
-  recs.forEach(r=>{
-    const n=dayCnt[r.who+'|'+r.d]||1;
-    const min=(L.fixedMin+L.perMin*n)/n;          // 1件あたりの想定所要時間
-    const pd=premiumDay(r.d,L);                   // 日曜・祝日・指定期間なら割増時給
-    const rate=pd.prem?L.premRate:L.baseRate;
-    const cost=Math.round(rate*min/60);
-    if(pd.prem)premCnt++;
-    if(!byRoom[r.tag])byRoom[r.tag]={chCount:0,laborMin:0,laborCost:0,premCount:0};
-    const b=byRoom[r.tag];
-    b.chCount++;b.laborMin+=min;b.laborCost+=cost;if(pd.prem)b.premCount++;
-    if(n===1)solo.push({...r,min,cost,rate,why:pd.why,bldg:ROOMS[r.tag]||''});
+  // 社員だけで清掃している物件（両国・新宿）はパート時給の対象外
+  const staffRecs=recs.filter(r=>areaOfBldg(r.bldg,L)==='社員のみ');
+  const target=recs.filter(r=>areaOfBldg(r.bldg,L)!=='社員のみ');
+  // (担当者×日)でまとめる＝1件あたり時間の分母と、その日の移動時間
+  const days={};
+  target.forEach(r=>{const k=r.who+'|'+r.d;(days[k]=days[k]||[]).push(r);});
+  const solo=[];let premCnt=0,travelTotal=0,soloSkipped=0;
+  Object.keys(days).forEach(k=>{
+    const list=days[k],n=list.length;
+    const bl=[...new Set(list.map(r=>r.bldg).filter(Boolean))];
+    const tv=travelMin(bl,L);                     // 同じ建物だけなら0
+    travelTotal+=tv;
+    const min=(L.fixedMin+L.perMin*n+tv)/n;       // 1件あたりの想定所要時間
+    list.forEach(r=>{
+      const pd=premiumDay(r.d,L);                 // 日曜・祝日・指定期間なら割増時給
+      const rate=pd.prem?L.premRate:L.baseRate;
+      const cost=Math.round(rate*min/60);
+      if(pd.prem)premCnt++;
+      if(!byRoom[r.tag])byRoom[r.tag]={chCount:0,laborMin:0,laborCost:0,premCount:0,travelMin:0};
+      const b=byRoom[r.tag];
+      b.chCount++;b.laborMin+=min;b.laborCost+=cost;b.travelMin+=tv/n;if(pd.prem)b.premCount++;
+      // チェック係は見回りで出勤しているので「1日1件」でも束ねる余地ではない
+      if(n===1){ if(isChecker(r.who,L))soloSkipped++; else solo.push({...r,min,cost,rate,why:pd.why}); }
+    });
+  });
+  // 社員のみ物件＝件数は数えるが人件費ゼロ（画面に注記を出す）
+  staffRecs.forEach(r=>{
+    if(!byRoom[r.tag])byRoom[r.tag]={chCount:0,laborMin:0,laborCost:0,premCount:0,travelMin:0,staffOnly:true};
+    byRoom[r.tag].staffOnly=true;
+    byRoom[r.tag].chCount++;
   });
   solo.sort((a,b)=>a.d.localeCompare(b.d)||a.tag.localeCompare(b.tag));
   return {byRoom,solo,people:[...people].sort(),premCnt,total:recs.length,
-          idealMin:(L.fixedMin+L.perMin*2)/2};    // 2件束ねたときの1件あたり（比較用）
+          travelTotal,soloSkipped,staffCount:staffRecs.length,
+          idealMin:(L.fixedMin+L.perMin*2)/2};    // 同じ建物で2件束ねたときの1件あたり（比較用）
 }
 function saveSupplyPrice(key,val){
   const v=Math.max(0,parseInt(val)||0);
@@ -7100,13 +7176,14 @@ function buildCleanSumData(month){
     const bath=guests*p.bath,face=guests*p.face;
     const towel=bath+face;
     const linen=cover+towel;                       // リネン代＝カバー代＋タオル代
-    const lb=lab.byRoom[tag]||{chCount:0,laborMin:0,laborCost:0,premCount:0};
+    const lb=lab.byRoom[tag]||{chCount:0,laborMin:0,laborCost:0,premCount:0,travelMin:0};
     const net=cleanFee-linen-lb.laborCost;         // 清掃収支＝もらう清掃費 −リネン代 −人件費
     const total=net;                               // 「合計」列は清掃収支に置き換え(2026-08-03)
     const bldg=ROOMS[tag]||'その他';
     if(!groups[bldg])groups[bldg]={name:bldg,rooms:[]};
     groups[bldg].rooms.push({tag,cleanings,guests,cleanFee,sgl,dbl,coverQty,pillowQty,kake,sheet,pil,cover,bath,face,towel,
-      linen,chCount:lb.chCount,laborMin:lb.laborMin,laborCost:lb.laborCost,premCount:lb.premCount||0,net,total});
+      linen,chCount:lb.chCount,laborMin:lb.laborMin,laborCost:lb.laborCost,premCount:lb.premCount||0,
+      travelMin:lb.travelMin||0,staffOnly:!!lb.staffOnly,net,total});
   });
   return Object.keys(groups).sort().map(k=>groups[k]);
 }
@@ -7128,6 +7205,15 @@ function renderLaborInputs(){
   if(el.contains(document.activeElement))return;   // 入力中は再構築しない
   const L=getCleanLabor();
   const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  // 建物一覧は物件データから自動生成（建物が増えても勝手に出る）
+  const officeTags=new Set((cfg.offices||[]).map(o=>o.tag));
+  const bldgs=[...new Set(Object.keys(ROOMS||{}).filter(t=>!officeTags.has(t)).map(t=>ROOMS[t]).filter(Boolean))].sort();
+  const bldgRows=bldgs.map(b=>{
+    const cur=areaOfBldg(b,L);
+    const opts=CLEAN_AREAS.map(a=>`<option value="${a}"${a===cur?' selected':''}>${a}</option>`).join('');
+    return`<div class="cs-area"><span class="cs-area-n">${esc(b)}</span>
+      <select onchange="saveBldgArea('${esc(b).replace(/'/g,"\\'")}',this.value)">${opts}</select></div>`;
+  }).join('');
   const ps=L.periods||{};
   const pRows=Object.keys(ps).sort().map(id=>{
     const p=ps[id]||{};
@@ -7153,8 +7239,24 @@ function renderLaborInputs(){
     <div class="cs-price-group model"><div class="cs-gname">清掃時間モデル（分）</div><div class="cs-price-row">
       <label>1日あたり固定<input type="number" min="0" value="${L.fixedMin}" onchange="saveCleanLabor('fixedMin',this.value)"></label>
       <label>1件あたり<input type="number" min="0" value="${L.perMin}" onchange="saveCleanLabor('perMin',this.value)"></label>
-      <span class="cs-note">実働 = 固定 + 1件あたり × その日の件数（勤怠×清掃の実測分析6〜7月の回帰値が初期値）</span>
-    </div></div>`;
+      <span class="cs-note">実働 = 固定 + 1件あたり×その日の件数 + 移動（勤怠×清掃の実測85人日の回帰値が初期値）</span>
+    </div></div>
+    <div class="cs-price-group move"><div class="cs-gname">移動時間（分）</div><div class="cs-price-row">
+      <label>同じエリアの別建物<input type="number" min="0" value="${L.moveSame}" onchange="saveCleanLabor('moveSame',this.value)"></label>
+      <label>葛飾↔足立<input type="number" min="0" value="${L.moveCross}" onchange="saveCleanLabor('moveCross',this.value)"></label>
+      <label>墨田A（車）<input type="number" min="0" value="${L.moveCar}" onchange="saveCleanLabor('moveCar',this.value)"></label>
+      <span class="cs-note"><b>同じ建物だけの日は移動ゼロ</b>＝束ねた効果がそのまま数字に出ます</span>
+    </div></div>
+    <div class="cs-price-group checker"><div class="cs-gname">チェック係（見回り担当）</div><div class="cs-price-row">
+      <label style="width:100%">氏名（複数はカンマ区切り）
+        <input type="text" value="${esc(L.checkers||'')}" placeholder="石井 歩" style="width:190px"
+          onchange="saveCheckers(this.value)"></label>
+      <span class="cs-note">この人の「1日1件」は見回りで出勤した日なので<b>⚡束ねる余地から除外</b>します</span>
+    </div></div>
+    <div class="cs-price-group area"><div class="cs-gname">建物のエリア（移動時間の判定用）</div>
+      <div class="cs-area-list">${bldgRows||'<span class="cs-note">建物が見つかりません</span>'}</div>
+      <span class="cs-note">「社員のみ」＝社員が清掃する物件。人件費は計上しません（両国・新宿）</span>
+    </div>`;
 }
 function csToggle(id,arwId){
   const d=document.getElementById(id);
@@ -7179,8 +7281,10 @@ function _csDetailHTML(r){
       <div class="cs-drow"><span>1件あたり</span><span class="cs-amt-v" style="font-weight:700">${perMin}分</span></div>
       <div class="cs-drow"><span>清掃実績</span><span class="cs-amt-v">${r.chCount}件</span></div>
       <div class="cs-drow"><span>のべ時間</span><span class="cs-amt-v">${hrs.toFixed(1)}h</span></div>
+      <div class="cs-drow"><span>うち移動</span><span class="cs-amt-v">${Math.round(r.travelMin||0)}分</span></div>
       <div class="cs-drow"><span>うち割増日</span><span class="cs-amt-v">${r.premCount||0}件</span></div>
-      <div class="cs-note">※実測ではなく「固定＋件数」モデルの想定値</div>
+      ${r.staffOnly?'<div class="cs-note" style="color:#b3651c">※社員が清掃する物件のため人件費は計上していません</div>'
+                   :'<div class="cs-note">※実測ではなく「固定＋件数＋移動」モデルの想定値</div>'}
     </div>
     <div class="cs-dblock cs-bed"><div class="cs-dh">ベッド台数</div>
       <div class="cs-drow"><span>シングル</span><span class="cs-amt-v">${r.sgl} 台</span></div>
@@ -7200,7 +7304,7 @@ function _csDetailHTML(r){
 }
 function _csSumRooms(rooms){
   const z={cleanings:0,guests:0,cleanFee:0,sgl:0,dbl:0,coverQty:0,pillowQty:0,kake:0,sheet:0,pil:0,cover:0,bath:0,face:0,towel:0,
-           linen:0,chCount:0,laborMin:0,laborCost:0,premCount:0,net:0,total:0};
+           linen:0,chCount:0,laborMin:0,laborCost:0,premCount:0,travelMin:0,net:0,total:0};
   rooms.forEach(r=>Object.keys(z).forEach(k=>z[k]+=r[k]||0));
   return z;
 }
@@ -7270,9 +7374,10 @@ function _csSoloHTML(month){
     <td>${s.who}</td><td>${s.tag}</td>
     <td class="cs-c-src">${s.bldg||''}</td><td class="cs-c-min">${Math.round(s.min)}分</td></tr>`).join('');
   return`<details class="cs-solo"><summary>⚡ 束ねる余地：<b>${lab.solo.length}件</b> が「その日1件だけ」
-    　—　2件束ねれば <b>${Math.round(lossMin)}分</b>（約 ${fmtF(lossYen)}）減らせる計算</summary>
-    <div class="cs-solo-note">1人が1日1件だけ清掃した日。移動・準備の固定時間（${L.fixedMin}分）を1件で背負うため
-      1件あたり${Math.round((L.fixedMin+L.perMin))}分になる。同じ日に2件やれば${Math.round(ideal)}分まで下がる。</div>
+    　—　<b>同じ建物で</b>2件束ねれば <b>${Math.round(lossMin)}分</b>（約 ${fmtF(lossYen)}）減らせる計算</summary>
+    <div class="cs-solo-note">1人が1日1件だけ清掃した日。準備・洗濯・報告の固定時間（${L.fixedMin}分）を1件で背負うため
+      1件あたり${Math.round((L.fixedMin+L.perMin))}分になる。同じ建物で2件やれば${Math.round(ideal)}分まで下がる（別の建物だと移動が加わるので効果は小さくなる）。
+      ${lab.soloSkipped?`<br>※チェック係の「1日1件」${lab.soloSkipped}件は見回りで出勤した日なので除いています。`:''}</div>
     <table class="cs-solo-table"><thead><tr><th>日付</th><th>担当</th><th>部屋</th><th>建物</th><th>1件あたり</th></tr></thead>
     <tbody>${rows}</tbody></table></details>`;
 }
