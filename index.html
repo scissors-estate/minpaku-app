@@ -2119,7 +2119,7 @@ function computeMS(){
       return bA.localeCompare(bB,'ja')||a.tag.localeCompare(b.tag,'ja',{numeric:true});
     });
     // 主要OTAは予約0件でも必ず表示
-    ['Booking.com','Airbnb'].forEach(name=>{
+    ['Booking.com','Airbnb','Trip.com'].forEach(name=>{
       const otaKey=name.replace(/[.#$/\[\]]/g,'_');
       if(!ms.ota[otaKey])ms.ota[otaKey]={name,sales:0,comm:0,cnt:0};
     });
@@ -2569,7 +2569,7 @@ function renderOps(){
 
   // OTA
   const otaColors=['#667eea','#f093fb','#4CAF50','#FF9800','#f5576c','#764ba2'];
-  const otaColorOf=name=>name==='Airbnb'?'#FF5A5F':name==='Booking.com'?'#003580':otaColors[otaList.findIndex(o=>o.name===name)%otaColors.length];
+  const otaColorOf=name=>name==='Airbnb'?'#FF5A5F':name==='Booking.com'?'#003580':name==='Trip.com'?'#287DFA':otaColors[otaList.findIndex(o=>o.name===name)%otaColors.length];
   const otaH=otaList.length?`<div class="sec"><h2 onclick="togSec('sec_ota')" style="cursor:pointer;user-select:none"><span id="sec_ota_ico">▶</span> OTA別コミッション</h2><div id="sec_ota" style="display:none"><div class="ota-grid">${otaList.map((o,i)=>`
     <div class="ota-card" style="border-top:3px solid ${otaColorOf(o.name)}">
       <div class="ota-name"><span style="display:inline-block;background:${otaColorOf(o.name)};color:#fff;font-size:.78em;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.02em">${o.name}</span></div>
@@ -2706,7 +2706,7 @@ function bkListHTML(bks){
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
   const md=s=>{const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?(+m[2])+'/'+(+m[3]):String(s||'');};
   const rows=bks.slice().sort((a,b)=>String(a.ci).localeCompare(String(b.ci))).map(b=>{
-    const bg=b.s==='Airbnb'?'#FF5A5F':b.s==='Booking.com'?'#003580':'#90A4AE';
+    const bg=b.s==='Airbnb'?'#FF5A5F':b.s==='Booking.com'?'#003580':b.s==='Trip.com'?'#287DFA':'#90A4AE';
     return`<div class="bk-item${b.cancel?' cx':''}">
       <span class="bk-ota" style="background:${bg}">${esc(b.s||'不明')}</span>
       <span class="bk-date">${md(b.ci)}〜${md(b.co)}<span class="bk-nights">（${b.nights}泊）</span></span>
@@ -3410,7 +3410,7 @@ function renderPayTab(){
         ${!isLocked?`<button onclick="openAmtModal('${bk.id}',${csvAmt},'${gName}')" title="金額を修正／分割入金" style="border:1px solid #ddd;background:#f7f7fb;border-radius:4px;cursor:pointer;font-size:.68em;padding:2px 5px;color:var(--t3);margin-left:5px;vertical-align:middle">✏️</button>`:'<span style="display:inline-block;width:28px;margin-left:5px"></span>'}
       </td>
       <td>${dateCell}</td>
-      <td>${(s=>{ const bg=s==='Airbnb'?'#FF5A5F':s==='Booking.com'?'#003580':'#90A4AE'; return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.73em;font-weight:700;padding:3px 9px;border-radius:4px;letter-spacing:.02em">${s}</span>`; })(bk.s)}</td>
+      <td>${(s=>{ const bg=s==='Airbnb'?'#FF5A5F':s==='Booking.com'?'#003580':s==='Trip.com'?'#287DFA':'#90A4AE'; return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.73em;font-weight:700;padding:3px 9px;border-radius:4px;letter-spacing:.02em">${s}</span>`; })(bk.s)}</td>
       <td>${bk.g}${bk.cancel?'<span style="margin-left:5px;font-size:.68em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px">キャンセル料</span>':''}</td>
       <td style="text-align:center"><button data-edit onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em;padding:2px">${isLocked?'🔒':'🔓'}</button></td>
     </tr>`;
@@ -3723,12 +3723,12 @@ function saveDiscs(arr){
 }
 
 function otaBadge(ota){
-  const bg=ota==='Airbnb'?'#FF5A5F':ota==='Booking.com'?'#003580':ota==='両方'?'#7b5ea7':'#90A4AE';
+  const bg=ota==='Airbnb'?'#FF5A5F':ota==='Booking.com'?'#003580':ota==='両方'?'#7b5ea7':ota==='Trip.com'?'#287DFA':'#90A4AE';
   return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.71em;font-weight:700;padding:2px 8px;border-radius:4px">${ota}</span>`;
 }
 function otaBadgeShort(ota){
-  const bg=ota==='Airbnb'?'#FF5A5F':ota==='Booking.com'?'#003580':ota==='両方'?'#7b5ea7':'#90A4AE';
-  const lbl=ota==='Airbnb'?'A':ota==='Booking.com'?'B':ota==='両方'?'AB':'他';
+  const bg=ota==='Airbnb'?'#FF5A5F':ota==='Booking.com'?'#003580':ota==='両方'?'#7b5ea7':ota==='Trip.com'?'#287DFA':'#90A4AE';
+  const lbl=ota==='Airbnb'?'A':ota==='Booking.com'?'B':ota==='両方'?'AB':ota==='Trip.com'?'T':'他';
   return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.8em;font-weight:700;padding:3px 7px;border-radius:4px;min-width:24px;text-align:center">${lbl}</span>`;
 }
 
@@ -3847,7 +3847,7 @@ function renderDisc(){
   // ── カード表示（モバイル） ──
   const cardsHtml=`<div class="disc-show-card">
     ${discs.map(d=>{
-      const borderColor=d.ota==='Airbnb'?'#FF5A5F':d.ota==='Booking.com'?'#003580':d.ota==='両方'?'#7b5ea7':'#90A4AE';
+      const borderColor=d.ota==='Airbnb'?'#FF5A5F':d.ota==='Booking.com'?'#003580':d.ota==='両方'?'#7b5ea7':d.ota==='Trip.com'?'#287DFA':'#90A4AE';
       const cardStyle=isArchived?'opacity:.7;filter:grayscale(.3)':'';
       return`<div class="disc-card" style="border-left-color:${borderColor};${cardStyle}">
         <div class="disc-card-hdr">
@@ -5295,7 +5295,7 @@ function renderCal(){
           const gName=(bk.g||'').split(/[\s　]+/)[0]||'';
           const rL=isClipL?'0':'4px',rR=isClipR?'0':'4px';
           const site=(bk.s||'').toLowerCase();
-          const BKC=site.includes('airbnb')?'#FF5A5F':site.includes('booking')?'#003580':'#90A4AE';
+          const BKC=site.includes('airbnb')?'#FF5A5F':site.includes('booking')?'#003580':site.includes('trip')?'#287DFA':'#90A4AE';
           const chForBk=chs.find(ch=>ch.d.replace(/\//g,'-')===bk.co);
           const bkComment=chForBk?(chForBk.cm||''):'';
           const amtTaxInc=bk.sales?Math.round(bk.sales*1.1):0;
@@ -5591,7 +5591,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260820;
+const APP_VERSION = 20260903;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -6390,7 +6390,7 @@ function renderAcc(){
   if(deposits.length||manualRows.length)ensurePdfKeys(month,encodeURIComponent(bankMonthFolder));
   
   // Collect OTA-based rows from paid bookings
-  const airbnbRows=[],bookingRows=[];
+  const airbnbRows=[],bookingRows=[],tripRows=[];
   Object.keys(BK).forEach(tag=>{
     BK[tag].forEach(bk=>{
       const pd=pays[bk.id]||{};
@@ -6403,6 +6403,7 @@ function renderAcc(){
       const recvAmt=pd.customAmt!=null?pd.customAmt:netTaxInc;
       const row={date:pd.payDate||'',facility:tag,guest:bk.g,amount:recvAmt,stay:netTaxInc+commTaxInc,comm:commTaxInc,ota:bk.s,payoutId:pd.payoutId||'',bookingId:bk.id,payoutTotal:(pd.payoutTotal!=null?pd.payoutTotal:null)};
       if((bk.s||'').includes('Airbnb'))airbnbRows.push(row);
+      else if((bk.s||'').includes('Trip'))tripRows.push(row);
       else bookingRows.push(row);
     });
   });
@@ -6437,6 +6438,7 @@ function renderAcc(){
   });
   airbnbRows.sort((a,b)=>a.date.localeCompare(b.date));
   bookingRows.sort((a,b)=>a.date.localeCompare(b.date));
+  tripRows.sort((a,b)=>a.date.localeCompare(b.date));
 
   const tblStyle='width:100%;border-collapse:collapse;font-size:.79em;margin-bottom:8px';
   const thStyle='padding:6px 8px;text-align:left;font-weight:600;border-bottom:2px solid';
@@ -6445,7 +6447,7 @@ function renderAcc(){
 
   const renderRows=(rows,bg)=>rows.map(r=>{
     const rowBg=r.isAdjustment?'#fff3cd':bg;  // 調整額はクリーム色で目立たせる
-    const desc=r.desc||(r.ota.includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM');
+    const desc=r.desc||(r.ota.includes('Airbnb')?'ペイオニア ジャパン':r.ota.includes('Trip')?'TRIP COM INTERNATIONAL':'ドイツ銀行 BOOKING.COM');
     return `<tr data-cd="${r.date||''}" data-cs="${desc}" data-cf="${String(r.facility||'').replace(/"/g,'&quot;')}" data-ca="${r.amount||0}" data-cy="${r.stay||0}" data-cc="${r.comm||0}" style="background:${rowBg}">
     <td style="${tdStyle}">${r.date}</td>
     <td style="${tdStyle}">${desc}</td>
@@ -6516,7 +6518,7 @@ function renderAcc(){
               const first=!seen.has(m.bookingId);if(first)seen.add(m.bookingId);
               const stay=first?(br.stay||0):0,comm=first?(br.comm||0):0;
               dA+=m.amount||0;dS+=stay;dC+=comm;
-              const desc=(br.ota||'').includes('Airbnb')?'ペイオニア ジャパン':'ドイツ銀行 BOOKING.COM';
+              const desc=(br.ota||'').includes('Airbnb')?'ペイオニア ジャパン':(br.ota||'').includes('Trip')?'TRIP COM INTERNATIONAL':'ドイツ銀行 BOOKING.COM';
               const memoTxt=m.memo?` <span style="color:#1565c0">（${String(m.memo).replace(/</g,'&lt;')}）</span>`:'';
               return `<tr data-cd="${d.date||br.date||''}" data-cs="${desc}" data-cf="${String(br.facility||m.tag||'').replace(/"/g,'&quot;')}" data-ca="${m.amount||0}" data-cy="${first?(stay||0):''}" data-cc="${first?(comm||0):''}" style="background:${bg}">
               <td style="${tdStyle}">${d.date||br.date||''}</td>
@@ -6551,6 +6553,7 @@ function renderAcc(){
 
   const airbnbTotal=airbnbRows.reduce((s,r)=>s+r.comm,0);
   const bookingTotal=bookingRows.reduce((s,r)=>s+r.comm,0);
+  const tripTotal=tripRows.reduce((s,r)=>s+r.comm,0);
 
   // Manual rows
   const inpS='border:1px solid var(--b);border-radius:3px;padding:2px 5px;font-size:.78em;outline:none;';
@@ -6599,6 +6602,10 @@ function renderAcc(){
     <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderPayoutGrouped(bookingRows,'#f0f4ff',{bg:'#e3f2fd',color:'#1565c0',border:'#90caf9'})}
       <tr style="background:#dce6f5;font-weight:700"><td colspan="5" style="${tdStyle}">Booking.com手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(bookingTotal)}</td></tr>
     </tbody></table>
+    <div style="margin:12px 0 6px"><span style="display:inline-block;background:#287DFA;color:#fff;font-size:.78em;font-weight:700;padding:3px 10px;border-radius:4px;letter-spacing:.02em">Trip.com</span></div>
+    <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${renderPayoutGrouped(tripRows,'#f0f6ff',{bg:'#dbeafe',color:'#1d4ed8',border:'#93c5fd'})}
+      <tr style="background:#d6e6fb;font-weight:700"><td colspan="5" style="${tdStyle}">Trip.com手数料合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(tripTotal)}</td></tr>
+    </tbody></table>
     <div style="font-size:.9em;font-weight:700;color:#4CAF50;margin:12px 0 6px">その他（手動入力）</div>
     <table style="${tblStyle}"><thead>${hdr}</thead><tbody>${manualHtml}
       <tr style="background:#f0f0f0;font-weight:700"><td colspan="5" style="${tdStyle}">その他合計</td><td style="${tdStyle};text-align:right;font-family:ui-monospace,monospace;color:var(--red)">${fmtF(manualTotal)}</td></tr>
@@ -6615,7 +6622,7 @@ function getAccPayments(month){
     const pd=pays[bk.id]||{};
     const netTaxInc=Math.round(parseFloat(bk.rawNet||bk.net*1.1));
     const st=payState(pd,netTaxInc);
-    const ota=(bk.s||'').includes('Airbnb')?'Airbnb':'Booking';
+    const ota=(bk.s||'').includes('Airbnb')?'Airbnb':(bk.s||'').includes('Trip')?'Trip':'Booking';
     const pid=pd.payoutId||('単'+bk.id);
     let receipts;
     if(st.hasSplits){payoutHasSplit[pid]=true;receipts=st.splits.map(s=>({date:s.date||'',amount:parseInt(s.amount)||0,memo:s.memo||''}));}
@@ -6663,6 +6670,7 @@ function _bankDate(s){
 function _bankOta(t){
   t=String(t||'');
   if(/BOOKING/i.test(t))return 'Booking';
+  if(/TRIP/i.test(t)||t.indexOf('トリップ')>=0)return 'Trip';
   if(t.indexOf('ﾍﾟｲｵﾆｱ')>=0||t.indexOf('ペイオニア')>=0||/payoneer/i.test(t))return 'Airbnb';
   if(t.indexOf('ｽｸｴｱ')>=0||t.indexOf('スクエア')>=0||/square/i.test(t))return 'Square';
   return null;
@@ -7487,7 +7495,7 @@ function buildAcctData(month){
     const prop=ROOMS[tag]||tag;
     const bks=monthBks.map(b=>{
       const pd=pays[b.id]||{};
-      const otaShort=(b.s||'').includes('Airbnb')?'AB':(b.s||'').includes('Booking')?'BK':(b.s||'その他');
+      const otaShort=(b.s||'').includes('Airbnb')?'AB':(b.s||'').includes('Booking')?'BK':(b.s||'').includes('Trip')?'TP':(b.s||'その他');
       const portion=calcMonthPortion(b,month);
       // コミッション(OTAサービス料)・清掃費(クリーニング代)を売上と同じ日数按分＋税込で算出
       const _ratio=portion.totalDays>0?portion.daysInMonth/portion.totalDays:0;
@@ -7550,8 +7558,8 @@ function renderAcctTab(){
       const ciD=b.ci.slice(5).replace('-','/');
       const coD=b.co.slice(5).replace('-','/');
       const payDateD=b.payDate?b.payDate.slice(5).replace('-','/'):'';
-      const otaCol=b.otaShort==='AB'?'#ff5a5f':b.otaShort==='BK'?'#003580':'#888';
-      const otaLabel=b.otaShort==='AB'?'Airbnb':b.otaShort==='BK'?'Booking':(b.s||'その他');
+      const otaCol=b.otaShort==='AB'?'#ff5a5f':b.otaShort==='BK'?'#003580':b.otaShort==='TP'?'#287DFA':'#888';
+      const otaLabel=b.otaShort==='AB'?'Airbnb':b.otaShort==='BK'?'Booking':b.otaShort==='TP'?'Trip.com':(b.s||'その他');
       const payBg=b.isPaid?'background:#fff59d;font-weight:600;color:#000':'background:transparent;color:#bbb';
       const partialNote=b.isCarryIn&&b.isCarryOut?`<div style="background:#7b1fa2;color:#fff;padding:2px 6px;border-radius:3px;font-size:.72em;font-weight:700;margin-top:3px;display:inline-block">↙↗ ${b.daysInMonth}/${b.totalDays}泊</div>`:b.isCarryIn?`<div style="background:#1976d2;color:#fff;padding:2px 6px;border-radius:3px;font-size:.72em;font-weight:700;margin-top:3px;display:inline-block">↙前月 ${b.daysInMonth}/${b.totalDays}泊</div>`:b.isCarryOut?`<div style="background:#f57c00;color:#fff;padding:2px 6px;border-radius:3px;font-size:.72em;font-weight:700;margin-top:3px;display:inline-block">翌月↗ ${b.daysInMonth}/${b.totalDays}泊</div>`:'';
       const dateLabel=b.isPartial?`${ciD}〜${coD}<br>${partialNote}`:`${ciD}〜${coD}`;
@@ -7619,8 +7627,8 @@ function printAcctTab(){
     const cards=r.bks.map(b=>{
       const ciD=b.ci.slice(5).replace('-','/'),coD=b.co.slice(5).replace('-','/');
       const payDateD=b.payDate?b.payDate.slice(5).replace('-','/'):'－';
-      const otaCol=b.otaShort==='AB'?'#ff5a5f':b.otaShort==='BK'?'#003580':'#888';
-      const otaLabel=b.otaShort==='AB'?'Airbnb':b.otaShort==='BK'?'Booking':(b.s||'その他');
+      const otaCol=b.otaShort==='AB'?'#ff5a5f':b.otaShort==='BK'?'#003580':b.otaShort==='TP'?'#287DFA':'#888';
+      const otaLabel=b.otaShort==='AB'?'Airbnb':b.otaShort==='BK'?'Booking':b.otaShort==='TP'?'Trip.com':(b.s||'その他');
       const payClass=b.isPaid?'paid':'';
       return `<td class="card"><div class="ota" style="background:${otaCol}">${otaLabel}</div><div class="dt">${ciD}〜${coD}</div><div class="amt">¥${b.incl.toLocaleString('ja-JP')}</div><div class="cc">コミ¥${b.commIncl.toLocaleString('ja-JP')}<br>清掃¥${b.cleanIncl.toLocaleString('ja-JP')}</div><div class="pay ${payClass}">${payDateD}</div></td>`;
     }).join('');
