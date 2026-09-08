@@ -5608,7 +5608,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260908.2;
+const APP_VERSION = 20260908.3;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -6051,10 +6051,11 @@ function saveBookingsToFb(withMeta){
 //   cleaning_calendar/_rooms/{部屋}    … 建物名・代行フラグ・表示順
 //   cleaning_calendar/{YYYY-MM}/{部屋} … {stay:"SSOI--…", clean:"--C---…"}  1文字=1日（index=日-1）
 //   stay : S=宿泊中 I=今日IN O=今日OUT(今夜は空室) B=同日OUT+IN X=ブロック -=空室
-//   clean: C=清掃予定あり(AirHost清掃CSV) -=なし
+//   clean: C=清掃予定あり(AirHost清掃CSV) c=見込み(清掃CSV未到達の範囲＝退去日から推定) -=なし
+//   ※清掃CSVは月単位でしか来ないので、来月以降は C が無い。黙って★が消えないよう c で補う。
 // ═══════════════════════════════════════════════════════════════════════
 const CLEANCAL_VER=1, CLEANCAL_BACK=1, CLEANCAL_FWD=3;   // 前月〜3ヶ月先を毎回書き直す
-const CLEANCAL_CODES={stay:{S:'宿泊中',I:'今日チェックイン',O:'今日チェックアウト・今夜は空室',B:'同日チェックアウト＋チェックイン',X:'ブロック（販売停止・ゲスト無し）','-':'空室'},clean:{C:'清掃予定あり','-':'清掃予定なし'}};
+const CLEANCAL_CODES={stay:{S:'宿泊中',I:'今日チェックイン',O:'今日チェックアウト・今夜は空室',B:'同日チェックアウト＋チェックイン',X:'ブロック（販売停止・ゲスト無し）','-':'空室'},clean:{C:'清掃予定あり（AirHost清掃CSV）',c:'清掃見込み（清掃CSV未到達の範囲＝退去日から推定）','-':'清掃予定なし'}};
 function buildCleaningCalendar(src,today){   // src/today は検証用（省略時はアプリの現在データ・今日）
   src=src||{BK,BLK,CH,ROOMS};
   const t0=today?new Date(today):new Date(); t0.setHours(0,0,0,0);
@@ -6065,6 +6066,9 @@ function buildCleaningCalendar(src,today){   // src/today は検証用（省略�
   const tags=Object.keys(R).sort((a,b)=>{const pa=R[a]||'',pb=R[b]||'';return pa!==pb?pa.localeCompare(pb):a.localeCompare(b);});
   const rooms={};
   tags.forEach((t,i)=>{const raw=R[t]||'';rooms[t]={building:raw.replace(/代行/g,'').replace(/^\d+_/,'').replace(/^_+|_+$/g,'').trim()||raw,buildingRaw:raw,daiko:/代行/.test(raw),order:i};});
+  // 清掃CSVが届いている最終日（全部屋の清掃予定の最大日）。これより先の退去日は見込み(c)にする
+  let coverage='';
+  Object.values(src.CH||{}).forEach(arr=>(arr||[]).forEach(c=>{const d=_dpad(c&&c.d);if(d&&d>coverage)coverage=d;}));
   const data={};
   months.forEach(mk=>{
     const [y,m]=mk.split('-').map(Number);
@@ -6081,13 +6085,13 @@ function buildCleaningCalendar(src,today){   // src/today は検証用（省略�
         const inn=bks.some(b=>b.ci===ds), out=bks.some(b=>b.co===ds);
         const blk=!occ&&blks.some(b=>b.ci<=ds&&ds<b.co);      // ブロック＝ゲスト無しだが販売停止
         stay+=occ?(inn&&out?'B':inn?'I':'S'):blk?'X':out?'O':'-';
-        clean+=chSet.has(ds)?'C':'-';
+        clean+=chSet.has(ds)?'C':(ds>coverage&&out?'c':'-');   // CSV未到達の先は退去日から見込み
       }
       mo[tag]={stay,clean};
     });
     data[mk]=mo;
   });
-  return {months,rooms,data};
+  return {months,rooms,data,coverage};
 }
 function saveCleaningCalendarToFb(){
   if(!fbReady||!fbDB)return;
@@ -6098,7 +6102,7 @@ function saveCleaningCalendarToFb(){
     cal.months.forEach(mk=>{updates[mk]=sanitizeFbKeys(cal.data[mk]);});   // 月ノードは丸ごと置換（消えた部屋も消える）
     updates['_rooms']=sanitizeFbKeys(cal.rooms);
     const metaEl=document.getElementById('meta');
-    updates['_meta']={version:CLEANCAL_VER,updatedAt:now.toISOString(),updatedAtText:now.toLocaleDateString('ja-JP')+'　'+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0'),csvImported:metaEl?metaEl.textContent:'',months:cal.months,codes:CLEANCAL_CODES,source:'minpaku-app v'+APP_VERSION};
+    updates['_meta']={version:CLEANCAL_VER,updatedAt:now.toISOString(),updatedAtText:now.toLocaleDateString('ja-JP')+'　'+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0'),csvImported:metaEl?metaEl.textContent:'',cleanCoverageUntil:cal.coverage||'',months:cal.months,codes:CLEANCAL_CODES,source:'minpaku-app v'+APP_VERSION};
     fbDB.ref('cleaning_calendar').update(updates);
   }catch(e){console.warn('saveCleaningCalendarToFb error:',e);}
 }
