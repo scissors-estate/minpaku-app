@@ -4101,9 +4101,13 @@ function handlePayCSV(files){
                 if(!pays[bk.id])pays[bk.id]={};
                 pays[bk.id].status='1';
                 if(payDate&&!pays[bk.id].payDate)pays[bk.id].payDate=payDate;
-                if(!isNaN(netAmt)&&netAmt>0&&pays[bk.id].customAmt==null)pays[bk.id].customAmt=netAmt;
-                if(payoutId)pays[bk.id].payoutId=payoutId;  // 調整額の逆引き／Payout別表示用
-                if(payDate)pays[bk.id].payProcDate=payDate;  // Booking.com処理日（Payout別ヘッダ表示用・参考値）
+                // 純収益0円の再掲（Bookingが後のお支払いに前の予約を¥0で再掲する）では
+                // payout情報を上書きしない。これをしないと前の予約が後のお支払い番号に
+                // 誤って紐づき、会計タブで別グループに混ざる（2026-09-08修正）。
+                const isRealPay=!isNaN(netAmt)&&netAmt>0;
+                if(isRealPay&&pays[bk.id].customAmt==null)pays[bk.id].customAmt=netAmt;
+                if(isRealPay&&payoutId)pays[bk.id].payoutId=payoutId;  // 調整額の逆引き／Payout別表示用
+                if(isRealPay&&payDate)pays[bk.id].payProcDate=payDate;  // Booking.com処理日（Payout別ヘッダ表示用・参考値）
                 matched++;allMatchedIds.push(bk.id);
               }
             });
@@ -5604,7 +5608,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260908;
+const APP_VERSION = 20260908.1;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
