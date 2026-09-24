@@ -2888,7 +2888,7 @@ function bulkCompleteSelected(){
   const upd={};
   tags.forEach(tag=>{
     const mk=ds+'_'+tag; c[mk]='1'; upd[mk]='1';
-    const bks=BK[tag]||[];
+    const bks=(BK[tag]||[]).filter(b=>!b.cancel);   // キャンセル料ありの予約は次INの判定から除外（2026-09-17）
     const nextCI=bks.map(b=>b.ci).filter(ci=>ci>ds).sort()[0];
     // CHエントリ（清掃タスク）がある日付は伝播ストップ（togChkと同じ挙動に統一）
     const chDates=new Set((CH[tag]||[]).map(e=>e.d.replace(/\//g,'-')));
@@ -2931,7 +2931,10 @@ function toggleCleaner(cl){
 }
 function setSF(btn,sf){toggleState(sf);}
 function getRoomSt(tag,ds){
-  const bks=BK[tag]||[];const d=new Date(ds);
+  // キャンセル料あり(b.cancel)の予約は入金管理用にBKへ残っているだけ＝部屋は空いている。
+  // 滞在中/当日IN判定に含めると、後から入った本物の予約や清掃日を覆い隠してチェックが押せなくなる
+  // （2026-08 SC202：Diego 8/8-8/31キャンセルがThailik 8/19-8/30と8/30清掃を隠した）。
+  const bks=(BK[tag]||[]).filter(b=>!b.cancel);const d=new Date(ds);
   for(const b of bks){
     const ci=new Date(b.ci),co=new Date(b.co);
     if(b.ci===ds){const cm=CM[ds+'_'+tag];if(!cm)return{type:'danger',b};if(cm.cl==='未割当')return{type:'unassigned',b,cm};if(cm.sd==='有')return{type:'warn',b,cm};return{type:'checkin',b,cm};}
@@ -3054,7 +3057,7 @@ function togChk(ds,tag,val,chkEl){
         }
       }
       if(val){
-        const bks=BK[tag]||[];
+        const bks=(BK[tag]||[]).filter(b=>!b.cancel);   // キャンセル料ありは次INに数えない（2026-09-17）
         const nextCI=bks.map(b=>b.ci).filter(ci=>ci>ds).sort()[0];
         // CHエントリ（清掃タスク）がある日付をSetで保持
         const chDates=new Set((CH[tag]||[]).map(e=>e.d.replace(/\//g,'-')));
@@ -5610,7 +5613,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260914;
+const APP_VERSION = 20260924;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -7596,17 +7599,18 @@ function buildAcctData(month){
       return{...b,otaShort,payDate:pd.payDate||'',isPaid:pd.status==='1',incl:portion.incl,exclProrated:portion.excl,commIncl,commExcl,cleanIncl,daysInMonth:portion.daysInMonth,isPartial:portion.isPartial,isCarryIn:portion.isCarryIn,isCarryOut:portion.isCarryOut,totalDays:portion.totalDays};
     });
     bks.sort((a,b)=>a.ci.localeCompare(b.ci));
-    let air=0,bk=0,other=0,sumIncl=0,sumExcl=0,days=0,guests=0,comm=0,clean=0;
-    let commAir=0,commBk=0,commOther=0,cleanAir=0,cleanBk=0,cleanOther=0,exclAir=0,exclBk=0,exclOther=0;
-    let commEx=0,commExAir=0,commExBk=0,commExOther=0;
+    let air=0,bk=0,trip=0,other=0,sumIncl=0,sumExcl=0,days=0,guests=0,comm=0,clean=0;
+    let commAir=0,commBk=0,commTrip=0,commOther=0,cleanAir=0,cleanBk=0,cleanTrip=0,cleanOther=0,exclAir=0,exclBk=0,exclTrip=0,exclOther=0;
+    let commEx=0,commExAir=0,commExBk=0,commExTrip=0,commExOther=0;   // 2026-09-24: Trip.com を独立集計（会計士依頼）
     bks.forEach(b=>{
       sumIncl+=b.incl;sumExcl+=b.exclProrated;days+=b.daysInMonth;guests+=(b.n||1);
       comm+=b.commIncl;clean+=b.cleanIncl;commEx+=b.commExcl;
       if(b.otaShort==='AB'){air+=b.incl;commAir+=b.commIncl;commExAir+=b.commExcl;cleanAir+=b.cleanIncl;exclAir+=b.exclProrated;}
       else if(b.otaShort==='BK'){bk+=b.incl;commBk+=b.commIncl;commExBk+=b.commExcl;cleanBk+=b.cleanIncl;exclBk+=b.exclProrated;}
+      else if(b.otaShort==='TP'){trip+=b.incl;commTrip+=b.commIncl;commExTrip+=b.commExcl;cleanTrip+=b.cleanIncl;exclTrip+=b.exclProrated;}
       else{other+=b.incl;commOther+=b.commIncl;commExOther+=b.commExcl;cleanOther+=b.cleanIncl;exclOther+=b.exclProrated;}
     });
-    result[tag]={prop,tag,bks,totals:{air,bk,other,sumIncl,sumExcl,comm,clean,commAir,commBk,commOther,commEx,commExAir,commExBk,commExOther,cleanAir,cleanBk,cleanOther,exclAir,exclBk,exclOther},days,guests};
+    result[tag]={prop,tag,bks,totals:{air,bk,trip,other,sumIncl,sumExcl,comm,clean,commAir,commBk,commTrip,commOther,commEx,commExAir,commExBk,commExTrip,commExOther,cleanAir,cleanBk,cleanTrip,cleanOther,exclAir,exclBk,exclTrip,exclOther},days,guests};
   });
   return result;
 }
@@ -7670,21 +7674,22 @@ function renderAcctTab(){
     const _lb='padding:2px 5px 2px 14px;text-align:left;font-family:sans-serif;color:#555;white-space:nowrap';
     const _sec='padding:5px 5px 2px;text-align:left;font-family:sans-serif;font-weight:700;color:#1565c0';
     const totalsHTML=`
-      <div style="background:#e3f2fd;min-width:250px;flex-shrink:0;padding:8px 10px;border-left:2px solid #90caf9;font-size:.76em;display:flex;flex-direction:column;justify-content:center">
+      <div style="background:#e3f2fd;min-width:310px;flex-shrink:0;padding:8px 10px;border-left:2px solid #90caf9;font-size:.76em;display:flex;flex-direction:column;justify-content:center">
         <table style="width:100%;border-collapse:collapse">
           <thead><tr>
             <th style="${_td};text-align:left;font-weight:600"></th>
             <th style="${_td};font-weight:700;color:#ff5a5f">Airbnb</th>
             <th style="${_td};font-weight:700;color:#003580">Booking</th>
+            <th style="${_td};font-weight:700;color:#287DFA">Trip.com</th>
             <th style="${_td};font-weight:700;color:#1565c0">合計</th>
           </tr></thead>
           <tbody>
-            <tr><td colspan="4" style="${_sec}">■ 税込</td></tr>
-            <tr><td style="${_lb}">売上</td><td style="${_td}">${_yen(T.air)}</td><td style="${_td}">${_yen(T.bk)}</td><td style="${_td};font-weight:700;color:#1565c0">${_yen(T.air+T.bk+T.other)}</td></tr>
-            <tr><td style="${_lb};color:#777">コミッション</td><td style="${_td};color:#ef6c00">${_yen(T.commAir)}</td><td style="${_td};color:#ef6c00">${_yen(T.commBk)}</td><td style="${_td};color:#ef6c00;font-weight:700">${_yen(T.comm)}</td></tr>
-            <tr><td colspan="4" style="${_sec};border-top:1px solid #b0d4f1">■ 税抜</td></tr>
-            <tr><td style="${_lb}">売上</td><td style="${_td}">${_yen(T.exclAir)}</td><td style="${_td}">${_yen(T.exclBk)}</td><td style="${_td};font-weight:700">${_yen(T.sumExcl)}</td></tr>
-            <tr><td style="${_lb};color:#777">コミッション</td><td style="${_td};color:#ef6c00">${_yen(T.commExAir)}</td><td style="${_td};color:#ef6c00">${_yen(T.commExBk)}</td><td style="${_td};color:#ef6c00;font-weight:700">${_yen(T.commEx)}</td></tr>
+            <tr><td colspan="5" style="${_sec}">■ 税込</td></tr>
+            <tr><td style="${_lb}">売上</td><td style="${_td}">${_yen(T.air)}</td><td style="${_td}">${_yen(T.bk)}</td><td style="${_td}">${_yen(T.trip)}</td><td style="${_td};font-weight:700;color:#1565c0">${_yen(T.air+T.bk+T.trip+T.other)}</td></tr>
+            <tr><td style="${_lb};color:#777">コミッション</td><td style="${_td};color:#ef6c00">${_yen(T.commAir)}</td><td style="${_td};color:#ef6c00">${_yen(T.commBk)}</td><td style="${_td};color:#ef6c00">${_yen(T.commTrip)}</td><td style="${_td};color:#ef6c00;font-weight:700">${_yen(T.comm)}</td></tr>
+            <tr><td colspan="5" style="${_sec};border-top:1px solid #b0d4f1">■ 税抜</td></tr>
+            <tr><td style="${_lb}">売上</td><td style="${_td}">${_yen(T.exclAir)}</td><td style="${_td}">${_yen(T.exclBk)}</td><td style="${_td}">${_yen(T.exclTrip)}</td><td style="${_td};font-weight:700">${_yen(T.sumExcl)}</td></tr>
+            <tr><td style="${_lb};color:#777">コミッション</td><td style="${_td};color:#ef6c00">${_yen(T.commExAir)}</td><td style="${_td};color:#ef6c00">${_yen(T.commExBk)}</td><td style="${_td};color:#ef6c00">${_yen(T.commExTrip)}</td><td style="${_td};color:#ef6c00;font-weight:700">${_yen(T.commEx)}</td></tr>
           </tbody>
         </table>
         ${_hasOther?`<div style="font-size:.86em;color:#888;margin-top:5px;text-align:right;line-height:1.3">※その他OTA 売上(税込)${_yen(T.other)}／コミ(税込)${_yen(T.commOther)} を合計に含む</div>`:''}
@@ -7726,7 +7731,7 @@ function printAcctTab(){
     const cellsHtml=cards?cards+'<td class="card pad"></td>'.repeat(maxCards-r.bks.length):`<td colspan="${maxCards}" style="color:#999;padding:10px;text-align:center">予約なし</td>`;
     const T=r.totals;
     const _yen=n=>'¥'+(n||0).toLocaleString('ja-JP');
-    return `<tr><td class="rlbl"><b>${r.tag}</b></td><td class="cwrap"><table class="ctbl"><tr>${cellsHtml}</tr></table></td><td class="rtot"><table class="rtt"><tr><th></th><th class="ab">Airbnb</th><th class="bk">Booking</th><th class="tt">合計</th></tr><tr class="sec"><td colspan="4">■ 税込</td></tr><tr><td>売上</td><td>${_yen(T.air)}</td><td>${_yen(T.bk)}</td><td class="tt">${_yen(T.air+T.bk+T.other)}</td></tr><tr><td>コミッション</td><td class="cm">${_yen(T.commAir)}</td><td class="cm">${_yen(T.commBk)}</td><td class="cm tt">${_yen(T.comm)}</td></tr><tr class="sec bt"><td colspan="4">■ 税抜</td></tr><tr><td>売上</td><td>${_yen(T.exclAir)}</td><td>${_yen(T.exclBk)}</td><td class="tt">${_yen(T.sumExcl)}</td></tr><tr><td>コミッション</td><td class="cm">${_yen(T.commExAir)}</td><td class="cm">${_yen(T.commExBk)}</td><td class="cm tt">${_yen(T.commEx)}</td></tr></table></td></tr>`;
+    return `<tr><td class="rlbl"><b>${r.tag}</b></td><td class="cwrap"><table class="ctbl"><tr>${cellsHtml}</tr></table></td><td class="rtot"><table class="rtt"><tr><th></th><th class="ab">Airbnb</th><th class="bk">Booking</th><th class="tp">Trip.com</th><th class="tt">合計</th></tr><tr class="sec"><td colspan="5">■ 税込</td></tr><tr><td>売上</td><td>${_yen(T.air)}</td><td>${_yen(T.bk)}</td><td>${_yen(T.trip)}</td><td class="tt">${_yen(T.air+T.bk+T.trip+T.other)}</td></tr><tr><td>コミッション</td><td class="cm">${_yen(T.commAir)}</td><td class="cm">${_yen(T.commBk)}</td><td class="cm">${_yen(T.commTrip)}</td><td class="cm tt">${_yen(T.comm)}</td></tr><tr class="sec bt"><td colspan="5">■ 税抜</td></tr><tr><td>売上</td><td>${_yen(T.exclAir)}</td><td>${_yen(T.exclBk)}</td><td>${_yen(T.exclTrip)}</td><td class="tt">${_yen(T.sumExcl)}</td></tr><tr><td>コミッション</td><td class="cm">${_yen(T.commExAir)}</td><td class="cm">${_yen(T.commExBk)}</td><td class="cm">${_yen(T.commExTrip)}</td><td class="cm tt">${_yen(T.commEx)}</td></tr></table></td></tr>`;
   }).join('');
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>月次明細 ${month}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:sans-serif;padding:14px;font-size:10px;color:#222}
@@ -7737,11 +7742,11 @@ function printAcctTab(){
   table.main td{vertical-align:middle;border:1px solid #aaa;padding:0}
   td.rlbl{width:90px;background:#ffebee;text-align:center;font-size:11px;padding:6px 4px;color:#c62828}
   td.cwrap{padding:0;overflow:hidden}
-  td.rtot{width:182px;background:#e3f2fd;padding:3px 5px;border-left:2px solid #90caf9}
+  td.rtot{width:225px;background:#e3f2fd;padding:3px 5px;border-left:2px solid #90caf9}
   table.rtt{width:100%;border-collapse:collapse;font-size:7.5px}
   table.rtt th{font-weight:700;text-align:right;padding:1px 3px;color:#555}
   table.rtt th:first-child{text-align:left}
-  table.rtt th.ab{color:#ff5a5f}table.rtt th.bk{color:#003580}table.rtt th.tt{color:#1565c0}
+  table.rtt th.ab{color:#ff5a5f}table.rtt th.bk{color:#003580}table.rtt th.tp{color:#287DFA}table.rtt th.tt{color:#1565c0}
   table.rtt td{text-align:right;padding:1px 3px;font-family:monospace}
   table.rtt td:first-child{text-align:left;font-family:sans-serif;color:#555;white-space:nowrap}
   table.rtt tr.sec td{text-align:left;font-weight:700;color:#1565c0;font-family:sans-serif;padding:3px 3px 1px}
@@ -7780,16 +7785,17 @@ function dlAcctExcel(){
   const month=sel.value;if(!month)return;
   const data=buildAcctData(month);
   const tags=Object.keys(data).sort((a,b)=>data[a].prop.localeCompare(data[b].prop,'ja'));
-  let csv='部屋名,OTA,チェックイン,チェックアウト,日数,人数,ゲスト名,宿泊費(Airbnb),宿泊費(Booking.com),宿泊費(その他),入金日,入金状態,コミッション(税込),清掃費(税込)\n';
+  let csv='部屋名,OTA,チェックイン,チェックアウト,日数,人数,ゲスト名,宿泊費(Airbnb),宿泊費(Booking.com),宿泊費(Trip.com),宿泊費(その他),入金日,入金状態,コミッション(税込),清掃費(税込)\n';
   tags.forEach(tag=>{
     const r=data[tag];
     r.bks.forEach(b=>{
       const air=b.otaShort==='AB'?b.incl:'';
       const bk=b.otaShort==='BK'?b.incl:'';
-      const oth=(b.otaShort!=='AB'&&b.otaShort!=='BK')?b.incl:'';
-      csv+=`"${r.tag}","${b.s||''}","${b.ci}","${b.co}",${b.days||0},${b.n||1},"${(b.g||'').replace(/"/g,'""')}",${air},${bk},${oth},${b.payDate||''},${b.isPaid?'入金済':'未入金'},${b.commIncl},${b.cleanIncl}\n`;
+      const tp=b.otaShort==='TP'?b.incl:'';
+      const oth=(b.otaShort!=='AB'&&b.otaShort!=='BK'&&b.otaShort!=='TP')?b.incl:'';
+      csv+=`"${r.tag}","${b.s||''}","${b.ci}","${b.co}",${b.days||0},${b.n||1},"${(b.g||'').replace(/"/g,'""')}",${air},${bk},${tp},${oth},${b.payDate||''},${b.isPaid?'入金済':'未入金'},${b.commIncl},${b.cleanIncl}\n`;
     });
-    csv+=`"${r.tag} 小計",,,,${r.days},${r.guests},,${r.totals.air},${r.totals.bk},${r.totals.other},,${r.totals.sumIncl},${r.totals.comm},${r.totals.clean}\n`;
+    csv+=`"${r.tag} 小計",,,,${r.days},${r.guests},,${r.totals.air},${r.totals.bk},${r.totals.trip},${r.totals.other},,${r.totals.sumIncl},${r.totals.comm},${r.totals.clean}\n`;
   });
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='月次明細_'+month+'.csv';a.click();
