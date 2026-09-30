@@ -2082,6 +2082,7 @@ function computeMS(){
       const rent=getRoomRentForMonth(t,mk);
       // 稼働ゼロの部屋も「部屋別詳細」に表示する（0件/¥0・家賃のみ計上）。
       //   月の合計値（粗利・原価）は変えないよう、totalRoomUtil等は触らず下のrent計上は従来どおり。
+      //   ★この部屋はms.roomsに入る（grossProfit=-rent）ので、直営/代行の粗利・家賃でemptyD/SRentを重ねて引かない（2026-09-29修正）。
       ms.rooms[t]={tag:t,prop:ROOMS[t]||'',isSub:(ROOMS[t]||'').includes('代行'),
         sales:0,comm:0,cl:0,net:0,days:0,cnt:0,gu:0,rent,util:0,grossProfit:0-rent,bks:[]};
       if(rent>0){
@@ -2282,8 +2283,8 @@ function printOpsReport(){
   const today=new Date().toLocaleDateString('ja-JP');
   // 粗利計算
   const grossProfit=tot.sales-ms.exp.tot;
-  const dGross=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.officeRent||0)-(ms.exp.officeUtil||0)-(ms.exp.serviceFee||0)-(ms.exp.emptyDRent||0);
-  const sGross=Object.values(ms.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.emptySRent||0);
+  const dGross=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.officeRent||0)-(ms.exp.officeUtil||0)-(ms.exp.serviceFee||0);
+  const sGross=Object.values(ms.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0);
   // 稼働
   const guestsAll=Object.values(ms.rooms).reduce((a,r)=>a+(r.gu||0),0);
   const guestsDirect=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.gu||0),0);
@@ -2524,8 +2525,8 @@ function renderOps(){
   const _pd=opsFilt==='direct'?prev?.d:opsFilt==='subcon'?prev?.s:prev?.tot;
   const prevSales=_pd?.sales,prevCnt=_pd?.cnt;
   const prevRooms=prev&&prev.rooms?Object.values(prev.rooms):[];
-  const prevDGross=prevRooms.length?prevRooms.filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(prev.exp?.officeRent||0)-(prev.exp?.officeUtil||0)-(prev.exp?.serviceFee||0)-(prev.exp?.emptyDRent||0):undefined;
-  const prevSGross=prevRooms.length?prevRooms.filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(prev.exp?.emptySRent||0):undefined;
+  const prevDGross=prevRooms.length?prevRooms.filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(prev.exp?.officeRent||0)-(prev.exp?.officeUtil||0)-(prev.exp?.serviceFee||0):undefined;
+  const prevSGross=prevRooms.length?prevRooms.filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0):undefined;
   const prevProfit=opsFilt==='direct'?prevDGross:opsFilt==='subcon'?prevSGross:(prev?.tot?.sales!=null&&prev?.exp?.tot!=null?prev.tot.sales-prev.exp.tot:undefined);
   const prevOcc=opsFilt==='direct'?prev?.occ?.d:opsFilt==='subcon'?prev?.occ?.s:prev?.occ?.t;
   const prevLbl=(v,isMoney=true)=>v!==undefined&&v!==null
@@ -2533,8 +2534,8 @@ function renderOps(){
 
   // 粗利
   const grossProfit=tot.sales-ms.exp.tot;
-  const dGross=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.officeRent||0)-(ms.exp.officeUtil||0)-(ms.exp.serviceFee||0)-(ms.exp.emptyDRent||0);
-  const sGross=Object.values(ms.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.emptySRent||0);
+  const dGross=Object.values(ms.rooms).filter(r=>!r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0)-(ms.exp.officeRent||0)-(ms.exp.officeUtil||0)-(ms.exp.serviceFee||0);
+  const sGross=Object.values(ms.rooms).filter(r=>r.isSub).reduce((a,r)=>a+(r.grossProfit||0),0);
   // フィルターに合わせた表示粗利
   const dispGrossProfit=opsFilt==='direct'?dGross:opsFilt==='subcon'?sGross:grossProfit;
 
@@ -2622,9 +2623,9 @@ function renderOps(){
   const officeExpData=S.get(OFFICE_EXP_KEY)||{};
   const offExp=officeExpData[curM]||{};
   const allRoomVals=Object.values(ms.rooms);
-  const dRent=allRoomVals.filter(r=>!r.isSub).reduce((a,r)=>a+(r.rent||0),0)+(ms.exp.emptyDRent||0);
+  const dRent=allRoomVals.filter(r=>!r.isSub).reduce((a,r)=>a+(r.rent||0),0);
   const dUtil=allRoomVals.filter(r=>!r.isSub).reduce((a,r)=>a+(r.util||0),0);
-  const sRent=allRoomVals.filter(r=>r.isSub).reduce((a,r)=>a+(r.rent||0),0)+(ms.exp.emptySRent||0);
+  const sRent=allRoomVals.filter(r=>r.isSub).reduce((a,r)=>a+(r.rent||0),0);
   const sUtil=allRoomVals.filter(r=>r.isSub).reduce((a,r)=>a+(r.util||0),0);
   const expRent=opsFilt==='direct'?dRent:opsFilt==='subcon'?sRent:exp.rent;
   const expUtil=opsFilt==='direct'?dUtil:opsFilt==='subcon'?sUtil:exp.util;
@@ -2937,7 +2938,16 @@ function getRoomSt(tag,ds){
   const bks=(BK[tag]||[]).filter(b=>!b.cancel);const d=new Date(ds);
   for(const b of bks){
     const ci=new Date(b.ci),co=new Date(b.co);
-    if(b.ci===ds){const cm=CM[ds+'_'+tag];if(!cm)return{type:'danger',b};if(cm.cl==='未割当')return{type:'unassigned',b,cm};if(cm.sd==='有')return{type:'warn',b,cm};return{type:'checkin',b,cm};}
+    if(b.ci===ds){const cm=CM[ds+'_'+tag];
+      if(!cm){
+        // 清掃タスクが結びついていない当日IN（清掃後に入った予約など）：直前の清掃と直前の退去日を添える
+        // → cleanChk で「退去後に済んだ清掃」を引き継げるようにする（2026-09-30 SC105：9/24清掃済→9/30に新規予約）
+        const lastCO0=bks.filter(bb=>bb.co<=ds&&bb!==b).map(bb=>bb.co).sort().pop()||'';
+        // lc＝直前の退去日以降〜当日より前の最後の清掃タスク（退去前の清掃は引き継がない）
+        const hist0=(CH[tag]||[]).filter(h=>{const hd=h.d.replace(/\//g,'-');return hd<ds&&hd>=lastCO0;});
+        const lc0=hist0.length?hist0[hist0.length-1]:null;
+        return{type:'danger',b,lc:lc0,lastCO:lastCO0};
+      }if(cm.cl==='未割当')return{type:'unassigned',b,cm};if(cm.sd==='有')return{type:'warn',b,cm};return{type:'checkin',b,cm};}
     if(ci<d&&d<co)return{type:'staying',b,nb:bks.find(bb=>new Date(bb.ci)>d)};
   }
   const today=ds.replace(/-/g,'/');
@@ -3015,7 +3025,9 @@ function isCleanDoneSmart(ds,tag,cm){
 // 空室（次の清掃予定なし）は直前清掃(r.lc)が完了済みなら当日・未来でも「済」を継承。
 function cleanChk(ds,tag,r){
   let chk=isCleanDoneSmart(ds,tag,r.cm)||isCleanDoneByLastClean(ds,tag,r.lc);
-  if(!chk && r.type==='vacant' && r.lc && r.lc.d){
+  // 当日INに清掃タスクが無い場合も、直前の退去日以降に済んだ清掃があれば引き継ぐ（2026-09-30）
+  const inheritCI=r.type==='danger'&&r.lc&&r.lc.d&&(!r.lastCO||r.lc.d.replace(/\//g,'-')>=r.lastCO);
+  if(!chk && (r.type==='vacant'||inheritCI) && r.lc && r.lc.d){
     const lcd=r.lc.d.replace(/\//g,'-');
     const c=S.get(CHK_KEY)||{};
     for(let i=-3;i<=3;i++){
@@ -3188,14 +3200,15 @@ function buildCard(tag,r,ds){
   const clsM={checkin:'ci',warn:'wn',unassigned:'un',danger:'dg',staying:'st',cleanonly:'co',vacant:'vc',co_pending:'cp'};
   const lblM={checkin:'当日IN',warn:'同日入替',unassigned:'未割当',danger:'要確認',staying:'滞在中',cleanonly:'清掃予定',vacant:'空室',co_pending:'OUT済・清掃待ち'};
   const bM={checkin:'bci',warn:'bwn',unassigned:'bun',danger:'bdg',staying:'bst',cleanonly:'bco',vacant:'bvc',co_pending:'bcp'};
-  const k=clsM[r.type]||'vc',bc=bM[r.type]||'bvc',bl=lblM[r.type]||'空室';
+  const effType=(r.type==='danger'&&chk)?'checkin':r.type;   // 前回清掃を引き継いで済なら赤い「要確認」にしない（2026-09-30）
+  const k=clsM[effType]||'vc',bc=bM[effType]||'bvc',bl=lblM[effType]||'空室';
   const bgM={ci:'var(--ci-bg)',wn:'var(--wn-bg)',dg:'var(--dg-bg)',un:'var(--un-bg)',st:'var(--st-bg)',vc:'var(--vc-bg)',co:'var(--co-bg)'};
   const brdM={ci:'#639922',wn:'#BA7517',dg:'#E24B4A',un:'#378ADD',st:'#888780',vc:'#7F77DD',co:'#1D9E75'};
   let top='',bot='';
   if(['checkin','warn','unassigned','danger'].includes(r.type)){
     top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span></div><div class="rdates">IN:${fd2(r.b.ci)} → OUT:${fd2(r.b.co)}</div>`; // ⑧⑰
     const cm=r.cm;
-    const prevCleanCd=cm&&cm.cd?cm.cd.replace(/\//g,'-'):'';
+    const prevCleanCd=cm&&cm.cd?cm.cd.replace(/\//g,'-'):(r.lc&&r.lc.d?r.lc.d.replace(/\//g,'-'):'');
     // 「前回の清掃」が完了マークされているかをチェック（完了なら注意喚起不要）
     const prevCleanDone=prevCleanCd?isChk(prevCleanCd,tag):false;
     // 当日からの経過日数を計算（ハードコードの「前日」を実際の日数に）
@@ -3210,7 +3223,7 @@ function buildCard(tag,r,ds){
     } else {
       chkOrBadge=`${prevCleanBadge}${chkBox}`;
     }
-    bot=`<div class="rclr"><div class="rcname"><div class="rcico">クリーナー</div>${cm?cm.cl:'タスクなし'}</div>${cm?`<span class="rct">OUT ${cm.cot}/IN ${cm.cit}</span>`:''}</div>${cm&&cm.cm?`<div class="rcmt">${cm.cm}</div>`:''}${chkOrBadge}`;
+    bot=`<div class="rclr"><div class="rcname"><div class="rcico">クリーナー</div>${cm?cm.cl:(r.lc&&r.lc.d?`タスクなし（前回 ${fd2(r.lc.d)} ${r.lc.c||''}）`:'タスクなし')}</div>${cm?`<span class="rct">OUT ${cm.cot}/IN ${cm.cit}</span>`:''}</div>${cm&&cm.cm?`<div class="rcmt">${cm.cm}</div>`:''}${chkOrBadge}`;
   } else if(r.type==='staying'){
     const dl=diffD(ds,r.b.co);
     top=`<div class="rg">${r.b.g}</div><div class="rm2"><span>${r.b.n}名</span><span>${r.b.nat}</span><span>${r.b.s}</span></div><div class="rdates">OUT:${fd2(r.b.co)}（あと${dl}泊）</div>${r.nb?`<div style="font-size:.65em;color:#085041;margin-top:2px;font-weight:500">次IN:${fd2(r.nb.ci)} ${r.nb.g}</div>`:''}`;
@@ -3280,7 +3293,7 @@ function renderClean(){
     if(r.type==='vacant'){chkT?cnt.vc_done++:cnt.vc_wait++;}
     if(r.type==='co_pending')cnt.cp++;
     if(r.type==='warn'||r.type==='unassigned')cnt.wn++;
-    if(r.type==='danger')cnt.dg++;
+    if(r.type==='danger'&&!chkT)cnt.dg++;
   });
   document.getElementById('csum').innerHTML=`
     <div class="sc t"><div class="sclbl">全部屋</div><div class="scval">${cnt.t}</div><div class="scb">合計</div></div>
@@ -5613,7 +5626,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20260924;
+const APP_VERSION = 20260930;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
