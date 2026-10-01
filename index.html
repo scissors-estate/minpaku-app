@@ -2429,9 +2429,10 @@ ${trendData.length>1?`<div class="chart-box">
 
 <h2>売上内訳</h2>
 <div class="wf-row main"><span>💰 売上（税抜）</span><span class="ra neutral">${fmtF(tot.sales)}</span></div>
-<div class="wf-row"><span>　├ 内：宿泊費（${pWfPct(pWfStay)}）</span><span class="ra neutral">${fmtF(pWfStay)}</span></div>
-<div class="wf-row"><span>　├ 内：清掃費（${pWfPct(tot.cl)}）</span><span class="ra neutral">${fmtF(tot.cl)}</span></div>
-<div class="wf-row"><span>　└ 内：コミッション・OTA手数料（${pWfPct(tot.comm)}）</span><span class="ra minus">${fmtF(tot.comm)}</span></div>
+<div class="wf-row result"><span>　├ 受取額・OTA手数料を除く（${pWfPct(pWfStay+tot.cl)}）</span><span class="ra plus">${fmtF(pWfStay+tot.cl)}</span></div>
+<div class="wf-row"><span>　│　├ 内：宿泊費（${pWfPct(pWfStay)}）</span><span class="ra neutral">${fmtF(pWfStay)}</span></div>
+<div class="wf-row"><span>　│　└ 内：清掃費（${pWfPct(tot.cl)}）</span><span class="ra neutral">${fmtF(tot.cl)}</span></div>
+<div class="wf-row"><span>　└ コミッション・OTA手数料（${pWfPct(tot.comm)}）</span><span class="ra minus">${fmtF(tot.comm)}</span></div>
 
 ${otaList.length?`<h2>OTA別コミッション</h2>
 <table><thead><tr><th>OTA</th><th class="ra">件数</th><th class="ra">売上</th><th class="ra">コミッション</th></tr></thead>
@@ -2612,16 +2613,18 @@ function renderOps(){
     </div>`;
   }
 
-  // 売上内訳（2026-10-01 案C）：売上＝宿泊費＋清掃費＋コミッション の3内訳で見せる（足すと売上ぴったり）。
+  // 売上内訳（2026-10-01 案C）：売上＝受取額（宿泊費＋清掃費）＋コミッション で見せる（足すと売上ぴったり）。
+  //   「受取額」＝売上−コミッション。アプリの「粗利」（売上−家賃・光熱費等）とは別物なので粗利とは呼ばない。
   //   旧表示は「売上−コミッション＝内訳(tot.net)→内：宿泊費(tot.net-tot.cl)／内：清掃費」で、tot.netが既に清掃費を引いた額のため
   //   清掃費が二重に引かれ、引き算の行も合っていなかった。経緯＝メモリ minpaku-uriage-uchiwake-henkou を参照。
   const wfStay=(tot.sales||0)-(tot.comm||0)-(tot.cl||0);   // 宿泊費＝売上−コミッション−清掃費（＝tot.net）
   const wfPct=v=>tot.sales?((v||0)/tot.sales*100).toFixed(1)+'%':'—';
   const wfH=`<div class="sec"><h2 onclick="togSec('sec_wf')" style="cursor:pointer;user-select:none"><span id="sec_wf_ico">▶</span> 売上内訳</h2><div id="sec_wf" style="display:none">
     <div class="wf-row main"><span class="wf-lbl">💰 売上（税抜）</span><span class="wf-pct">100%</span><span class="wf-val neutral">${fmtF(tot.sales)}</span></div>
-    <div class="wf-row sub"><span class="wf-arrow">├</span><span class="wf-lbl" style="color:var(--t2)">内：宿泊費</span><span class="wf-pct">${wfPct(wfStay)}</span><span class="wf-val neutral">${fmtF(wfStay)}</span></div>
-    <div class="wf-row sub"><span class="wf-arrow">├</span><span class="wf-lbl" style="color:var(--t2)">内：清掃費</span><span class="wf-pct">${wfPct(tot.cl)}</span><span class="wf-val neutral">${fmtF(tot.cl)}</span></div>
-    <div class="wf-row sub"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--red)">内：コミッション（OTA手数料）</span><span class="wf-pct">${wfPct(tot.comm)}</span><span class="wf-val minus">${fmtF(tot.comm)}</span></div>
+    <div class="wf-row result" style="margin-left:14px"><span class="wf-arrow">├</span><span class="wf-lbl">受取額（OTA手数料を除く）</span><span class="wf-pct">${wfPct(wfStay+tot.cl)}</span><span class="wf-val plus">${fmtF(wfStay+tot.cl)}</span></div>
+    <div class="wf-row sub2"><span class="wf-arrow">├</span><span class="wf-lbl" style="color:var(--t2)">内：宿泊費</span><span class="wf-pct">${wfPct(wfStay)}</span><span class="wf-val neutral">${fmtF(wfStay)}</span></div>
+    <div class="wf-row sub2"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--t2)">内：清掃費</span><span class="wf-pct">${wfPct(tot.cl)}</span><span class="wf-val neutral">${fmtF(tot.cl)}</span></div>
+    <div class="wf-row sub"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--red)">コミッション（OTA手数料）</span><span class="wf-pct">${wfPct(tot.comm)}</span><span class="wf-val minus">${fmtF(tot.comm)}</span></div>
   </div></div>`;
 
   // 支出サマリー（運営タブ）― フィルター別に直営/代行の原価を分けて表示
@@ -5631,7 +5634,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20261001.1;
+const APP_VERSION = 20261001.2;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
