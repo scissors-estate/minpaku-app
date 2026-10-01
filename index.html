@@ -151,6 +151,14 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .wf-val.minus{color:var(--red)}.wf-val.plus{color:var(--green)}.wf-val.neutral{color:var(--t2)}
 .wf-arrow{font-size:.68em;color:var(--t3);margin-right:3px}
 .wf-pct{font-size:.72em;color:var(--t3);font-family:ui-monospace,monospace;text-align:right;min-width:52px}
+/* 売上内訳：受取額とコミッションを同格の2行に（2026-10-01） */
+.wf-row.lv1{margin-left:14px;font-weight:700;border-left:3px solid var(--b)}
+.wf-row.lv1.pos{background:rgba(76,175,80,.1);border-left-color:var(--green)}
+.wf-row.lv1.neg{background:rgba(229,57,53,.07);border-left-color:var(--red)}
+.wf-eq{font-size:.74em;color:var(--t2);margin:5px 8px 3px 16px}.wf-eq b.pos{color:var(--green)}.wf-eq b.neg{color:var(--red)}
+.wf-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:0 8px 6px 16px;background:#eee}
+.wf-bar span.pos{background:#66bb6a}.wf-bar span.neg{background:#ef9a9a}
+.wf-row.lv1 + .wf-row.sub2, .wf-row.sub2 + .wf-row.sub2{margin-left:14px}
 
 /* TABLE */
 .tbl{width:100%;border-collapse:collapse;font-size:.82em}
@@ -2429,10 +2437,11 @@ ${trendData.length>1?`<div class="chart-box">
 
 <h2>売上内訳</h2>
 <div class="wf-row main"><span>💰 売上（税抜）</span><span class="ra neutral">${fmtF(tot.sales)}</span></div>
-<div class="wf-row result"><span>　├ 受取額・OTA手数料を除く（${pWfPct(pWfStay+tot.cl)}）</span><span class="ra plus">${fmtF(pWfStay+tot.cl)}</span></div>
-<div class="wf-row"><span>　│　├ 内：宿泊費（${pWfPct(pWfStay)}）</span><span class="ra neutral">${fmtF(pWfStay)}</span></div>
-<div class="wf-row"><span>　│　└ 内：清掃費（${pWfPct(tot.cl)}）</span><span class="ra neutral">${fmtF(tot.cl)}</span></div>
-<div class="wf-row"><span>　└ コミッション・OTA手数料（${pWfPct(tot.comm)}）</span><span class="ra minus">${fmtF(tot.comm)}</span></div>
+<div class="wf-row"><span style="font-size:11px;color:#555">　売上 ＝ 受取額 ＋ コミッション</span><span></span></div>
+<div class="wf-row result"><span>　① 受取額・OTA手数料を除く（${pWfPct(pWfStay+tot.cl)}）</span><span class="ra plus">${fmtF(pWfStay+tot.cl)}</span></div>
+<div class="wf-row"><span>　　　├ 内：宿泊費（${pWfPct(pWfStay)}）</span><span class="ra neutral">${fmtF(pWfStay)}</span></div>
+<div class="wf-row"><span>　　　└ 内：清掃費（${pWfPct(tot.cl)}）</span><span class="ra neutral">${fmtF(tot.cl)}</span></div>
+<div class="wf-row result"><span>　② コミッション・OTA手数料（${pWfPct(tot.comm)}）</span><span class="ra minus">${fmtF(tot.comm)}</span></div>
 
 ${otaList.length?`<h2>OTA別コミッション</h2>
 <table><thead><tr><th>OTA</th><th class="ra">件数</th><th class="ra">売上</th><th class="ra">コミッション</th></tr></thead>
@@ -2619,12 +2628,15 @@ function renderOps(){
   //   清掃費が二重に引かれ、引き算の行も合っていなかった。経緯＝メモリ minpaku-uriage-uchiwake-henkou を参照。
   const wfStay=(tot.sales||0)-(tot.comm||0)-(tot.cl||0);   // 宿泊費＝売上−コミッション−清掃費（＝tot.net）
   const wfPct=v=>tot.sales?((v||0)/tot.sales*100).toFixed(1)+'%':'—';
+  const wfBarP=tot.sales?Math.max(0,Math.min(100,+((wfStay+(tot.cl||0))/tot.sales*100).toFixed(1))):0;   // 帯の緑（受取額）の幅％
   const wfH=`<div class="sec"><h2 onclick="togSec('sec_wf')" style="cursor:pointer;user-select:none"><span id="sec_wf_ico">▶</span> 売上内訳</h2><div id="sec_wf" style="display:none">
     <div class="wf-row main"><span class="wf-lbl">💰 売上（税抜）</span><span class="wf-pct">100%</span><span class="wf-val neutral">${fmtF(tot.sales)}</span></div>
-    <div class="wf-row result" style="margin-left:14px"><span class="wf-arrow">├</span><span class="wf-lbl">受取額（OTA手数料を除く）</span><span class="wf-pct">${wfPct(wfStay+tot.cl)}</span><span class="wf-val plus">${fmtF(wfStay+tot.cl)}</span></div>
+    <div class="wf-eq">売上 ＝ <b class="pos">受取額</b> ＋ <b class="neg">コミッション</b></div>
+    ${tot.sales?`<div class="wf-bar"><span class="pos" style="width:${wfBarP}%"></span><span class="neg" style="width:${100-wfBarP}%"></span></div>`:''}
+    <div class="wf-row lv1 pos"><span class="wf-lbl">受取額（OTA手数料を除く）</span><span class="wf-pct">${wfPct(wfStay+tot.cl)}</span><span class="wf-val plus">${fmtF(wfStay+tot.cl)}</span></div>
     <div class="wf-row sub2"><span class="wf-arrow">├</span><span class="wf-lbl" style="color:var(--t2)">内：宿泊費</span><span class="wf-pct">${wfPct(wfStay)}</span><span class="wf-val neutral">${fmtF(wfStay)}</span></div>
     <div class="wf-row sub2"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--t2)">内：清掃費</span><span class="wf-pct">${wfPct(tot.cl)}</span><span class="wf-val neutral">${fmtF(tot.cl)}</span></div>
-    <div class="wf-row sub"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--red)">コミッション（OTA手数料）</span><span class="wf-pct">${wfPct(tot.comm)}</span><span class="wf-val minus">${fmtF(tot.comm)}</span></div>
+    <div class="wf-row lv1 neg"><span class="wf-lbl">コミッション（OTA手数料）</span><span class="wf-pct">${wfPct(tot.comm)}</span><span class="wf-val minus">${fmtF(tot.comm)}</span></div>
   </div></div>`;
 
   // 支出サマリー（運営タブ）― フィルター別に直営/代行の原価を分けて表示
@@ -5634,7 +5646,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20261001.2;
+const APP_VERSION = 20261001.3;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
