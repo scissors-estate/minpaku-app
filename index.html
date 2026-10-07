@@ -2739,15 +2739,48 @@ function _tripCommStored(bk){
   }catch(e){}
   return null;
 }
+// Booking.com 確定手数料（2026-10-07）：AirHostのCSVの「OTA サービス料」はコミッション12％＋予約時の決済手数料の見込みで、
+// 実際の支払いでは決済手数料が宿泊料金の2.3％で確定する（会計士の指摘で発覚）。入金管理の支払いCSV取込で
+// payments[予約ID].realComm（税込相当・コミッション＋決済手数料）に確定額を保存し、ここで見込み額より優先する。
+function _paysNow(){ try{ if(_lastPaymentsSnap&&Object.keys(_lastPaymentsSnap).length) return _lastPaymentsSnap; return S.get(PAY_KEY)||{}; }catch(e){ return {}; } }
+function _bkRealComm(bk){
+  try{
+    if(bk && String(bk.s||'').includes('Booking')){
+      const pd=_paysNow()[bk.id];
+      if(pd && pd.realComm!=null && pd.realComm!=='' && !isNaN(pd.realComm)) return Number(pd.realComm);
+    }
+  }catch(e){}
+  return null;
+}
 function commOf(bk){   // 税抜
   const st=_tripCommStored(bk);
   if(st!=null) return Math.round(st/1.1);
+  const rc=_bkRealComm(bk);
+  if(rc!=null) return Math.round(rc/1.1);
   return Number((bk&&bk.commission)||0);
 }
 function commTaxIncOf(bk){   // 税込＝実際に差し引かれた額
   const st=_tripCommStored(bk);
   if(st!=null) return st;
+  const rc=_bkRealComm(bk);
+  if(rc!=null) return rc;
   return Math.round(Number((bk&&bk.commission)||0)*1.1);
+}
+// Trip.com 売上補正（2026-10-07）：AirHostのCSVではTrip.comの「販売」＝「受取金」＝入金額（コミッション差引後）で、
+// Booking.com/Airbnbの「販売」（割引後の宿泊料金）と基準が違う。登録済みコミッション(tripCommission)を足して
+// 「売上＝入金額＋コミッション」に揃える。起点は bk.net（入金額・税抜）なので何度呼んでも同じ結果＝取込後・受信後に毎回呼ぶ。
+// コミッション未登録の予約は入金額のまま（登録した時点で補正される）。
+function applyTripSales(){
+  let n=0;
+  try{
+    Object.keys(BK).forEach(tag=>(BK[tag]||[]).forEach(bk=>{
+      if(!bk||!String(bk.s||'').includes('Trip'))return;
+      const st=_tripCommStored(bk); if(st==null)return;
+      const want=Number(bk.net||0)+Math.round(st/1.1);
+      if(bk.sales!==want){ bk.sales=want; n++; }
+    }));
+  }catch(e){ console.warn('applyTripSales error:', e); }
+  return n;
 }
 
 // 部屋別詳細の予約明細（2026-08-03）。OTA／日程＋泊数／ゲスト名／人数を1行で出す。
@@ -3476,7 +3509,7 @@ function renderPayTab(){
       </td>
       <td>${dateCell}</td>
       <td>${(s=>{ const bg=s==='Airbnb'?'#FF5A5F':s==='Booking.com'?'#003580':s==='Trip.com'?'#287DFA':'#90A4AE'; return`<span style="display:inline-block;background:${bg};color:#fff;font-size:.73em;font-weight:700;padding:3px 9px;border-radius:4px;letter-spacing:.02em">${s}</span>`; })(bk.s)}</td>
-      <td>${bk.g}${bk.cancel?'<span style="margin-left:5px;font-size:.68em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px">キャンセル料</span>':''}</td>
+      <td>${bk.g}${bk.cancel?'<span style="margin-left:5px;font-size:.68em;background:#fff0f0;color:#c62828;border:1px solid #ffcdd2;border-radius:4px;padding:1px 5px">キャンセル料</span>':''}${(()=>{const rc=_bkRealComm(bk);if(rc==null)return'';const est=Math.round(Number(bk.commission||0)*1.1);return Math.abs(est-rc)>=2?`<span style="margin-left:5px;font-size:.68em;background:#fff8e1;color:#e65100;border:1px solid #ffe0b2;border-radius:4px;padding:1px 5px;cursor:help" title="手数料 見込み¥${est.toLocaleString('ja-JP')}→確定¥${rc.toLocaleString('ja-JP')}（支払いCSV）。会計タブ・月次明細は確定額で計算">⚠手数料</span>`:'';})()}</td>
       <td style="text-align:center"><button data-edit onclick="togLock('${bk.id}',${!isLocked})" style="background:none;border:none;cursor:pointer;font-size:1em;padding:2px">${isLocked?'🔒':'🔓'}</button></td>
     </tr>`;
   };
@@ -4125,10 +4158,15 @@ function handlePayCSV(files){
         });
       } else if(isBkJa){
         // Booking.com 日本語フォーマット（予約番号[新]/照会番号[旧]・お支払い日・純収益）
+        var commWarns=[];   // 確定手数料が見込みと違う予約（取込結果に表示）2026-10-07
         const adj=S.get(ADJ_KEY)||{};
         const payoutTotalsAcc={};   // お支払い番号ごとの総額(全行の純収益合計)＝会計タブの差異検出用
+        const _num=v=>{const x=parseInt(String(v==null?'':v).replace(/[^0-9-]/g,''));return isNaN(x)?null:x;};
         rows.forEach(row=>{
           const netAmt=parseInt((row['純収益']||'').replace(/[^0-9-]/g,''));
+          // 確定手数料（2026-10-07）：「コミッション」「決済サービスの手数料」は負の数で入っている。列が無ければ 金額−純収益
+          const _grossAmt=_num(row['金額']),_cm=_num(row['コミッション']),_pf=_num(row['決済サービスの手数料']);
+          const realComm=(_cm!=null||_pf!=null)?Math.abs(_cm||0)+Math.abs(_pf||0):(_grossAmt!=null&&!isNaN(netAmt)?_grossAmt-netAmt:null);
           const payoutId=(row['お支払い番号']||'').trim();
           if(payoutId&&!isNaN(netAmt))payoutTotalsAcc[payoutId]=(payoutTotalsAcc[payoutId]||0)+netAmt;
           const refNum=String(row['予約番号']||row['照会番号']||'').trim();
@@ -4158,6 +4196,14 @@ function handlePayCSV(files){
                 // 誤って紐づき、会計タブで別グループに混ざる（2026-09-08修正）。
                 const isRealPay=!isNaN(netAmt)&&netAmt>0;
                 if(isRealPay&&pays[bk.id].customAmt==null)pays[bk.id].customAmt=netAmt;
+                // 確定手数料は毎回上書き（最新のCSVが正）。見込み額(AirHost)と2円以上違えば⚠一覧へ（2026-10-07）
+                if(isRealPay&&realComm!=null&&realComm>=0){
+                  pays[bk.id].realComm=realComm;
+                  if(_cm!=null)pays[bk.id].realCommBk=Math.abs(_cm);
+                  if(_pf!=null)pays[bk.id].realPayFee=Math.abs(_pf);
+                  const est=Math.round(Number(bk.commission||0)*1.1);
+                  if(Math.abs(est-realComm)>=2)commWarns.push(`${tag} ${(bk.g||'').split(' ')[0]} 手数料 見込み¥${est.toLocaleString('ja-JP')}→確定¥${realComm.toLocaleString('ja-JP')}`);
+                }
                 if(isRealPay&&payoutId)pays[bk.id].payoutId=payoutId;  // 調整額の逆引き／Payout別表示用
                 if(isRealPay&&payDate)pays[bk.id].payProcDate=payDate;  // Booking.com処理日（Payout別ヘッダ表示用・参考値）
                 matched++;allMatchedIds.push(bk.id);
@@ -4195,6 +4241,11 @@ function handlePayCSV(files){
       const adjMsg=adjMatched>0?` ／ コミッション調整額 ${adjMatched}件を取込`:'';
       if(matched>0||adjMatched>0){
         showToast(`✅ ${fmt}: ${matched}件を消込しました${adjMsg}`,'#2e7d32');
+        // 確定手数料がAirHostの見込みと違った予約を知らせる（会計タブ・月次明細は確定額で計算される）2026-10-07
+        if(typeof commWarns!=='undefined'&&commWarns.length){
+          const w=commWarns;
+          setTimeout(()=>alert(`⚠ 手数料が見込み額と違う予約 ${w.length}件（確定額で計算します）\n\n${w.slice(0,12).join('\n')}${w.length>12?'\n…他 '+(w.length-12)+'件':''}`),300);
+        }
       }else{
         // 1件もマッチしない＝CSVの形式変更(列名)やデータ不一致の可能性。緑の成功で見逃さないよう警告色で出す
         showToast(`⚠️ ${fmt}: 0件でした。CSVの形式が変わった可能性があります（列名をご確認ください）`,'#e65100');
@@ -4677,6 +4728,7 @@ function loadCSVs(){
     cleanupGhostRooms();
     cleanupOrphanRooms();  // 清掃CSVにない & 予約も清掃もない部屋を削除
     applyRoomAliases();    // 🔗 部屋統合: 過去取込分（旧タグ）を予約IDでマージ＝二重計上を解消
+    applyTripSales();      // Trip.com 売上＝入金額＋コミッション（CSVは入金額で来るので取込のたびに補正）2026-10-07
 
     // ── CSV差分レポート（新規予約・キャンセル・変更検出） ──
     // ※ 差分の基準は「全端末で共有する予約履歴(BK_HIST_KEY = Firebase bkHistory 同期)」の最新スナップを使う。
@@ -5660,7 +5712,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20261006;
+const APP_VERSION = 20261007;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -5788,6 +5840,7 @@ function initFirebase(){
         if(stored.CH) { Object.assign(CH, stored.CH); }
         if(stored.CM) { Object.assign(CM, stored.CM); }
         if(stored.BLK) { Object.assign(BLK, stored.BLK); }
+        applyTripSales();   // Trip.com 売上＝入金額＋コミッション（2026-10-07）
         // 過去のバグで作られたゴースト部屋（例:「1003」）を削除して本来のタグに統合
         if(cleanupGhostRooms()|cleanupOrphanRooms()|applyRoomAliases()){
           // クリーンアップが行われたらFirebaseに書き戻して全端末で同期
@@ -5829,6 +5882,8 @@ function initFirebase(){
     fbDB.ref('tripCommission').on('value', snap => {
       const val = snap.val();
       if(val) S.set(TRIP_COMM_KEY, val);   // Trip.comコミ上書き（受信はローカル反映のみ）
+      // コミが予約より後に届いた／新しく登録された → 売上補正をやり直して再集計（2026-10-07）
+      try{ if(Object.keys(BK).length && applyTripSales()){ computeMS(); renderOpsTabs(); } }catch(e){}
     });
     // 会計(mp_acc6)の同期【2026-07-06 A4】: 受信はマージ方式（詳細は _accApplyFbValue のコメント）
     fbDB.ref('accounting').on('value', snap => {
