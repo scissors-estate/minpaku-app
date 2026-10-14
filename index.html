@@ -2034,20 +2034,25 @@ function computeMS(){
         const isFirst=cur.getTime()===ciD.getTime();
         const sp=Math.round(bk.sales*ratio),cp=Math.round(commOf(bk)*ratio),clp=Math.round(bk.cleaning*ratio);
         const np=sp-cp-clp;
-        tgt.sales+=sp;tgt.comm+=cp;tgt.cl+=clp;tgt.net+=np;tgt.days+=nights;
-        if(isFirst){tgt.gu+=bk.n||0;tgt.cnt++;}
+        // キャンセル料ありの予約（bk.cancel）：キャンセル料は売上に入れるが、泊まっていないので
+        // 稼働日数・宿泊人数・予約件数には数えない（2026-10-14。SC101の10月が稼働率119%になっていた）
+        const stayN=bk.cancel?0:nights;
+        const guestN=bk.cancel?0:(bk.n||0);
+        const cntN=bk.cancel?0:1;
+        tgt.sales+=sp;tgt.comm+=cp;tgt.cl+=clp;tgt.net+=np;tgt.days+=stayN;
+        if(isFirst){tgt.gu+=guestN;tgt.cnt+=cntN;}
         if(!ms.rooms[tag])ms.rooms[tag]={tag,prop:ROOMS[tag]||'',isSub,sales:0,comm:0,cl:0,net:0,days:0,cnt:0,gu:0,rent:0,util:0,grossProfit:0,bks:[]};
         const rm=ms.rooms[tag];
         if(!rm.bks)rm.bks=[];
-        rm.sales+=sp;rm.comm+=cp;rm.cl+=clp;rm.net+=np;rm.days+=nights;
+        rm.sales+=sp;rm.comm+=cp;rm.cl+=clp;rm.net+=np;rm.days+=stayN;
         // 部屋別詳細に出す予約明細（チェックイン月に1件だけ積む＝cntと件数が一致する）
         if(isFirst)rm.bks.push({ci:bk.ci,co:bk.co,nights:totN,g:bk.g||'',s:bk.s||'',n:bk.n||0,cancel:!!bk.cancel});
-        if(isFirst){rm.cnt++;rm.gu+=bk.n||0;}
+        if(isFirst){rm.cnt+=cntN;rm.gu+=guestN;}
         const ota=bk.s||'不明';
         const otaKey=ota.replace(/[.#$/\[\]]/g,'_'); // Firebase非対応キーを置換
         if(!ms.ota[otaKey])ms.ota[otaKey]={name:ota,sales:0,comm:0,cnt:0};
         ms.ota[otaKey].sales+=sp;ms.ota[otaKey].comm+=cp;
-        if(isFirst)ms.ota[otaKey].cnt++;
+        if(isFirst)ms.ota[otaKey].cnt+=cntN;
         cur=mEnd;
       }
     });
@@ -5712,7 +5717,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20261007.1;
+const APP_VERSION = 20261014;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -7709,7 +7714,8 @@ function buildAcctData(month){
     let commAir=0,commBk=0,commTrip=0,commOther=0,cleanAir=0,cleanBk=0,cleanTrip=0,cleanOther=0,exclAir=0,exclBk=0,exclTrip=0,exclOther=0;
     let commEx=0,commExAir=0,commExBk=0,commExTrip=0,commExOther=0;   // 2026-09-24: Trip.com を独立集計（会計士依頼）
     bks.forEach(b=>{
-      sumIncl+=b.incl;sumExcl+=b.exclProrated;days+=b.daysInMonth;guests+=(b.n||1);
+      sumIncl+=b.incl;sumExcl+=b.exclProrated;
+      if(!b.cancel){days+=b.daysInMonth;guests+=(b.n||1);}   // キャンセル料ありは0泊・0人（2026-10-14）
       comm+=b.commIncl;clean+=b.cleanIncl;commEx+=b.commExcl;
       if(b.otaShort==='AB'){air+=b.incl;commAir+=b.commIncl;commExAir+=b.commExcl;cleanAir+=b.cleanIncl;exclAir+=b.exclProrated;}
       else if(b.otaShort==='BK'){bk+=b.incl;commBk+=b.commIncl;commExBk+=b.commExcl;cleanBk+=b.cleanIncl;exclBk+=b.exclProrated;}
