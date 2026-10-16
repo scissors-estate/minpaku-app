@@ -178,6 +178,32 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .occ-badge{font-size:.68em;font-weight:700;padding:2px 6px;border-radius:99px;color:#fff;margin-left:5px}
 .room-detail{padding:10px 12px;border-top:1px solid var(--b2);display:none}
 .room-detail.open{display:block}
+/* ── 部屋別詳細：左にOTA割引チップ（B/A/T縦並び）＋更新日、右に稼働率・粗利の縦2段（2026-10-16・社長リクエスト・スマホ第一） ── */
+.room-hdr.rh2{align-items:stretch;gap:8px;padding:8px 10px}
+.rh-l{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:4px}
+.rh-nm{display:flex;align-items:center;margin-bottom:2px}
+.rh-r{display:flex;flex-direction:column;gap:5px;flex:none;width:92px}
+.rbig{display:flex;flex-direction:column;justify-content:center;align-items:center;border:1.5px solid var(--b);border-radius:10px;padding:3px 5px;background:#f8f8fc;flex:1}
+.rbig .l{font-size:.6em;color:var(--t3)}.rbig .v{font-size:1.05em;font-weight:800;line-height:1.1;font-family:ui-monospace,monospace;color:var(--t2)}
+.rbig.g{border-color:var(--green);background:#f0faf4}.rbig.g .v{color:var(--green)}
+.rbig.r{border-color:var(--red);background:#fff5f5}.rbig.r .v{color:var(--red)}
+.rbig .ob{display:inline-block;color:#fff;font-weight:800;font-size:.95em;padding:2px 9px;border-radius:99px;font-family:ui-monospace,monospace;margin-top:1px}
+.rh-tg{display:flex;align-items:center;justify-content:center;flex:none;width:12px;font-size:.72em;color:var(--t3)}
+.ogrp{display:inline-flex;flex-wrap:wrap;align-items:center;gap:3px;border:1px solid #dfe3ea;border-radius:7px;padding:2px 4px 2px 2px;background:#fafbfd;font-size:10.5px;line-height:1.2;width:fit-content;max-width:100%}
+.ogrp.b{border-color:#b9c7e6}.ogrp.a{border-color:#f6b9bb}.ogrp.t{border-color:#b6d1fb}
+.olg{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;color:#fff;font-weight:800;font-size:9.5px;font-family:Arial,sans-serif;flex:none}
+.olg.b{background:#003580}.olg.a{background:#FF5A5F}.olg.t{background:#287DFA}
+.opill{display:inline-block;background:#fff;border:1px solid #e3e6ee;border-radius:4px;padding:0 4px;font-weight:700;color:#333;line-height:15px}
+.opill.warn{background:#fff3e0;border-color:#ffcc80;color:#e65100}.opill.off{color:#aaa;font-weight:500}
+.oop{font-size:9.5px;color:#888;font-weight:700;padding:0 1px}.oop.plus{color:#2e7d32}.oop.or{color:#999}
+.omax{font-size:9.5px;font-weight:800;border-radius:4px;padding:1px 4px;line-height:13px;margin-left:1px;background:#eef1f6;color:#333}
+.ota-none{font-size:10.5px;color:var(--t3)}
+.rh-renew{font-size:10.5px;color:var(--t3);margin-top:1px}.rh-renew.soon{color:#e65100;font-weight:700}
+@media(max-width:370px){.room-hdr.rh2 .rh-tg{display:none}.room-hdr.rh2{gap:6px;padding:8px 8px}.rh-r{width:86px}.rbig .v{font-size:.95em}}
+.room-detail .wf-val{min-width:0}   /* スマホで売上内訳の数字が折り返して1行ずれて見えた件（2026-10-16） */
+.disc-auto{margin-bottom:14px;border:1px solid var(--b);border-radius:10px;padding:10px 12px;background:#fff}
+.disc-auto .row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 0;border-bottom:1px dashed var(--b2)}
+.disc-auto .row:last-child{border-bottom:none}.disc-auto .tagc{font-family:ui-monospace,monospace;font-weight:700;font-size:.85em;min-width:68px}
 .rs-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}
 @media(min-width:600px){.rs-grid{grid-template-columns:repeat(4,1fr)}}
 .rs{background:#f8f9ff;border-radius:7px;padding:8px 10px}
@@ -1135,6 +1161,7 @@ body.view-cleansum #cleanSumPane #supplyPriceBox{display:none !important}
 //  CONFIG & STORAGE
 // ════════════════════════════════════════════
 const CONF_KEY='mp_conf6',PREV_KEY='mp_prev6',BB_KEY='mp_bb6',ACC_KEY='mp_acc6',SNAP_KEY='mp_snap6',TRIP_COMM_KEY='mp_tripcomm6',EXP_KEY='mp_exp6',CHK_KEY='mp_chk6',PAY_KEY='mp_pay6',UTIL_KEY='mp_util6',PHOTO_KEY='mp_photo6',ROOM_RENT_KEY='mp_room_rent6',OFFICE_EXP_KEY='mp_office_exp6',AUTO_SNAP_KEY='mp_auto_snap6',ROOM_OPEN_KEY='mp_room_open6',BUZZ_KEY='mp_buzz6',DIFF_KEY='mp_diff6',PREV_BK_SNAP_KEY='mp_prevbk6',INV_EDITS_KEY='mp_invedits6',INV_HISTORY_KEY='mp_invhist6',BK_HIST_KEY='mp_bkhist6',MS_HIST_KEY='mp_mshist6',ADJ_KEY='mp_adj6',BED_KEY='mp_room_beds6',SUPPLY_PRICE_KEY='mp_supply_price6',ROOM_ALIAS_KEY='mp_room_alias6',CLEAN_LABOR_KEY='mp_clean_labor6';
+const OTA_DISC_KEY='mp_otadisc6',ROOM_RENEW_KEY='mp_room_renew6';   // OTA割引（部屋×OTA・Firebase ota_discounts）／賃貸更新日（room_renewal）2026-10-16
 const HIST_MAX=14; // 履歴の最大保持件数（肥大化防止のため30→14に削減）
 // 予約スナップに含める下限日：チェックアウトが「今日−35日」以降の予約だけ保存。
 // 現在宿泊中の延泊も拾える／泊まり終わった予約を誤キャンセル検知しない／サイズ激減。
@@ -2687,23 +2714,17 @@ function renderOps(){
       const occR=+(rm.days/ms.dm*100).toFixed(1);
       const unitP=rm.days>0?Math.round(rm.sales/rm.days):0;
       return`<div class="room-card ${rm.isSub?'sub':''}">
-        <div class="room-hdr" onclick="togRoom('rd_${i}','ti_${i}')">
-          <div style="display:flex;align-items:center">
-            <span class="room-tag">${rm.tag}</span>
-            <span class="occ-badge" style="background:${occBg(occR)}">${occR}%</span>
-            ${rm.isSub?'<span style="font-size:.65em;color:var(--pink);font-weight:600;margin-left:4px">代行</span>':''}
+        <div class="room-hdr rh2" onclick="togRoom('rd_${i}','ti_${i}')">
+          <div class="rh-l">
+            <div class="rh-nm"><span class="room-tag">${rm.tag}</span>${rm.isSub?'<span style="font-size:.65em;color:var(--pink);font-weight:600;margin-left:4px">代行</span>':''}</div>
+            ${otaChipsHtml(rm.tag)}
+            ${renewHtml(rm.tag,rm.isSub)}
           </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <div style="text-align:center;border:1.5px solid var(--b);border-radius:8px;padding:3px 10px;background:#f8f8fc;min-width:58px">
-              <div style="font-size:.62em;color:var(--t3);margin-bottom:1px">稼働率</div>
-              <div style="font-size:.85em;color:var(--t2);font-weight:700">${occR}%</div>
-            </div>
-            <div style="text-align:center;border:1.5px solid ${rm.grossProfit>=0?'var(--green)':'var(--red)'};border-radius:8px;padding:3px 10px;background:${rm.grossProfit>=0?'#f0faf4':'#fff5f5'};min-width:80px">
-              <div style="font-size:.62em;color:var(--t3);margin-bottom:1px">粗利</div>
-              <div style="font-size:.85em;color:${rm.grossProfit>=0?'var(--green)':'var(--red)'};font-family:ui-monospace,monospace;font-weight:700">${fmtF(rm.grossProfit)}</div>
-            </div>
-            <span id="ti_${i}" style="font-size:.72em;color:var(--t3)">▼</span>
+          <div class="rh-r">
+            <div class="rbig"><div class="l">稼働率</div><span class="ob" style="background:${occBg(occR)}">${occR}%</span></div>
+            <div class="rbig ${rm.grossProfit>=0?'g':'r'}"><div class="l">粗利</div><div class="v">${fmtF(rm.grossProfit)}</div></div>
           </div>
+          <span id="ti_${i}" class="rh-tg">▼</span>
         </div>
         <div class="room-detail" id="rd_${i}">
           <div class="rs-grid">
@@ -2823,6 +2844,56 @@ function mkChart(d,s){
     ${bars}</svg></div>`;
 }
 
+// ── 部屋別詳細：OTA割引チップ＋更新日（2026-10-16・社長リクエスト）──
+// データ＝Firebase ota_discounts/{部屋タグ}（初回は社長の「OTA割引管理表」10/7〜10/11時点を流し込み。今後はOTA巡回が書く）
+//   booking:{genius:'G1',pct:10,mobile:10,max:20,status:'ok'|'ineligible',checked}  airbnb:{target:true,weekly:10,early:10,max:10,checked}
+//   trip:{kind:'new20'|'tripplus'|'none',pct,remaining,expiry,knownIds:[下6桁...],checked}
+function _otaPct(v){ return (v==null||v==='')?'':(String(v).replace('%','')+'%'); }
+function tripStatusOf(tag,t){
+  if(!t||!t.kind||t.kind==='none') return {kind:'none'};
+  if(t.kind==='tripplus') return {kind:'tripplus',pct:t.pct||10};
+  // 新規20%：表に載っていた残り件数から、確認後にAirHostの予約データへ増えたTrip.com予約（known以外）を差し引く（推定）
+  const known=new Set((t.knownIds||[]).map(x=>String(x).slice(-6)));
+  let extra=0;
+  (BK[tag]||[]).forEach(b=>{ if(b&&String(b.s||'').includes('Trip')&&b.id&&!known.has(String(b.id).slice(-6))) extra++; });
+  const rem=Math.max(0,(t.remaining==null?3:Number(t.remaining))-extra);
+  return {kind:'new20',pct:t.pct||20,remaining:rem,extra,expiry:t.expiry||''};
+}
+function otaChipsHtml(tag){
+  const d=(S.get(OTA_DISC_KEY)||{})[tag];
+  if(!d) return `<div class="ota-none">割引情報なし</div>`;
+  const b=d.booking||{},a=d.airbnb||{},t=d.trip||{};
+  const pill=(txt,cls='')=>`<span class="opill ${cls}">${txt}</span>`;
+  let bh;
+  if(b.status==='ineligible'){ bh=pill('Genius未参加','off')+(b.mobile?`<span class="oop plus">＋</span>${pill('M '+_otaPct(b.mobile))}`:''); }
+  else{ const parts=[]; if(b.genius)parts.push(pill(b.genius+' '+_otaPct(b.pct))); if(b.mobile)parts.push(pill('M '+_otaPct(b.mobile)));
+    bh=parts.length?parts.join('<span class="oop plus">＋</span>')+(b.max!=null?`<span class="omax">=${_otaPct(b.max)}</span>`:''):pill('―','off'); }
+  let ah;
+  if(a.target===false){ ah=pill('対象外','off'); }
+  else{ const parts=[]; if(a.weekly)parts.push(pill('週 '+_otaPct(a.weekly))); if(a.early)parts.push(pill('早 '+_otaPct(a.early))); if(a.monthly)parts.push(pill('月 '+_otaPct(a.monthly)));
+    ah=parts.length?parts.join('<span class="oop or">or</span>')+(a.max!=null?`<span class="omax">=${_otaPct(a.max)}</span>`:''):pill('―','off'); }
+  const ts=tripStatusOf(tag,t); let th;
+  if(ts.kind==='none') th=pill('割引なし','warn');
+  else if(ts.kind==='tripplus') th=pill('TripPlus '+_otaPct(ts.pct));
+  else th=pill('新規 '+_otaPct(ts.pct))+(ts.remaining<=0?pill('終了→10%へ切替 ⚠','warn'):pill('残'+ts.remaining+(ts.remaining<=1?' ⚠':''),ts.remaining<=1?'warn':''));
+  const tt=x=>x&&x.checked?` title="確認日 ${x.checked}"`:'';
+  return `<span class="ogrp b"${tt(b)}><span class="olg b">B</span>${bh}</span><span class="ogrp a"${tt(a)}><span class="olg a">A</span>${ah}</span><span class="ogrp t"${tt(t)}><span class="olg t">T</span>${th}</span>`;
+}
+function renewHtml(tag,isSub){
+  if(isSub) return '';   // 代行の部屋は賃貸ではないので出さない
+  const r=(S.get(ROOM_RENEW_KEY)||{})[tag]; if(!r) return '';
+  const [y,m,dd]=String(r).split('-').map(Number); if(!y||!m||!dd) return '';
+  const days=Math.round((new Date(y,m-1,dd)-new Date(localDateStr()+'T00:00:00'))/864e5);
+  const soon=days<=60;
+  const tail=days<0?`（${-days}日経過）`:(soon?`（あと${days}日）`:'');
+  return `<div class="rh-renew${soon?' soon':''}">更新日 ${y}/${m}/${dd}${tail}</div>`;
+}
+function saveRoomRenewal(tag,val){
+  const d=S.get(ROOM_RENEW_KEY)||{};
+  if(val)d[tag]=val;else delete d[tag];
+  S.set(ROOM_RENEW_KEY,d);
+  renderOps();
+}
 function togRoom(rdId,tiId){
   const rd=document.getElementById(rdId),ti=document.getElementById(tiId);
   if(!rd)return;
@@ -3934,6 +4005,19 @@ function renderDisc(){
 
   const wrap=document.getElementById('discTableWrap');
   if(!wrap)return;
+  // 自動取得分（Firebase ota_discounts＝社長の表の取込／OTA巡回）を部屋×OTAで一覧（2026-10-16）。手入力の一覧はその下
+  try{
+    let aw=document.getElementById('discAutoWrap');
+    if(!aw){ aw=document.createElement('div'); aw.id='discAutoWrap'; wrap.parentNode.insertBefore(aw,wrap); }
+    const od=S.get(OTA_DISC_KEY)||{};
+    const tags=Object.keys(ROOMS||{}).filter(t=>od[t]&&(!filtRoom||t===filtRoom)).sort();
+    if(_discView!=='active'||!tags.length){ aw.innerHTML=''; }
+    else{
+      const src=(od[tags[0]]||{}).source||'';
+      aw.innerHTML=`<div class="disc-auto"><div style="font-size:.82em;font-weight:700;margin-bottom:6px">🤖 部屋ごとの今の割引（自動取得）<span style="font-weight:400;color:var(--t3);font-size:.9em;margin-left:8px">${src}</span></div>`
+        +tags.map(t=>`<div class="row"><span class="tagc">${t}</span>${otaChipsHtml(t)}</div>`).join('')+`</div>`;
+    }
+  }catch(e){ console.warn('disc auto render error:',e); }
   if(!discs.length){
     const msg=_discView==='archived'?'過去ログはありません':'登録なし';
     wrap.innerHTML=`<div style="color:var(--t3);padding:20px;text-align:center;font-size:.88em">${msg}</div>`;
@@ -5537,6 +5621,11 @@ function renderRoomMgmt(){
           <span style="font-size:.72em;color:${openMonth?'var(--green)':'var(--t3)'}">${openMonth?openMonth+'〜':'未設定（常時開業）'}</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+          <span style="font-size:.75em;color:var(--t2);font-weight:600">📄 更新日</span>
+          <input type="date" id="rmRenew_${tag}" value="${(S.get(ROOM_RENEW_KEY)||{})[tag]||''}" style="border:1px solid var(--b);border-radius:6px;padding:3px 7px;font-size:.8em" onchange="saveRoomRenewal('${tag}',this.value)">
+          <span style="font-size:.72em;color:var(--t3)">賃貸借契約の更新日（直営の部屋だけ部屋別詳細に表示・60日前から橙色）</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
           <span style="font-size:.75em;color:var(--t2);font-weight:600">🛏 ベッド数</span>
           <label style="font-size:.75em;color:var(--t3);display:flex;align-items:center;gap:4px">シングル<input type="number" id="rmBedS_${tag}" value="${(bedsData[tag]||{}).s||0}" min="0" style="border:1px solid var(--b);border-radius:6px;padding:3px 7px;font-size:1em;width:52px" onchange="saveRoomBeds('${tag}')">台</label>
           <label style="font-size:.75em;color:var(--t3);display:flex;align-items:center;gap:4px">ダブル<input type="number" id="rmBedD_${tag}" value="${(bedsData[tag]||{}).d||0}" min="0" style="border:1px solid var(--b);border-radius:6px;padding:3px 7px;font-size:1em;width:52px" onchange="saveRoomBeds('${tag}')">台</label>
@@ -5717,7 +5806,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20261014.1;
+const APP_VERSION = 20261016;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
@@ -5968,6 +6057,15 @@ function initFirebase(){
         if(document.getElementById('roomMgmtPane')&&document.getElementById('roomMgmtPane').classList.contains('on'))renderRoomMgmt();
       }
       try{ checkAutoSnap(); }catch(e){}
+    });
+    // OTA割引（部屋×OTA）と賃貸更新日（2026-10-16・社長リクエスト）。受信はローカル反映のみ
+    fbDB.ref('ota_discounts').on('value', snap => {
+      _origSset(OTA_DISC_KEY, snap.val() || {});
+      try{ if(Object.keys(BK).length)renderOps(); if(document.getElementById('discPane')&&document.getElementById('discPane').classList.contains('on'))renderDisc(); }catch(e){}
+    });
+    fbDB.ref('room_renewal').on('value', snap => {
+      _origSset(ROOM_RENEW_KEY, snap.val() || {});
+      try{ if(Object.keys(BK).length)renderOps(); if(document.getElementById('roomMgmtPane')&&document.getElementById('roomMgmtPane').classList.contains('on'))renderRoomMgmt(); }catch(e){}
     });
     // 🔗 部屋統合マッピング（新旧リスティング）: 全端末で共有
     fbDB.ref('room_alias').on('value', snap => {
@@ -6302,6 +6400,7 @@ S.set = function(k, v){
   if(k === ROOM_RENT_KEY) fbWrite('room_rents', v);
   if(k === SNAP_KEY)     fbWrite('snapshot', v);
   if(k === ROOM_OPEN_KEY) fbWrite('room_open', v);
+  if(k === ROOM_RENEW_KEY) fbWrite('room_renewal', v);   // 賃貸更新日（2026-10-16）
   if(k === BB_KEY)       fbWrite('bb_notes', v);
   if(k === ADJ_KEY)      fbWrite('adjustments', v);
   if(k === 'mp_users6')  fbWrite('users', v);
