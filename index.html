@@ -2328,6 +2328,7 @@ function printOpsReport(){
   const pWfStay=(tot.sales||0)-(tot.comm||0)-(tot.cl||0);   // 売上内訳（案C・2026-10-01）：宿泊費
   const pWfPct=v=>tot.sales?((v||0)/tot.sales*100).toFixed(1)+'%':'—';
   const pCc=cleanCostFor(month,'all');   // 清掃の実費（試算）：印刷版は全室（2026-10-29）
+  const pMonLbl=(parseInt(String(month||'').slice(5,7),10)||'')+'月';
   const tR=ms.tR||Object.keys(ROOMS).length;
   const today=new Date().toLocaleDateString('ja-JP');
   // 粗利計算
@@ -2480,7 +2481,7 @@ ${trendData.length>1?`<div class="chart-box">
 <div class="wf-row"><span>　　　├ 内：宿泊費（${pWfPct(pWfStay)}）</span><span class="ra neutral">${fmtF(pWfStay)}</span></div>
 <div class="wf-row"><span>　　　└ 内：清掃費（${pWfPct(tot.cl)}）</span><span class="ra neutral">${fmtF(tot.cl)}</span></div>
 ${pCc?`<div style="display:flex;margin:4px 0 6px 40px;border:1px solid #bbb;border-radius:6px;background:#f6f6f8;overflow:hidden;font-size:11px">
-<div style="padding:4px 8px;background:#e6e6ec;color:#555;font-weight:700;display:flex;align-items:center;text-align:center;line-height:1.3">清掃の<br>実費</div>
+<div style="padding:4px 8px;background:#e6e6ec;color:#555;font-weight:700;display:flex;align-items:center;text-align:center;line-height:1.3">${pMonLbl}<br>清掃コスト</div>
 <div style="flex:1;padding:3px 8px;color:#444"><div>リネン代：${fmtF(pCc.cover)}（ベッド${pCc.coverQty.toLocaleString()}台）</div><div>タオル代：${fmtF(pCc.towel)}（${pCc.guests.toLocaleString()}人）</div>
 <div style="font-size:9.5px;color:#777">※単価×数量の試算。チェックアウト月で集計。</div></div></div>`:''}
 
@@ -2670,6 +2671,7 @@ function renderOps(){
   const wfStay=(tot.sales||0)-(tot.comm||0)-(tot.cl||0);   // 宿泊費＝売上−コミッション−清掃費（＝tot.net）
   const wfPct=v=>tot.sales?((v||0)/tot.sales*100).toFixed(1)+'%':'—';
   const wfCc=cleanCostFor(curM,opsFilt);   // 清掃の実費（試算）：リネン代・タオル代（2026-10-29）
+  const wfMonLbl=(parseInt(String(curM||'').slice(5,7),10)||'')+'月';
   const wfBarP=tot.sales?Math.max(0,Math.min(100,+((wfStay+(tot.cl||0))/tot.sales*100).toFixed(1))):0;   // 帯の緑（受取額）の幅％
   const wfH=`<div class="sec"><h2 onclick="togSec('sec_wf')" style="cursor:pointer;user-select:none"><span id="sec_wf_ico">▶</span> 売上内訳</h2><div id="sec_wf" style="display:none">
     <div class="wf-row main"><span class="wf-lbl">💰 売上（税抜）</span><span class="wf-pct">100%</span><span class="wf-val neutral">${fmtF(tot.sales)}</span></div>
@@ -2677,7 +2679,7 @@ function renderOps(){
     <div class="wf-row lv1 pos"><span class="wf-lbl">受取額（OTA手数料を除く）</span><span class="wf-pct">${wfPct(wfStay+tot.cl)}</span><span class="wf-val plus">${fmtF(wfStay+tot.cl)}</span></div>
     <div class="wf-row sub2"><span class="wf-arrow">├</span><span class="wf-lbl" style="color:var(--t2)">内：宿泊費</span><span class="wf-pct">${wfPct(wfStay)}</span><span class="wf-val neutral">${fmtF(wfStay)}</span></div>
     <div class="wf-row sub2"><span class="wf-arrow">└</span><span class="wf-lbl" style="color:var(--t2)">内：清掃費</span><span class="wf-pct">${wfPct(tot.cl)}</span><span class="wf-val neutral">${fmtF(tot.cl)}</span></div>
-    ${wfCc?`<div class="wf-cost"><div class="wf-cost-lbl">清掃の<br>実費</div><div class="wf-cost-body">
+    ${wfCc?`<div class="wf-cost"><div class="wf-cost-lbl">${wfMonLbl}<br>清掃コスト</div><div class="wf-cost-body">
       <div class="wf-row sub3"><span class="wf-lbl">リネン代：${fmtF(wfCc.cover)}（ベッド${wfCc.coverQty.toLocaleString()}台）</span></div>
       <div class="wf-row sub3"><span class="wf-lbl">タオル代：${fmtF(wfCc.towel)}（${wfCc.guests.toLocaleString()}人）</span></div>
       <div class="wf-note">※単価×数量の試算。チェックアウト月で集計。</div>
@@ -5819,7 +5821,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20261034;
+const APP_VERSION = 20261035;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
