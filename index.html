@@ -2482,7 +2482,7 @@ ${trendData.length>1?`<div class="chart-box">
 ${pCc?`<div style="display:flex;margin:4px 0 6px 40px;border:1px solid #bbb;border-radius:6px;background:#f6f6f8;overflow:hidden;font-size:11px">
 <div style="padding:4px 8px;background:#e6e6ec;color:#555;font-weight:700;display:flex;align-items:center;text-align:center;line-height:1.3">清掃の<br>実費</div>
 <div style="flex:1;padding:3px 8px;color:#444"><div>リネン代：${fmtF(pCc.cover)}（ベッド${pCc.coverQty.toLocaleString()}台）</div><div>タオル代：${fmtF(pCc.towel)}（${pCc.guests.toLocaleString()}人）</div>
-<div style="font-size:9.5px;color:#777">※単価×数量の試算（チェックアウト月で集計）</div></div></div>`:''}
+<div style="font-size:9.5px;color:#777">※単価×数量の試算。チェックアウト月で集計。</div></div></div>`:''}
 
 ${otaList.length?`<h2>OTA別コミッション</h2>
 <table><thead><tr><th>OTA</th><th class="ra">件数</th><th class="ra">売上</th><th class="ra">コミッション</th></tr></thead>
@@ -2680,7 +2680,7 @@ function renderOps(){
     ${wfCc?`<div class="wf-cost"><div class="wf-cost-lbl">清掃の<br>実費</div><div class="wf-cost-body">
       <div class="wf-row sub3"><span class="wf-lbl">リネン代：${fmtF(wfCc.cover)}（ベッド${wfCc.coverQty.toLocaleString()}台）</span></div>
       <div class="wf-row sub3"><span class="wf-lbl">タオル代：${fmtF(wfCc.towel)}（${wfCc.guests.toLocaleString()}人）</span></div>
-      <div class="wf-note">※単価×数量の試算（チェックアウト月で集計）</div>
+      <div class="wf-note">※単価×数量の試算。チェックアウト月で集計。</div>
     </div></div>`:''}
   </div></div>`;
 
@@ -5819,7 +5819,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20261033;
+const APP_VERSION = 20261034;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
