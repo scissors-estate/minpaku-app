@@ -2862,7 +2862,7 @@ function mkChart(d,s){
 // ── 部屋別詳細：OTA割引チップ＋更新日（2026-10-16・社長リクエスト）──
 // データ＝Firebase ota_discounts/{部屋タグ}（初回は社長の「OTA割引管理表」10/7〜10/11時点を流し込み。今後はOTA巡回が書く）
 //   booking:{genius:'G1',pct:10,mobile:10,max:20,status:'ok'|'ineligible',checked}  airbnb:{target:true,weekly:10,early:10,max:10,checked}
-//   trip:{kind:'new20'|'tripplus'|'none',pct,remaining,expiry,knownIds:[下6桁...],checked}
+//   trip:{kind:'new20'|'tripplus'|'none',pct,remaining,expiry,knownIds:[下6桁...],checked,mobile:10,mobileSince}  ※mobile＝モバイル限定（巡回が書く・2026-11-09〜）
 function _otaPct(v){ return (v==null||v==='')?'':(String(v).replace('%','')+'%'); }
 function tripStatusOf(tag,t){
   if(!t||!t.kind||t.kind==='none') return {kind:'none'};
@@ -2888,9 +2888,10 @@ function otaChipsHtml(tag){
   else{ const parts=[]; if(a.weekly)parts.push(pill('週 '+_otaPct(a.weekly))); if(a.early)parts.push(pill('早 '+_otaPct(a.early))); if(a.monthly)parts.push(pill('月 '+_otaPct(a.monthly)));
     ah=parts.length?parts.join('<span class="oop or">or</span>')+(a.max!=null?`<span class="omax">=${_otaPct(a.max)}</span>`:''):pill('―','off'); }
   const ts=tripStatusOf(tag,t); let th;
-  if(ts.kind==='none') th=pill('割引なし','warn');
-  else if(ts.kind==='tripplus') th=pill('TripPlus '+_otaPct(ts.pct));
-  else th=pill('新規 '+_otaPct(ts.pct))+(ts.remaining<=0?pill('終了→10%へ切替 ⚠','warn'):pill('残'+ts.remaining+(ts.remaining<=1?' ⚠':''),ts.remaining<=1?'warn':''));
+  const tm=Number(t.mobile)||0, tmH=tm?`<span class="oop plus">＋</span>${pill('M '+_otaPct(tm))}`:'';
+  if(ts.kind==='none') th=tm?pill('M '+_otaPct(tm)):pill('割引なし','warn');
+  else if(ts.kind==='tripplus') th=pill('TripPlus '+_otaPct(ts.pct))+tmH+(tm?`<span class="omax">=${_otaPct(Number(ts.pct)+tm)}</span>`:'');   // TripPlusとモバイル限定は併用可（eBookingの説明）
+  else th=pill('新規 '+_otaPct(ts.pct))+(ts.remaining<=0?pill('終了→10%へ切替 ⚠','warn'):pill('残'+ts.remaining+(ts.remaining<=1?' ⚠':''),ts.remaining<=1?'warn':''))+tmH;
   const tt=x=>x&&x.checked?` title="確認日 ${x.checked}"`:'';
   return `<span class="ogrp b"${tt(b)}><span class="olg b">B</span>${bh}</span><span class="ogrp a"${tt(a)}><span class="olg a">A</span>${ah}</span><span class="ogrp t"${tt(t)}><span class="olg t">T</span>${th}</span>`;
 }
@@ -5821,7 +5822,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20261035;
+const APP_VERSION = 20261109;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
