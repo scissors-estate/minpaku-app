@@ -2880,21 +2880,26 @@ function otaChipsHtml(tag){
   const b=d.booking||{},a=d.airbnb||{},t=d.trip||{};
   const pill=(txt,cls='')=>`<span class="opill ${cls}">${txt}</span>`;
   let bh;
-  if(b.status==='ineligible'){ bh=pill('Genius未参加','off')+(b.mobile?`<span class="oop plus">＋</span>${pill('M '+_otaPct(b.mobile))}`:''); }
+  // モバイル割と国別割（巡回が書くcountry={n:か所数,pct}・2026-11-11）は「ターゲット料金」同士＝ゲストには大きい方の1つだけ → or でつなぐ
+  const cty=b.country&&b.country.n?b.country:null;
+  const tgs=[]; if(b.mobile)tgs.push(pill('M '+_otaPct(b.mobile))); if(cty)tgs.push(pill('国別('+cty.n+'か所) '+_otaPct(cty.pct)));
+  const tgH=tgs.join('<span class="oop or">or</span>'), tgPct=Math.max(Number(b.mobile)||0,cty?Number(cty.pct)||0:0);
+  if(b.status==='ineligible'){ bh=pill('Genius未参加','off')+(tgH?`<span class="oop plus">＋</span>${tgH}`:''); }
   else{ // Geniusはレベル別に並べる（案A・2026-11-11 友利さん）：G1 10% or G2・3 15% or G3 20%（ゲストはどれか1つ）。巡回が書くlv15/lv20を読む
     const gs=[]; if(b.genius)gs.push(pill(b.genius+' '+_otaPct(b.pct))); if(b.lv15)gs.push(pill('G2・3 15%')); if(b.lv20)gs.push(pill('G3 20%'));
-    const parts=[]; if(gs.length)parts.push(gs.join('<span class="oop or">or</span>')); if(b.mobile)parts.push(pill('M '+_otaPct(b.mobile)));
-    // 最大%：Firebaseのmaxは巡回がG1＋モバイルで計算した値なので、上のレベルがONなら表示側で計算し直す
-    const top=b.lv20?20:(b.lv15?15:0), mx=top?Math.max(Number(b.max)||0,top+(Number(b.mobile)||0)):b.max;
-    bh=parts.length?parts.join('<span class="oop plus">＋</span>')+(mx!=null?`<span class="omax">=${_otaPct(mx)}</span>`:''):pill('―','off'); }
+    const parts=[]; if(gs.length)parts.push(gs.join('<span class="oop or">or</span>')); if(tgH)parts.push(tgH);
+    // 最大%：Firebaseのmaxは巡回がG1＋モバイルで計算した値なので、上のレベル・国別がONなら表示側で計算し直す
+    const top=b.lv20?20:(b.lv15?15:(b.genius?Number(b.pct)||0:0)), mx=(b.lv15||b.lv20||cty)?Math.max(Number(b.max)||0,top+tgPct):b.max;
+    bh=parts.length?parts.join('<span class="oop plus">＋</span>')+(mx!=null?`<span class="omax">最大${_otaPct(mx)}</span>`:''):pill('―','off'); }
   let ah;
-  if(a.target===false){ ah=pill('対象外','off'); }
+  // 「対象外」は社長の表（10/19）由来の印。巡回が実際の割引を読んでいればそちらを優先して出す（2026-11-11 梅島7室が設定済なのに対象外のままだった）
+  if(a.target===false&&!(a.weekly||a.early||a.monthly)){ ah=pill('対象外','off'); }
   else{ const parts=[]; if(a.weekly)parts.push(pill('週 '+_otaPct(a.weekly))); if(a.early)parts.push(pill('早 '+_otaPct(a.early))); if(a.monthly)parts.push(pill('月 '+_otaPct(a.monthly)));
-    ah=parts.length?parts.join('<span class="oop or">or</span>')+(a.max!=null?`<span class="omax">=${_otaPct(a.max)}</span>`:''):pill('―','off'); }
+    ah=parts.length?parts.join('<span class="oop or">or</span>')+(a.max!=null?`<span class="omax">最大${_otaPct(a.max)}</span>`:''):pill('―','off'); }
   const ts=tripStatusOf(tag,t); let th;
   const tm=Number(t.mobile)||0, tmH=tm?`<span class="oop plus">＋</span>${pill('M '+_otaPct(tm))}`:'';
   if(ts.kind==='none') th=tm?pill('M '+_otaPct(tm)):pill('割引なし','warn');
-  else if(ts.kind==='tripplus') th=pill('TripPlus '+_otaPct(ts.pct))+tmH+(tm?`<span class="omax">=${_otaPct(Number(ts.pct)+tm)}</span>`:'');   // TripPlusとモバイル限定は併用可（eBookingの説明）
+  else if(ts.kind==='tripplus') th=pill('TripPlus '+_otaPct(ts.pct))+tmH+(tm?`<span class="omax">最大${_otaPct(Number(ts.pct)+tm)}</span>`:'');   // TripPlusとモバイル限定は併用可（eBookingの説明）
   else th=pill('新規 '+_otaPct(ts.pct))+(ts.remaining<=0?pill('終了→10%へ切替 ⚠','warn'):pill('残'+ts.remaining+(ts.remaining<=1?' ⚠':''),ts.remaining<=1?'warn':''))+tmH;
   const tt=x=>x&&x.checked?` title="確認日 ${x.checked}"`:'';
   return `<span class="ogrp b"${tt(b)}><span class="olg b">B</span>${bh}</span><span class="ogrp a"${tt(a)}><span class="olg a">A</span>${ah}</span><span class="ogrp t"${tt(t)}><span class="olg t">T</span>${th}</span>`;
@@ -5826,7 +5831,7 @@ let fbConnected = false;   // .info/connected：いま本当にFirebaseに繋が
 
 // 【2026-06-05】アプリのバージョン（デプロイのたびに必ず数字を1つ上げる）。
 // 古いコードのタブを検出して自動リロードするために使う（initFirebase内の app_version 購読を参照）。
-const APP_VERSION = 20261111;
+const APP_VERSION = 20261111.1;
 let _verReloading = false;
 // 【2026-07-05】無限リロードの安全弁（7/3のPagesビルド障害の教訓をコード化）:
 // 弁①: リロード前に「配信中のindex.htmlのAPP_VERSION」を実確認。まだ古い（Pages未反映/CDNキャッシュ）なら
